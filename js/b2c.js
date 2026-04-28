@@ -17,13 +17,35 @@ const STEPS = [
         title: 'Тип дома?',
         hint: 'Конструктив влияет на сложность перепланировок и инженерных работ.',
         type: 'cards',
+        optionsFor: (a) => {
+            if (a.apartment_type === 'novostroyka') {
+                // Современный рынок Москвы 2026 — реально строящиеся типы домов
+                return [
+                    { value: 'nov_monolith',       title: 'Монолит',                         sub: 'Современный ЖК · бизнес/премиум · 25–60 эт' },
+                    { value: 'nov_monolith_brick', title: 'Монолитно-кирпичные/блоки',       sub: 'Клубные дома · комфорт+ / бизнес' },
+                    { value: 'nov_panel_new',      title: 'Панель (новая серия)',            sub: 'Град-1М, ДомНАД · ПИК / реновация' },
+                    { value: 'nov_brick',          title: 'Кирпичные/блоки',                 sub: 'Малоэтажный премиум · до 9 этажей' },
+                ];
+            }
+            // Вторичка — наследие советской и постсоветской застройки
+            return [
+                { value: 'vtor_panel',     title: 'Панель',                  sub: 'П-44, КОПЭ, И-155 · 70–90-е годы' },
+                { value: 'vtor_stalinka',  title: 'Сталинка',                sub: 'Высокие потолки, толстые стены' },
+                { value: 'vtor_monolith',  title: 'Монолит',                 sub: 'Постройка 1995–2010' },
+                { value: 'vtor_brick_old', title: 'Кирпич старой постройки', sub: 'Дореволюционный или советский кирпич' },
+            ];
+        },
+    },
+    {
+        id: 'finish_type',
+        title: 'Что у вас по отделке от застройщика?',
+        hint: 'White Box — предчистовая отделка: стяжка, штукатурка, разводка, сантехфаянс уже сделаны застройщиком. Без отделки — голые стены и завод. коммуникации.',
+        type: 'cards',
+        visible: (a) => a.apartment_type === 'novostroyka',
         options: [
-            { value: 'novostroyka_monolith', title: 'Монолит',  sub: 'Современный ЖК' },
-            { value: 'novostroyka_panel',    title: 'Панель',   sub: 'П-44, КОПЭ и др.' },
-            { value: 'stalinka',             title: 'Сталинка', sub: 'Высокие потолки, толстые стены' },
-            { value: 'vtorichka_monolith',   title: 'Кирпич / монолит-кирпич', sub: 'Старая постройка' },
+            { value: 'no_finish', title: 'Без отделки',  sub: 'Голые стены · полный цикл ремонта' },
+            { value: 'whitebox',  title: 'White Box',    sub: 'Предчистовая · экономия ~30% от полного ремонта' },
         ],
-        dependsOn: (a) => true,
     },
     {
         id: 'area',
@@ -106,12 +128,26 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+function visibleSteps() {
+    return STEPS.filter(s => !s.visible || s.visible(state.answers));
+}
+
+function currentStep() {
+    return visibleSteps()[state.step];
+}
+
 function render() {
-    const step = STEPS[state.step];
-    const total = STEPS.length;
+    const visible = visibleSteps();
+    const step = visible[state.step];
+    const total = visible.length;
     $('progress-bar').style.width = ((state.step / total) * 100) + '%';
     $('quiz-step-num').textContent = `Шаг ${state.step + 1} из ${total}`;
     $('back-btn').style.visibility = state.step === 0 ? 'hidden' : 'visible';
+
+    // Resolve dynamic options for this step
+    const stepOptions = typeof step.optionsFor === 'function'
+        ? step.optionsFor(state.answers)
+        : step.options;
 
     const card = $('quiz-card');
     let html = `
@@ -122,7 +158,7 @@ function render() {
 
     if (step.type === 'options') {
         html += '<div class="options">';
-        for (const o of step.options) {
+        for (const o of stepOptions) {
             const sel = state.answers[step.id] === o.value ? 'selected' : '';
             html += `<button type="button" class="option ${sel}" data-value="${o.value}">
                 <span class="option-emoji">${o.emoji || '•'}</span>
@@ -132,7 +168,7 @@ function render() {
         html += '</div>';
     } else if (step.type === 'cards') {
         html += '<div class="options-grid">';
-        for (const o of step.options) {
+        for (const o of stepOptions) {
             const sel = state.answers[step.id] === o.value ? 'selected' : '';
             html += `<button type="button" class="option-card ${sel}" data-value="${o.value}">
                 <div class="option-card-title">${o.title}</div>
@@ -197,12 +233,13 @@ function render() {
         state.answers.area = state.answers.area || step.defaultValue;
     }
 
-    $('next-btn').textContent = state.step === STEPS.length - 1 ? 'Получить расчёт' : 'Далее';
+    const visTotal = visibleSteps().length;
+    $('next-btn').textContent = state.step === visTotal - 1 ? 'Получить расчёт' : 'Далее';
     $('next-btn').style.display = (step.type === 'options' || step.type === 'cards') ? 'none' : '';
 }
 
 function validateStep() {
-    const step = STEPS[state.step];
+    const step = currentStep();
     if (step.type === 'options' || step.type === 'cards') {
         return !!state.answers[step.id];
     }
@@ -240,7 +277,8 @@ function showError(msg) {
 
 function next() {
     if (!validateStep()) return;
-    if (state.step < STEPS.length - 1) {
+    const visTotal = visibleSteps().length;
+    if (state.step < visTotal - 1) {
         state.step++;
         render();
         window.scrollTo({ top: 0, behavior: 'smooth' });

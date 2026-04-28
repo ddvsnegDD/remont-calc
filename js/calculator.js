@@ -11,13 +11,34 @@ const TIERS = {
 };
 
 // House type modifiers (applied to base ₽/m²)
+// Modern Moscow market 2026 — newbuild types per stroi.mos.ru / ЕРЗ analysis
 const HOUSE_MOD = {
-    novostroyka_monolith:   { label: 'Новостройка монолит',  mod: 1.00 },
-    novostroyka_panel:      { label: 'Новостройка панель',   mod: 0.96 },
-    vtorichka_monolith:     { label: 'Вторичка монолит',     mod: 1.03 },
-    vtorichka_panel:        { label: 'Вторичка панель',      mod: 0.98 },
-    stalinka:               { label: 'Сталинка',             mod: 1.10 },
-    historic:               { label: 'Историч. реконструкция', mod: 1.18 },
+    // Новостройка (актуально для строящихся ЖК)
+    nov_monolith:        { label: 'Новостройка · монолит',                    mod: 1.00 },
+    nov_monolith_brick:  { label: 'Новостройка · монолитно-кирпичные/блоки',  mod: 1.02 },
+    nov_panel_new:       { label: 'Новостройка · панель (новая серия)',       mod: 0.96 },
+    nov_brick:           { label: 'Новостройка · кирпич/блоки',               mod: 1.06 },
+
+    // Вторичка (наследие советской и постсоветской застройки)
+    vtor_panel:          { label: 'Вторичка · панель (П-44, КОПЭ, И-155)',    mod: 1.00 },
+    vtor_stalinka:       { label: 'Вторичка · сталинка',                       mod: 1.10 },
+    vtor_monolith:       { label: 'Вторичка · монолит (1995–2010)',           mod: 1.05 },
+    vtor_brick_old:      { label: 'Вторичка · кирпич старой постройки',        mod: 1.08 },
+    historic:            { label: 'Историч. реконструкция',                    mod: 1.18 },
+
+    // Legacy keys — kept for back-compat with B2B form (не показываются в B2C)
+    novostroyka_monolith:{ label: 'Новостройка монолит',  mod: 1.00 },
+    novostroyka_panel:   { label: 'Новостройка панель',   mod: 0.96 },
+    vtorichka_monolith:  { label: 'Вторичка монолит',     mod: 1.03 },
+    vtorichka_panel:     { label: 'Вторичка панель',      mod: 0.98 },
+    stalinka:            { label: 'Сталинка',             mod: 1.10 },
+};
+
+// Pre-finishing state (only relevant for новостройка)
+// Per market analysis: WhiteBox saves ~30-35% on full renovation
+const FINISH_MOD = {
+    no_finish: { label: 'Без отделки (голые стены)', mod: 1.00 },
+    whitebox:  { label: 'White Box (предчистовая)',  mod: 0.70 },
 };
 
 // Communications replacement
@@ -140,8 +161,12 @@ function calculateB2C(answers) {
     const replanMod = (REPLAN_MOD[answers.replan] || { mod: 1.00 }).mod;
     const designMod = (DESIGN_MOD[answers.design] || { mod: 1.00 }).mod;
     const timingMod = (TIMING_MOD[answers.timing] || { mod: 1.00 }).mod;
+    // Finish type only applies to новостройка (otherwise mod = 1.00)
+    const finishMod = answers.apartment_type === 'novostroyka' && answers.finish_type
+        ? (FINISH_MOD[answers.finish_type] || { mod: 1.00 }).mod
+        : 1.00;
 
-    const totalMod = houseMod * commsMod * replanMod * designMod * timingMod;
+    const totalMod = houseMod * commsMod * replanMod * designMod * timingMod * finishMod;
 
     const lowPerM2 = Math.round(tierDef.baseLow * totalMod);
     const highPerM2 = Math.round(tierDef.baseHigh * totalMod);
@@ -166,13 +191,14 @@ function calculateB2C(answers) {
             finish: { low: Math.round(totalLow * split.finish), high: Math.round(totalHigh * split.finish), pct: split.finish },
         },
         days: estimateDays(area, tier),
-        modifiers: {
-            'Тип дома': HOUSE_MOD[houseKey]?.label,
-            'Коммуникации': COMMS_MOD[answers.comms]?.label,
+        modifiers: Object.fromEntries(Object.entries({
+            'Тип дома':       HOUSE_MOD[houseKey]?.label,
+            'Отделка':        answers.apartment_type === 'novostroyka' ? FINISH_MOD[answers.finish_type]?.label : null,
+            'Коммуникации':   COMMS_MOD[answers.comms]?.label,
             'Перепланировка': REPLAN_MOD[answers.replan]?.label,
-            'Дизайн-проект': DESIGN_MOD[answers.design]?.label,
-            'Сроки': TIMING_MOD[answers.timing]?.label,
-        },
+            'Дизайн-проект':  DESIGN_MOD[answers.design]?.label,
+            'Сроки':          TIMING_MOD[answers.timing]?.label,
+        }).filter(([k, v]) => !!v)),
     };
 }
 

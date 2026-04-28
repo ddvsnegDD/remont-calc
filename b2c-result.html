@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результат расчёта · РПКМ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a href="index.html" class="logo">
+            <div class="logo-mark">Р</div>
+            <span>РПКМ</span>
+        </a>
+        <nav class="nav">
+            <a href="index.html">На главную</a>
+            <a href="b2c.html" class="btn btn-ghost">Пересчитать</a>
+        </nav>
+    </div>
+</header>
+
+<main class="quiz-page">
+    <div class="quiz-wrap">
+        <div class="quiz-card" id="result-card">
+            <div class="result-hero">
+                <div class="result-label">Ваш ориентировочный расчёт</div>
+                <div class="result-price" id="price-range"></div>
+                <div class="result-disclaimer">
+                    Это вилка стоимости на основе средней цены 1 м² и факторов сложности.
+                    Точная итоговая цена — после бесплатного замера на объекте.
+                </div>
+            </div>
+
+            <h3 style="margin-bottom: 12px;">Разбивка стоимости</h3>
+            <div class="result-bar" id="result-bar"></div>
+            <div class="result-breakdown" id="breakdown"></div>
+
+            <h3 style="margin-top: 28px; margin-bottom: 12px;">Параметры расчёта</h3>
+            <div class="result-meta" id="meta"></div>
+
+            <div class="alert alert-info">
+                <strong>Сроки реализации:</strong> <span id="duration"></span>.
+                Точные даты согласуются после замера и подписания договора.
+            </div>
+
+            <div class="result-cta" id="cta">
+                <h3>Записаться на бесплатный замер</h3>
+                <p>Куратор свяжется с вами в течение рабочего дня и согласует удобное время выезда инженера.</p>
+                <button class="btn btn-primary btn-lg" id="book-btn">Записаться на замер</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="js/calculator.js"></script>
+<script>
+    const lead = JSON.parse(sessionStorage.getItem('rpkm-last-b2c') || 'null');
+    if (!lead) {
+        document.getElementById('result-card').innerHTML = `
+            <div style="text-align:center;padding:40px 20px;">
+                <h2>Расчёт не найден</h2>
+                <p style="color: var(--gray-500); margin: 12px 0 24px;">Возможно, сессия истекла. Сделайте новый расчёт.</p>
+                <a href="b2c.html" class="btn btn-primary">Перейти к калькулятору</a>
+            </div>
+        `;
+    } else {
+        const r = lead.result;
+        document.getElementById('price-range').innerHTML =
+            `<span class="accent">${formatRub(r.totalLow)}</span> — <span class="accent">${formatRub(r.totalHigh)}</span>`;
+
+        // Bar
+        const bar = document.getElementById('result-bar');
+        const colors = { works: '#c97b48', rough: '#8b6f5a', finish: '#3b5a87' };
+        const labels = { works: 'Работы', rough: 'Черновые', finish: 'Чистовые' };
+        bar.innerHTML = ['works', 'rough', 'finish'].map(k => {
+            const pct = Math.round(r.breakdown[k].pct * 100);
+            return `<div class="result-bar-segment" style="background:${colors[k]};flex:${pct};">${pct}% ${labels[k]}</div>`;
+        }).join('');
+
+        // Breakdown rows
+        const bdEl = document.getElementById('breakdown');
+        const items = [
+            ['Работы',           r.breakdown.works,  'Демонтаж, подготовка, монтаж'],
+            ['Черновые материалы', r.breakdown.rough,  'Стяжка, штукатурка, проводка, трубы'],
+            ['Чистовые материалы', r.breakdown.finish, 'Краска, плитка, ламинат, сантехника'],
+        ];
+        bdEl.innerHTML = items.map(([label, b, sub]) => `
+            <div class="breakdown-row">
+                <div>
+                    <div class="breakdown-label">${label}</div>
+                    <div class="breakdown-sub">${sub}</div>
+                </div>
+                <div>
+                    <div class="breakdown-amount">${formatRub(b.low)} — ${formatRub(b.high)}</div>
+                    <div class="breakdown-amount-sub">${Math.round(b.pct*100)}% от сметы</div>
+                </div>
+            </div>
+        `).join('');
+
+        // Meta
+        const metaEl = document.getElementById('meta');
+        metaEl.innerHTML = `
+            <div><div class="meta-item-label">Площадь</div><div class="meta-item-value">${r.area} м²</div></div>
+            <div><div class="meta-item-label">Категория</div><div class="meta-item-value">${r.tierLabel}</div></div>
+            <div><div class="meta-item-label">Цена за м²</div><div class="meta-item-value">${r.lowPerM2.toLocaleString('ru-RU')}–${r.highPerM2.toLocaleString('ru-RU')} ₽</div></div>
+        `;
+
+        document.getElementById('duration').textContent = formatDays(r.days);
+
+        document.getElementById('book-btn').addEventListener('click', () => {
+            const cta = document.getElementById('cta');
+            cta.innerHTML = `
+                <div class="success-screen">
+                    <div class="success-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <h3>Заявка принята!</h3>
+                    <p>Куратор свяжется с вами по телефону <strong>${lead.answers.phone}</strong> в течение рабочего дня.</p>
+                    <p style="font-size:13px;color:var(--gray-500);">Заявка №${lead.id.slice(-6).toUpperCase()} · сохранена локально (это демо-проект)</p>
+                </div>
+            `;
+        });
+    }
+</script>
+
+</body>
+</html>

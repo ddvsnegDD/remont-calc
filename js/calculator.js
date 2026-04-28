@@ -1,13 +1,16 @@
 // Pricing engine for РПКМ renovation calculator
-// All prices in RUB per sqm
+// Base prices per м² calibrated to Moscow Q1 2026 market analysis:
+// - works: рост 20-25% за 2025; материалы +5-10% (маркировка цемента); логистика +40%
+// - психологический барьер 100k/м² для бизнес-класса преодолён
+// - "комфорт под ключ" в 2026 ≈ 60k/м²
 
 const TIERS = {
-    cosmetic:    { label: 'Косметический',     baseLow: 18000, baseHigh: 25000 },
-    capital:     { label: 'Капитальный стандарт', baseLow: 25000, baseHigh: 40000 },
-    euro:        { label: 'Евроремонт',         baseLow: 40000, baseHigh: 60000 },
-    euro_top:    { label: 'Евроремонт+',        baseLow: 60000, baseHigh: 90000 },
-    premium:     { label: 'Премиум',            baseLow: 90000, baseHigh: 150000 },
-    luxury:      { label: 'Люкс',               baseLow: 150000, baseHigh: 250000 },
+    cosmetic:    { label: 'Косметический',         baseLow:  20000, baseHigh:  30000 }, // Хоумстейджинг → эконом low
+    capital:     { label: 'Капитальный стандарт',  baseLow:  35000, baseHigh:  55000 }, // Эконом → комфорт low
+    euro:        { label: 'Евроремонт',            baseLow:  60000, baseHigh:  85000 }, // Комфорт → комфорт+
+    euro_top:    { label: 'Евроремонт+',           baseLow: 100000, baseHigh: 150000 }, // Бизнес-класс
+    premium:     { label: 'Премиум',               baseLow: 160000, baseHigh: 220000 }, // Бизнес-премиум
+    luxury:      { label: 'Люкс',                  baseLow: 220000, baseHigh: 350000 }, // Премиум-элит
 };
 
 // House type modifiers (applied to base ₽/m²)
@@ -34,11 +37,16 @@ const HOUSE_MOD = {
     stalinka:            { label: 'Сталинка',             mod: 1.10 },
 };
 
-// Pre-finishing state (only relevant for новостройка)
-// Per market analysis: WhiteBox saves ~30-35% on full renovation
+// Pre-finishing state (only relevant for новостройка).
+// Per Q1 2026 Moscow renovation market analysis:
+//   Комфорт «под ключ с нуля»:  60-75k/м²    →   после WhiteBox: 25-40k/м²    (~48% от полного)
+//   Бизнес «под ключ с нуля»:  100-150k/м²  →   после WhiteBox: 45-70k/м²    (~46% от полного)
+//   Премиум «под ключ с нуля»: 200k+/м²     →   после WhiteBox: 100k+/м²     (~50% от полного)
+// Усреднённый коэффициент ≈ 0.48 (экономия ~52%) — застройщик уже сделал стяжку,
+// штукатурку, разводку, перегородки, базовую сантехнику.
 const FINISH_MOD = {
     no_finish: { label: 'Без отделки (голые стены)', mod: 1.00 },
-    whitebox:  { label: 'White Box (предчистовая)',  mod: 0.70 },
+    whitebox:  { label: 'White Box (предчистовая)',  mod: 0.48 },
 };
 
 // Communications replacement

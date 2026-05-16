@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
-import { SpecCalc } from '../lib/spec-calculator';
+import { calculateB2C } from '../lib/calculator';
 import { createLead } from '../lib/bitrix';
 
 export default function B2CBookPage() {
@@ -50,18 +50,10 @@ export default function B2CBookPage() {
                   <Btn variant="terra" style={{ marginTop: 16 }} onClick={() => {
                     try {
                       const saved = JSON.parse(sessionStorage.getItem('rpkm-b2c-quiz-answers') || '{}');
-                      const a = parseFloat(saved.area) || 60;
-                      const tMap = { cosmetic: 'capital', capital: 'capital', euro: 'euro', premium: 'premium' };
-                      const t = tMap[saved.repair_type] || 'capital';
-                      const m = (t === 'premium') ? 'full' : (saved.finish_type === 'whitebox' ? 'whitebox' : 'full');
-                      const rp = saved.replan || 'no';
-                      const rm = a < 35 ? 1 : a < 55 ? 2 : a < 80 ? 3 : a < 120 ? 4 : 5;
-                      const sn = a < 60 ? 1 : a < 120 ? 2 : 3;
-                      const wn = a < 35 ? 2 : a < 55 ? 3 : a < 80 ? 4 : a < 120 ? 6 : 8;
-                      const specResult = SpecCalc.compute({ area: a, rooms: rm, sanitary: sn, windows: wn, mode: m, tier: t, replan: rp });
-                      const lead = { id: 'b2c-detail-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c-detail', result: specResult, contact: { name, phone, email: extra } };
-                      sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
-                      navigate('/b2c-result-detail');
+                      const result = calculateB2C(saved);
+                      const lead = { id: 'b2c-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c', result, contact: { name, phone, email: extra } };
+                      sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
+                      navigate('/b2c-result');
                     } catch { navigate('/b2c'); }
                   }}>Получить расчёт</Btn>
                 ) : (
@@ -116,18 +108,10 @@ export default function B2CBookPage() {
                 <Btn variant="outline" style={{ width: '100%' }} onClick={() => {
                   try {
                     const saved = JSON.parse(sessionStorage.getItem('rpkm-b2c-quiz-answers') || '{}');
-                    const a = parseFloat(saved.area) || 60;
-                    const tMap = { cosmetic: 'capital', capital: 'capital', euro: 'euro', premium: 'premium' };
-                    const t = tMap[saved.repair_type] || 'capital';
-                    const m = (t === 'premium') ? 'full' : (saved.finish_type === 'whitebox' ? 'whitebox' : 'full');
-                    const rp = saved.replan || 'no';
-                    const rm = a < 35 ? 1 : a < 55 ? 2 : a < 80 ? 3 : a < 120 ? 4 : 5;
-                    const sn = a < 60 ? 1 : a < 120 ? 2 : 3;
-                    const wn = a < 35 ? 2 : a < 55 ? 3 : a < 80 ? 4 : a < 120 ? 6 : 8;
-                    const specResult = SpecCalc.compute({ area: a, rooms: rm, sanitary: sn, windows: wn, mode: m, tier: t, replan: rp });
-                    const lead = { id: 'b2c-detail-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c-detail', result: specResult, contact: {} };
-                    sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
-                    navigate('/b2c-result-detail');
+                    const result = calculateB2C(saved);
+                    const lead = { id: 'b2c-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c', result, contact: {} };
+                    sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
+                    navigate('/b2c-result');
                   } catch { navigate('/b2c'); }
                 }}>
                   Получить расчёт →

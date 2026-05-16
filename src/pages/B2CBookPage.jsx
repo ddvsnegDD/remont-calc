@@ -4,6 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
+import { createLead } from '../lib/bitrix';
 
 export default function B2CBookPage() {
   const navigate = useNavigate();
@@ -21,8 +22,15 @@ export default function B2CBookPage() {
     if (!name || name.length < 2) { alert('Введите имя'); return; }
     if (!phone || phone.replace(/\D/g, '').length < 10) { alert('Введите корректный телефон'); return; }
     if (!agree) { alert('Нужно согласие на обработку данных'); return; }
+    // Отправка лида в Битрикс24
+    createLead({
+      name, phone, email: extra,
+      title: `B2C · Запись на замер${address ? ' · ' + address : ''}`,
+      comment: address ? `Адрес объекта: ${address}` : '',
+      source: 'CALLBACK',
+    }).catch(() => {});
     setSubmitted(true);
-  }, [name, phone, agree]);
+  }, [name, phone, extra, address, agree]);
 
   if (submitted) {
     return (
@@ -37,7 +45,7 @@ export default function B2CBookPage() {
                 <h2>Заявка принята!</h2>
                 <p>Куратор свяжется с вами по телефону <strong>{phone}</strong> в течение рабочего дня
                   и согласует удобное время выезда дизайнера и инженера.</p>
-                <p style={{ fontSize: 13, color: C.gray500 }}>Сохранено локально (это демо-проект)</p>
+                <p style={{ fontSize: 13, color: C.gray500 }}>Заявка передана куратору</p>
                 {canResume ? (
                   <Btn variant="terra" style={{ marginTop: 16 }} onClick={() => {
                     try {
@@ -95,7 +103,7 @@ export default function B2CBookPage() {
             <div className="form-field"><label>Адрес объекта</label><input type="text" className="text-input" value={address} onChange={e => setAddress(e.target.value)} placeholder="Москва, район или ЖК" /></div>
             <label className="checkbox-row">
               <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
-              <span>Согласен на обработку персональных данных. Это демо — данные сохраняются только в браузере.</span>
+              <span>Даю согласие на обработку персональных данных в соответствии с <a href="/privacy" target="_blank" style={{ color: '#c97b48' }}>Политикой конфиденциальности</a> (152-ФЗ).</span>
             </label>
 
             <Btn variant="terra" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit}>Записаться на бесплатный обмер</Btn>

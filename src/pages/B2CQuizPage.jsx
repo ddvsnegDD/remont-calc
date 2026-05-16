@@ -5,6 +5,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
 import { calculateB2C } from '../lib/calculator';
+import { createLead, formatQuickComment, formatDetailComment } from '../lib/bitrix';
 
 const STEPS = [
   { id:'apartment_type', title:'Какой тип квартиры?', hint:'От этого зависит набор работ.', type:'cards',
@@ -76,6 +77,12 @@ export default function B2CQuizPage() {
           contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
         };
         sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
+        // Отправка лида в Битрикс24 (не блокируем навигацию)
+        createLead({
+          name: contactData.name, phone: contactData.phone, email: contactData.extra,
+          title: `B2C · Быстрый расчёт · ${result.area} м² · ${result.tierLabel}`,
+          comment: formatQuickComment(result),
+        }).catch(() => {});
         navigate('/b2c-result');
       } else {
         // Детальная смета — SpecCalc ~50 позиций
@@ -94,6 +101,12 @@ export default function B2CQuizPage() {
           contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
         };
         sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
+        // Отправка лида в Битрикс24
+        createLead({
+          name: contactData.name, phone: contactData.phone, email: contactData.extra,
+          title: `B2C · Квиз-смета · ${quizArea} м² · ${specResult.totals.grand.toLocaleString('ru-RU')} ₽`,
+          comment: formatDetailComment(specResult),
+        }).catch(() => {});
         navigate('/b2c-result-detail');
       }
     }
@@ -223,7 +236,7 @@ export default function B2CQuizPage() {
                 </div>
                 <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
                   <input type="checkbox" checked={contactData.agree} onChange={e => setContactData(p => ({ ...p, agree: e.target.checked }))} style={{ marginTop: 3 }} />
-                  <span style={{ fontSize: 13, color: C.gray500 }}>Согласен на обработку персональных данных. Это демо — данные сохраняются только в браузере.</span>
+                  <span style={{ fontSize: 13, color: C.gray500 }}>Даю согласие на обработку персональных данных в соответствии с <a href="/privacy" target="_blank" style={{ color: C.terra }}>Политикой конфиденциальности</a> (152-ФЗ).</span>
                 </label>
                 {formError && <div style={{ color: '#c53030', fontSize: 14, marginTop: 12, padding: '10px 14px', background: '#fff5f5', borderRadius: 8, border: '1px solid #feb2b2' }}>{formError}</div>}
               </div>

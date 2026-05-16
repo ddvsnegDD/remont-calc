@@ -4,6 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
+import { createLead, formatDetailComment } from '../lib/bitrix';
 
 export default function B2CDetailPage() {
   const navigate = useNavigate();
@@ -52,6 +53,12 @@ export default function B2CDetailPage() {
       contact: { name, phone, email },
     };
     try { sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead)); } catch {}
+    // Отправка лида в Битрикс24
+    createLead({
+      name, phone, email,
+      title: `B2C · Детальная смета · ${area} м² · ${result.totals.grand.toLocaleString('ru-RU')} ₽`,
+      comment: formatDetailComment(result),
+    }).catch(() => {});
     navigate('/b2c-result-detail');
   }, [name, phone, email, agree, effectiveMode, tier, effectiveReplan, area, sanitary, windows, rooms, navigate]);
 
@@ -196,7 +203,7 @@ export default function B2CDetailPage() {
             <div className="form-field"><label>Email (опционально)</label><input type="email" className="text-input" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" /></div>
             <label className="checkbox-row">
               <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
-              <span>Согласен на обработку персональных данных. Это демо — данные сохраняются только в браузере.</span>
+              <span>Даю согласие на обработку персональных данных в соответствии с <a href="/privacy" target="_blank" style={{ color: C.terra }}>Политикой конфиденциальности</a> (152-ФЗ).</span>
             </label>
 
             <div className="alert alert-warn" style={{ marginTop: 16 }}>

@@ -24,8 +24,8 @@ export default function B2CDetailPage() {
   const [email, setEmail] = useState('');
   const [agree, setAgree] = useState(false);
 
-  // Subscription gate — for demo, always show form
-  const [hasAccess] = useState(true);
+  // Subscription gate — доступ только для Клуба и Профи
+  const [hasAccess] = useState(false);
 
   const effectiveMode = tier === 'premium' ? 'full' : mode;
   const effectiveReplan = effectiveMode === 'whitebox' ? 'no' : replan;
@@ -83,12 +83,22 @@ export default function B2CDetailPage() {
         <div className="quiz-page">
           <div className="quiz-wrap" style={{ maxWidth: 760 }}>
             <div className="quiz-card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 56, marginBottom: 12 }}>🔒</div>
-              <h2>Детальная смета — фича Клуба владельцев</h2>
-              <p style={{ color: C.gray500, margin: '12px 0 24px' }}>Доступно подписчикам Клуба или в первые 14 дней триала.</p>
+              <div style={{ fontSize: 56, marginBottom: 12 }}>📋</div>
+              <h2>Детальная смета по 50 позициям</h2>
+              <p style={{ color: C.gray600, margin: '12px 0 8px', fontSize: 15, lineHeight: 1.6 }}>
+                Расчёт по реальным тендерным ценам с разбивкой на работы и материалы.
+                Доступен участникам <strong>Клуба владельцев</strong> и <strong>Профи</strong>.
+              </p>
+              <div style={{ display: 'inline-block', background: C.terraBg, color: C.terra, fontWeight: 600, fontSize: 14, padding: '6px 16px', borderRadius: 8, margin: '8px 0 24px' }}>
+                Подписка — 490 ₽/мес · 14 дней бесплатно
+              </div>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Btn variant="terra" size="lg" onClick={() => navigate('/club')}>Попробовать 14 дней бесплатно</Btn>
-                <Btn variant="outline" size="lg" onClick={() => navigate('/b2c')}>Простой расчёт без подписки</Btn>
+                <Btn variant="outline" size="lg" onClick={() => navigate('/b2b-login')}>Войти как Профи</Btn>
+              </div>
+              <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px dashed ${C.gray200}` }}>
+                <p style={{ color: C.gray500, fontSize: 14, marginBottom: 12 }}>Хотите узнать примерный бюджет прямо сейчас?</p>
+                <Btn variant="outline" onClick={() => navigate('/b2c')}>Быстрый расчёт — бесплатно</Btn>
               </div>
             </div>
           </div>

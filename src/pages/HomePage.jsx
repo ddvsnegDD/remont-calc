@@ -293,17 +293,21 @@ function GuaranteesSection() {
 /* --- ClubSection --- */
 function ClubSection() {
   const [ref, vis] = useReveal();
-  const [budget, setBudget] = useState(150000);
-  const savings = Math.round(budget * 0.12);
+  const navigate = useNavigate();
   return (
     <section id="club" style={{ padding: "80px 0", background: "#fff" }}>
       <div ref={ref} style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
         <div className={`reveal ${vis ? "visible" : ""}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}>
           <div>
             <SectionLabel>Клуб владельцев</SectionLabel>
-            <h2 className="font-golos" style={{ fontSize: "clamp(26px, 3vw, 36px)", fontWeight: 800, color: C.graphiteLight, marginBottom: 16 }}>Подписка окупается с первой покупки</h2>
+            <h2 className="font-golos" style={{ fontSize: "clamp(26px, 3vw, 36px)", fontWeight: 800, color: C.graphiteLight, marginBottom: 16 }}>Профессиональные инструменты для вашего ремонта</h2>
             <div style={{ display: "grid", gap: 14, marginBottom: 28 }}>
-              {["Скидки 5–15% у партнёров на сантехнику и мебель", "Чек-листы приёмки квартиры и контроля подрядчика", "Консультации инженера — до 3 вопросов в месяц", "Закрытые разборы объектов с реальными бюджетами"].map((txt, i) => (
+              {[
+                "Детальная смета по 50 позициям с тендерными ценами",
+                "Чек-листы приёмки квартиры и контроля подрядчика",
+                "Консультации инженера — до 3 вопросов в месяц",
+                "Закрытые разборы объектов с реальными бюджетами",
+              ].map((txt, i) => (
                 <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                   <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.terraBg, color: C.terra, display: "grid", placeItems: "center", flexShrink: 0, marginTop: 1 }}><Check size={12} strokeWidth={3} /></div>
                   <span style={{ fontSize: 15, color: C.gray600, lineHeight: 1.5 }}>{txt}</span>
@@ -312,21 +316,26 @@ function ClubSection() {
             </div>
           </div>
           <div className={`reveal ${vis ? "visible" : ""} reveal-d2`} style={{ background: C.offWhite, borderRadius: 20, padding: 32, border: `1px solid ${C.gray200}` }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: C.gray600, marginBottom: 6 }}>Посчитайте свою выгоду</div>
-            <div style={{ fontSize: 13, color: C.gray400, marginBottom: 24 }}>Сколько планируете потратить на сантехнику и мебель?</div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.gray500, marginBottom: 8 }}>
-              <span>50 тыс</span>
-              <span style={{ fontWeight: 600, color: C.graphiteLight }}>{(budget / 1000).toFixed(0)} тыс ₽</span>
-              <span>500 тыс</span>
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
+              <div style={{ fontSize: 13, color: C.gray500, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Подписка</div>
+              <div className="font-golos" style={{ fontSize: 48, fontWeight: 800, color: C.graphiteLight, lineHeight: 1 }}>490 <span style={{ fontSize: 20, fontWeight: 600 }}>₽/мес</span></div>
+              <div style={{ fontSize: 14, color: C.gray400, marginTop: 8 }}>или 4 900 ₽/год <span style={{ color: C.terra, fontWeight: 600 }}>−17%</span></div>
             </div>
-            <input type="range" min={50000} max={500000} step={5000} value={budget} onChange={e => setBudget(+e.target.value)} style={{ width: "100%", marginBottom: 28 }} />
-            <div style={{ background: "#fff", borderRadius: 16, padding: 24, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-              <div style={{ fontSize: 13, color: C.gray500, marginBottom: 6 }}>Ваша экономия по подписке</div>
-              <div className="font-golos" style={{ fontSize: 40, fontWeight: 800, color: C.terra }}>{savings.toLocaleString("ru-RU")} ₽</div>
-              <div style={{ fontSize: 13, color: C.gray400, marginTop: 4 }}>при скидке ~12% у партнёров</div>
-              {savings > 490 && <div style={{ marginTop: 12, padding: "8px 16px", background: "rgba(22,121,74,0.08)", borderRadius: 8, display: "inline-block", fontSize: 13, fontWeight: 600, color: "#16794a" }}>Подписка окупится в {(savings / 490).toFixed(0)}× раз</div>}
+            <div style={{ background: "#fff", borderRadius: 16, padding: 20, marginBottom: 20, boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
+              {[
+                { icon: "📋", text: "Детальная смета ~50 позиций" },
+                { icon: "💬", text: "3 консультации инженера/мес" },
+                { icon: "✅", text: "Чек-листы приёмки и контроля" },
+                { icon: "🎓", text: "Закрытые разборы объектов" },
+              ].map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: i < 3 ? `1px solid ${C.gray100}` : "none" }}>
+                  <span style={{ fontSize: 16 }}>{item.icon}</span>
+                  <span style={{ fontSize: 14, color: C.gray600 }}>{item.text}</span>
+                </div>
+              ))}
             </div>
-            <Btn variant="terra" style={{ width: "100%", marginTop: 20, padding: 14 }}>Попробовать 14 дней бесплатно</Btn>
+            <Btn variant="terra" style={{ width: "100%", padding: 14 }} onClick={() => navigate('/club')}>Попробовать 14 дней бесплатно</Btn>
+            <div style={{ fontSize: 12, color: C.gray400, textAlign: "center", marginTop: 10 }}>Отмена в любой момент · Без автосписания</div>
           </div>
         </div>
       </div>

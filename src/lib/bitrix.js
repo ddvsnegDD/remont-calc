@@ -1,17 +1,16 @@
 /**
- * Битрикс24 CRM — отправка лидов через входящий вебхук.
- * REST API docs: https://apidocs.bitrix24.ru/api-reference/crm/leads/
+ * Битрикс24 CRM — отправка лидов через серверный прокси /api/lead.
+ * Фронтенд не обращается к Битрикс24 напрямую (CORS не пропустит).
+ * Сервер (server.js) проксирует запрос к вебхуку.
  */
 
-const WEBHOOK = 'https://b24-0ouhlh.bitrix24.ru/rest/1/j3vt2f9w9lh6s23x';
-
 /**
- * Создать лид в CRM.
+ * Создать лид в CRM через серверный прокси.
  * @param {Object} params
  * @param {string} params.name      — имя клиента
  * @param {string} params.phone     — телефон
  * @param {string} [params.email]   — email (опционально)
- * @param {string} params.title     — заголовок лида (например «B2C · Быстрый расчёт · 60 м²»)
+ * @param {string} params.title     — заголовок лида
  * @param {string} [params.comment] — комментарий с деталями расчёта
  * @param {string} [params.source]  — источник (WEB, CALLBACK, OTHER)
  * @returns {Promise<{ok: boolean, id?: number, error?: string}>}
@@ -35,20 +34,16 @@ export async function createLead({ name, phone, email, title, comment, source = 
   }
 
   try {
-    const res = await fetch(`${WEBHOOK}/crm.lead.add`, {
+    const res = await fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fields }),
     });
 
     const data = await res.json();
-
-    if (data.result) {
-      return { ok: true, id: data.result };
-    }
-    return { ok: false, error: data.error_description || 'Неизвестная ошибка' };
+    return data;
   } catch (err) {
-    console.error('Bitrix24 lead error:', err);
+    console.error('Lead send error:', err);
     return { ok: false, error: err.message };
   }
 }

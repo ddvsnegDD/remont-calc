@@ -4,6 +4,7 @@ import PageLayout from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
+import { calculateB2C } from '../lib/calculator';
 
 const STEPS = [
   { id:'apartment_type', title:'Какой тип квартиры?', hint:'От этого зависит набор работ.', type:'cards',
@@ -37,6 +38,7 @@ const STEPS = [
 
 export default function B2CQuizPage() {
   const [showMode, setShowMode] = useState(true);
+  const [calcMode, setCalcMode] = useState('quick'); // 'quick' | 'detail'
   const [step, setStep] = useState(0);
   const [searchParams] = useSearchParams();
   const tierFromUrl = searchParams.get('tier');
@@ -64,25 +66,38 @@ export default function B2CQuizPage() {
       if (contactData.extra && contactData.extra.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactData.extra.trim())) { setFormError('Введите корректный email'); return; }
       if (!contactData.agree) { setFormError('Необходимо согласие на обработку данных'); return; }
       setFormError('');
-      // Map quiz answers → SpecCalc inputs (infer rooms/sanitary/windows from area)
-      const quizArea = parseFloat(answers.area) || 60;
-      const tierMap = { cosmetic: 'capital', capital: 'capital', euro: 'euro', premium: 'premium' };
-      const quizTier = tierMap[answers.repair_type] || 'capital';
-      const quizMode = (quizTier === 'premium') ? 'full' : (answers.finish_type === 'whitebox' ? 'whitebox' : 'full');
-      const quizReplan = answers.replan || 'no';
-      const quizRooms = quizArea < 35 ? 1 : quizArea < 55 ? 2 : quizArea < 80 ? 3 : quizArea < 120 ? 4 : 5;
-      const quizSanitary = quizArea < 60 ? 1 : quizArea < 120 ? 2 : 3;
-      const quizWindows = quizArea < 35 ? 2 : quizArea < 55 ? 3 : quizArea < 80 ? 4 : quizArea < 120 ? 6 : 8;
-      const specResult = SpecCalc.compute({ area: quizArea, rooms: quizRooms, sanitary: quizSanitary, windows: quizWindows, mode: quizMode, tier: quizTier, replan: quizReplan });
-      const lead = {
-        id: 'b2c-detail-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c-detail',
-        result: specResult,
-        contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
-      };
-      sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
-      navigate('/b2c-result-detail');
+
+      if (calcMode === 'quick') {
+        // Быстрый расчёт — вилка стоимости (от-до)
+        const result = calculateB2C(answers);
+        const lead = {
+          id: 'b2c-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c',
+          result,
+          contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
+        };
+        sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
+        navigate('/b2c-result');
+      } else {
+        // Детальная смета — SpecCalc ~50 позиций
+        const quizArea = parseFloat(answers.area) || 60;
+        const tierMap = { cosmetic: 'capital', capital: 'capital', euro: 'euro', premium: 'premium' };
+        const quizTier = tierMap[answers.repair_type] || 'capital';
+        const quizMode = (quizTier === 'premium') ? 'full' : (answers.finish_type === 'whitebox' ? 'whitebox' : 'full');
+        const quizReplan = answers.replan || 'no';
+        const quizRooms = quizArea < 35 ? 1 : quizArea < 55 ? 2 : quizArea < 80 ? 3 : quizArea < 120 ? 4 : 5;
+        const quizSanitary = quizArea < 60 ? 1 : quizArea < 120 ? 2 : 3;
+        const quizWindows = quizArea < 35 ? 2 : quizArea < 55 ? 3 : quizArea < 80 ? 4 : quizArea < 120 ? 6 : 8;
+        const specResult = SpecCalc.compute({ area: quizArea, rooms: quizRooms, sanitary: quizSanitary, windows: quizWindows, mode: quizMode, tier: quizTier, replan: quizReplan });
+        const lead = {
+          id: 'b2c-detail-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c-detail',
+          result: specResult,
+          contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
+        };
+        sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
+        navigate('/b2c-result-detail');
+      }
     }
-  }, [step, total, answers, contactData, navigate]);
+  }, [step, total, answers, contactData, calcMode, navigate]);
 
   const handleCardClick = (id, value) => {
     setAnswer(id, value);

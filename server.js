@@ -6,7 +6,8 @@ const PORT = process.env.PORT || 3000;
 const DIST = resolve('dist');
 
 // Битрикс24 webhook (входящий вебхук с правами CRM)
-const B24_WEBHOOK = process.env.B24_WEBHOOK || 'https://b24-0ouhlh.bitrix24.ru/rest/1/l9n1lhlf2blihlm9';
+const B24_WEBHOOK = process.env.B24_WEBHOOK;
+if (!B24_WEBHOOK) console.warn('⚠️  B24_WEBHOOK не задан — заявки в CRM отправляться не будут');
 
 // Parse JSON body
 app.use(express.json());
@@ -15,6 +16,10 @@ app.use(express.json());
 app.post('/api/lead', async (req, res) => {
   const { title, name, phone, email, comment, source } = req.body;
   console.log('→ /api/lead', title);
+
+  if (!B24_WEBHOOK) {
+    return res.status(503).json({ ok: false, error: 'CRM не настроена' });
+  }
 
   try {
     const controller = new AbortController();

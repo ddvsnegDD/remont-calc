@@ -162,7 +162,7 @@ function BentoSection() {
           <SectionLabel>Процесс</SectionLabel>
           <h2 className="font-golos" style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 800, color: C.graphiteLight }}>Как мы работаем</h2>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr 1fr", gap: 16, minHeight: 420 }} className="desktop-only">
+        <div className="bento-grid">
           {cards.map((c, i) => (
             <div key={i} className={`reveal ${vis ? "visible" : ""} reveal-d${i + 1}`} style={{ borderRadius: 20, padding: c.hasImage ? 0 : 32, background: c.hasImage ? `linear-gradient(180deg, rgba(60,60,60,0.3) 0%, rgba(30,30,30,0.85) 100%), url('/images/laser-level.jpeg') center/cover no-repeat, linear-gradient(135deg, #3D3D3D 0%, #555 100%)` : c.bg, display: "flex", flexDirection: "column", justifyContent: "flex-end", position: "relative", overflow: "hidden", transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)", cursor: "pointer", border: c.hasImage ? "none" : `1px solid ${C.gray200}` }}
               onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.boxShadow = c.hasImage ? "0 20px 50px rgba(0,0,0,0.25)" : "0 20px 50px rgba(0,0,0,0.08)"; }}
@@ -208,7 +208,7 @@ function PricingSection() {
           <h2 className="font-golos" style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 800, color: C.graphiteLight }}>Цены по категориям ремонта</h2>
           <p style={{ color: C.gray500, marginTop: 8, fontSize: 16 }}>Ориентировочная стоимость за 1 м². Точная цена — после замера.</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }} className="desktop-only">
+        <div className="pricing-grid">
           {tiers.map((t, i) => (
             <div key={i} className={`reveal ${vis ? "visible" : ""} reveal-d${i + 1}`} style={{ position: "relative", height: 500, borderRadius: 20, overflow: "hidden", cursor: "pointer", transition: "transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.5s ease" }}
               onClick={() => navigate(`/b2c?tier=${t.tier}`)}
@@ -250,7 +250,7 @@ function GuaranteesSection() {
           <SectionLabel>Гарантии</SectionLabel>
           <h2 className="font-golos" style={{ fontSize: "clamp(28px, 3.5vw, 40px)", fontWeight: 800, color: C.graphiteLight }}>Ремонт без сюрпризов</h2>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, alignItems: "start" }} className="desktop-only">
+        <div className="guarantees-grid">
           <div className={`reveal ${vis ? "visible" : ""}`}>
             {items.map((item, i) => (
               <div key={i} style={{ borderBottom: `1px solid ${C.gray200}`, cursor: "pointer", padding: "0 12px", margin: "0 -12px", borderRadius: openIdx === i ? 12 : 0 }} onClick={() => setOpenIdx(openIdx === i ? -1 : i)}>
@@ -339,7 +339,7 @@ function ProSection() {
           <h2 className="font-golos" style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 800, color: "#fff" }}>Территория профи</h2>
           <p style={{ color: "rgba(255,255,255,0.5)", marginTop: 8, fontSize: 16 }}>Инструменты для дизайнеров, архитекторов и технических заказчиков.</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 900, margin: "0 auto" }} className="desktop-only">
+        <div className="pro-grid">
           {cards.map((c, i) => (
             <div key={i} className={`glass-card reveal ${vis ? "visible" : ""} reveal-d${i + 1}`} style={{ padding: 36, borderRadius: 24 }}>
               <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(185,92,56,0.15)", color: C.terra, display: "grid", placeItems: "center", marginBottom: 20 }}>{c.icon}</div>

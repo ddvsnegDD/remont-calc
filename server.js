@@ -5,35 +5,66 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DIST = resolve('dist');
 
-// Битрикс24 webhook (входящий вебхук с правами на CRM)
-const B24_WEBHOOK = process.env.B24_WEBHOOK || 'https://b24-0ouhlh.bitrix24.ru/rest/1/j3vt2f9w9lh6s23x';
+// Битрикс24 webhook (входящий вебхук с правами CRM)
+const B24_WEBHOOK = process.env.B24_WEBHOOK || 'https://b24-0ouhlh.bitrix24.ru/rest/1/l9n1lhlf2blihlm9';
 
 // Parse JSON body
 app.use(express.json());
 
-// API: создание лида в Битрикс24
+// API: создание сделки + контакта в Битрикс24
 app.post('/api/lead', async (req, res) => {
-  console.log('→ /api/lead', req.body?.fields?.TITLE);
+  const { title, name, phone, email, comment, source } = req.body;
+  console.log('→ /api/lead', title);
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    const response = await fetch(`${B24_WEBHOOK}/crm.lead.add`, {
+    // 1. Создаём контакт
+    const contactRes = await fetch(`${B24_WEBHOOK}/crm.contact.add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: req.body.fields }),
+      body: JSON.stringify({
+        fields: {
+          NAME: name || 'Без имени',
+          PHONE: phone ? [{ VALUE: phone, VALUE_TYPE: 'WORK' }] : [],
+          EMAIL: email ? [{ VALUE: email, VALUE_TYPE: 'WORK' }] : [],
+          SOURCE_ID: source || 'WEB',
+          OPENED: 'Y',
+        }
+      }),
+      signal: controller.signal,
+    });
+    const contactData = await contactRes.json();
+    const contactId = contactData.result;
+    console.log('← Contact created:', contactId);
+
+    // 2. Создаём сделку, привязанную к контакту
+    const dealRes = await fetch(`${B24_WEBHOOK}/crm.deal.add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: {
+          TITLE: title || 'Заявка с сайта РПКМ',
+          CONTACT_ID: contactId || undefined,
+          SOURCE_ID: source || 'WEB',
+          OPENED: 'Y',
+          STAGE_ID: 'NEW',
+          COMMENTS: comment || '',
+        }
+      }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
 
-    const data = await response.json();
-    console.log('← B24 response:', JSON.stringify(data).slice(0, 200));
+    const dealData = await dealRes.json();
+    console.log('← Deal created:', JSON.stringify(dealData).slice(0, 200));
 
-    if (data.result) {
-      res.json({ ok: true, id: data.result });
+    if (dealData.result) {
+      res.json({ ok: true, id: dealData.result, contactId });
     } else {
-      console.error('B24 error:', data);
-      res.status(400).json({ ok: false, error: data.error_description || 'Ошибка Битрикс24' });
+      console.error('B24 deal error:', dealData);
+      res.status(400).json({ ok: false, error: dealData.error_description || 'Ошибка Битрикс24' });
     }
   } catch (err) {
     console.error('B24 fetch error:', err.message);

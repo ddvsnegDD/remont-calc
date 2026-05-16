@@ -1,43 +1,19 @@
 /**
- * Битрикс24 CRM — отправка лидов через серверный прокси /api/lead.
- * Фронтенд не обращается к Битрикс24 напрямую (CORS не пропустит).
- * Сервер (server.js) проксирует запрос к вебхуку.
+ * Битрикс24 CRM — создание сделок через серверный прокси /api/lead.
+ * Фронтенд → /api/lead (наш Express) → Битрикс24 (crm.deal.add + crm.contact.add).
+ * CRM в «Простом режиме» — лидов нет, работаем только со сделками.
  */
 
 /**
- * Создать лид в CRM через серверный прокси.
- * @param {Object} params
- * @param {string} params.name      — имя клиента
- * @param {string} params.phone     — телефон
- * @param {string} [params.email]   — email (опционально)
- * @param {string} params.title     — заголовок лида
- * @param {string} [params.comment] — комментарий с деталями расчёта
- * @param {string} [params.source]  — источник (WEB, CALLBACK, OTHER)
- * @returns {Promise<{ok: boolean, id?: number, error?: string}>}
+ * Создать сделку в CRM через серверный прокси.
+ * Сервер сам создаст контакт и привяжет к сделке.
  */
 export async function createLead({ name, phone, email, title, comment, source = 'WEB' }) {
-  const fields = {
-    TITLE: title || 'Заявка с сайта РПКМ',
-    NAME: name,
-    PHONE: [{ VALUE: phone, VALUE_TYPE: 'WORK' }],
-    SOURCE_ID: source,
-    OPENED: 'Y',
-    STATUS_ID: 'NEW',
-  };
-
-  if (email) {
-    fields.EMAIL = [{ VALUE: email, VALUE_TYPE: 'WORK' }];
-  }
-
-  if (comment) {
-    fields.COMMENTS = comment;
-  }
-
   try {
     const res = await fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields }),
+      body: JSON.stringify({ title, name, phone, email, comment, source }),
     });
 
     const data = await res.json();

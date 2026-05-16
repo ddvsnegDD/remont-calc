@@ -164,7 +164,7 @@ export default function B2CDetailPage() {
               {effectiveMode !== 'whitebox' && (
                 <div className="form-field">
                   <label>Замена окон</label>
-                  <input type="number" min="1" max="20" value={windows} onChange={e => setWindows(+e.target.value)} />
+                  <input type="number" min="0" max="20" value={windows} onChange={e => setWindows(+e.target.value)} />
                 </div>
               )}
             </div>

@@ -1,5 +1,4 @@
 import express from 'express';
-import { readFileSync } from 'fs';
 import { resolve, join } from 'path';
 
 const app = express();
@@ -14,13 +13,21 @@ app.use(express.json());
 
 // API: создание лида в Битрикс24
 app.post('/api/lead', async (req, res) => {
+  console.log('→ /api/lead', req.body?.fields?.TITLE);
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const response = await fetch(`${B24_WEBHOOK}/crm.lead.add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fields: req.body.fields }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
+
     const data = await response.json();
+    console.log('← B24 response:', JSON.stringify(data).slice(0, 200));
 
     if (data.result) {
       res.json({ ok: true, id: data.result });
@@ -38,7 +45,7 @@ app.post('/api/lead', async (req, res) => {
 app.use(express.static(DIST));
 
 // SPA fallback — любой не-API маршрут → index.html
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(join(DIST, 'index.html'));
 });
 

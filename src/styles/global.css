@@ -1553,7 +1553,24 @@ section { padding: 80px 0; }
 
 .dark-page { background: #1A1A1C; color: #fff; min-height: 100vh; }
 
+/* === Spec table scroll wrapper === */
+.spec-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* === Responsive grids === */
+.partner-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+.mode-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1600,6 +1617,13 @@ section { padding: 80px 0; }
   .pro-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+  .partner-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .mode-choice-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 @media (max-width: 600px) {

@@ -102,7 +102,7 @@ export default function B2CQuizPage() {
             <div style={{ background: "#fff", borderRadius: 20, padding: "32px 28px", boxShadow: "0 8px 32px rgba(0,0,0,0.06)" }}>
               <h2 className="font-golos" style={{ textAlign: "center", fontSize: 24, fontWeight: 800, color: C.graphiteLight, marginBottom: 8 }}>Какой расчёт вам нужен?</h2>
               <p style={{ textAlign: "center", color: C.gray500, marginBottom: 24 }}>Два варианта — простой по среднерыночным ценам и детальный по тендерным сметам.</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="mode-choice-grid">
                 <div style={{ border: `1.5px solid ${C.gray200}`, borderRadius: 16, padding: 24, cursor: "pointer", transition: "all 0.3s", textAlign: "center" }}
                   onClick={() => setShowMode(false)}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.terra; e.currentTarget.style.transform = "translateY(-2px)"; }}

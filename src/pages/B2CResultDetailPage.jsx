@@ -97,7 +97,7 @@ export default function B2CResultDetailPage() {
                       <div className="spec-group-chevron">▾</div>
                     </div>
                     <div className="spec-group-body">
-                      <table className="spec-table">
+                      <div className="spec-table-scroll"><table className="spec-table">
                         <thead>
                           <tr><th>Работа</th><th>Материал</th><th>Объём</th><th>Работы</th><th>Материалы</th><th>Итого</th></tr>
                         </thead>
@@ -113,7 +113,7 @@ export default function B2CResultDetailPage() {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </table></div>
                     </div>
                   </div>
                 );

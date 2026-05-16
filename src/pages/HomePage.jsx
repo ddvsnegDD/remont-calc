@@ -375,7 +375,7 @@ function B2BPartnerHero() {
   return (
     <section style={{ padding: "80px 0", background: C.graphite }}>
       <div ref={ref} style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
-        <div className={`reveal ${vis ? "visible" : ""}`} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 60, alignItems: "center" }}>
+        <div className={`reveal ${vis ? "visible" : ""} partner-grid`}>
           <div>
             <SectionLabel light>Партнёрская программа</SectionLabel>
             <h2 className="font-golos" style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 800, color: "#fff", lineHeight: 1.1, marginBottom: 16 }}>

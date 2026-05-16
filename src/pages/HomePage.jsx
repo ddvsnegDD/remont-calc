@@ -238,10 +238,10 @@ function GuaranteesSection() {
   const [ref, vis] = useReveal();
   const [openIdx, setOpenIdx] = useState(0);
   const items = [
-    { icon: <FileText size={22} />, title: "Цена в договоре", body: "Никаких «дополнительных смет» в процессе работ. Что подписали — то и платите." },
-    { icon: <Shield size={22} />, title: "Гарантия до 5 лет", body: "3 года на все виды работ для стандартных проектов, 5 лет — для премиум-объектов." },
-    { icon: <Eye size={22} />, title: "Прозрачная смета", body: "Каждая позиция расписана отдельно: работа, черновые материалы, чистовые материалы." },
-    { icon: <User size={22} />, title: "Личный куратор", body: "Один человек ведёт ваш проект от замера до сдачи ключей." },
+    { icon: <FileText size={22} />, title: "Цена в договоре", body: "Никаких «дополнительных смет» в процессе работ. Что подписали — то и платите.", img: "/images/guarantee-contract.jpg" },
+    { icon: <Shield size={22} />, title: "Гарантия до 5 лет", body: "3 года на все виды работ для стандартных проектов, 5 лет — для премиум-объектов.", img: "/images/guarantee-warranty.jpg" },
+    { icon: <Eye size={22} />, title: "Прозрачная смета", body: "Каждая позиция расписана отдельно: работа, черновые материалы, чистовые материалы.", img: "/images/guarantee-estimate.jpg" },
+    { icon: <User size={22} />, title: "Личный куратор", body: "Один человек ведёт ваш проект от замера до сдачи ключей.", img: "/images/guarantee-curator.jpg" },
   ];
   return (
     <section id="guarantees" style={{ padding: "80px 0", background: C.offWhite }}>
@@ -265,11 +265,23 @@ function GuaranteesSection() {
               </div>
             ))}
           </div>
-          <div className={`reveal ${vis ? "visible" : ""} reveal-d2`} style={{ borderRadius: 20, height: 400, background: `linear-gradient(135deg, ${C.offWhite}, ${C.gray100})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div key={openIdx} style={{ textAlign: "center", padding: 40, animation: "scaleIn 0.35s cubic-bezier(0.16,1,0.3,1)" }}>
-              <div style={{ width: 80, height: 80, borderRadius: "50%", background: C.terraBg, display: "grid", placeItems: "center", margin: "0 auto 20px", color: C.terra }}>{items[Math.max(0, openIdx)]?.icon || <Shield size={32} />}</div>
-              <h3 className="font-golos" style={{ fontSize: 24, fontWeight: 700, color: C.graphiteLight, marginBottom: 8 }}>{items[Math.max(0, openIdx)]?.title}</h3>
-              <p style={{ fontSize: 15, color: C.gray500, maxWidth: 300, margin: "0 auto" }}>{items[Math.max(0, openIdx)]?.body?.slice(0, 80)}...</p>
+          <div className={`reveal ${vis ? "visible" : ""} reveal-d2 guarantee-card-visual`} style={{ borderRadius: 20, height: 400, overflow: "hidden", position: "relative" }}>
+            {items.map((item, i) => (
+              <div key={i} className="guarantee-card-slide" style={{
+                position: "absolute", inset: 0,
+                backgroundImage: `url(${item.img})`,
+                backgroundSize: "cover", backgroundPosition: "center",
+                opacity: Math.max(0, openIdx) === i ? 1 : 0,
+                transition: "opacity 0.5s ease",
+              }} />
+            ))}
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(26,26,28,0.82) 0%, rgba(26,26,28,0.4) 50%, rgba(26,26,28,0.15) 100%)" }} />
+            <div key={openIdx} style={{ position: "relative", zIndex: 2, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "32px 36px", animation: "scaleIn 0.35s cubic-bezier(0.16,1,0.3,1)" }}>
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", display: "grid", placeItems: "center", marginBottom: 16, color: "#fff" }}>
+                {items[Math.max(0, openIdx)]?.icon || <Shield size={24} />}
+              </div>
+              <h3 className="font-golos" style={{ fontSize: 26, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{items[Math.max(0, openIdx)]?.title}</h3>
+              <p style={{ fontSize: 15, lineHeight: 1.6, color: "rgba(255,255,255,0.8)", maxWidth: 360 }}>{items[Math.max(0, openIdx)]?.body}</p>
             </div>
           </div>
         </div>

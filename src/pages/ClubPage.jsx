@@ -192,24 +192,39 @@ export default function ClubPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, maxWidth: 600, margin: '0 auto' }}>
               {/* Monthly */}
-              <div style={{ background: '#fff', border: `1.5px solid ${C.gray200}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center' }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Месяц</div>
-                <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>490 <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
-                <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>в месяц</div>
-                <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('monthly')} disabled={payLoading || hasAccess}>
-                  {hasAccess ? 'Активна' : 'Оплатить'}
-                </Btn>
-              </div>
+              {(() => {
+                const isCurrent = hasAccess && (subscription?.plan === 'monthly' || subscription?.status === 'trial');
+                return (
+                  <div style={{ background: '#fff', border: isCurrent ? `2px solid #16794a` : `1.5px solid ${C.gray200}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
+                    {isCurrent && <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#16794a', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>{subscription?.status === 'trial' ? 'ТРИАЛ' : 'ТЕКУЩИЙ'}</div>}
+                    <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Месяц</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>490 <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
+                    <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>в месяц</div>
+                    {isCurrent ? (
+                      <div style={{ padding: '12px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 14 }}>✓ до {expiresLabel}</div>
+                    ) : (
+                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('monthly')} disabled={payLoading}>Оплатить</Btn>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Yearly */}
-              <div style={{ background: '#fff', border: `2px solid ${C.terra}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: C.terra, color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>ВЫГОДНО</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Год</div>
-                <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>4 900 <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
-                <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>408 ₽/мес · экономия 17%</div>
-                <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('yearly')} disabled={payLoading || hasAccess}>
-                  {hasAccess ? 'Активна' : 'Оплатить'}
-                </Btn>
-              </div>
+              {(() => {
+                const isCurrent = hasAccess && subscription?.plan === 'yearly';
+                return (
+                  <div style={{ background: '#fff', border: `2px solid ${isCurrent ? '#16794a' : C.terra}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: isCurrent ? '#16794a' : C.terra, color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>{isCurrent ? 'ТЕКУЩИЙ' : 'ВЫГОДНО'}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Год</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>4 900 <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
+                    <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>408 ₽/мес · экономия 17%</div>
+                    {isCurrent ? (
+                      <div style={{ padding: '12px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 14 }}>✓ до {expiresLabel}</div>
+                    ) : (
+                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('yearly')} disabled={payLoading}>Оплатить</Btn>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             {!user && (
               <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: C.gray500 }}>

@@ -11,13 +11,14 @@ function getTransporter() {
     console.warn('⚠️  SMTP не настроен — коды будут только в логе сервера');
     return null;
   }
+  const port = parseInt(process.env.SMTP_PORT || '587');
   transporter = nodemailer.createTransport({
     host,
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: true,
+    port,
+    secure: port === 465, // true для 465 (SSL), false для 587 (STARTTLS)
     auth: { user, pass },
     family: 4, // force IPv4 — Railway не поддерживает IPv6 к Яндексу
-    connectionTimeout: 10000, // 10 сек на подключение
+    connectionTimeout: 10000,
     socketTimeout: 10000,
   });
   return transporter;

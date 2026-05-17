@@ -3,13 +3,14 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { resolve, join } from 'path';
-import { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription } from './server/db.js';
+import { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, getAllUsers, getAdminStats } from './server/db.js';
 import { sendAuthCode } from './server/email.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DIST = resolve('dist');
 const JWT_SECRET = process.env.JWT_SECRET || 'rpkm-dev-secret-change-in-prod';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'rpkm-admin-2026';
 const YOOMONEY_WALLET = process.env.YOOMONEY_WALLET || '4100183647078';
 const YOOMONEY_SECRET = process.env.YOOMONEY_SECRET || '';
 const SITE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
@@ -206,6 +207,32 @@ app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
     res.json({ ok: !!sub, subscription: sub });
   } catch (err) {
     res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// ==================== ADMIN API ====================
+
+function adminAuth(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_PASSWORD) return res.status(403).json({ ok: false, error: 'Доступ запрещён' });
+  next();
+}
+
+app.get('/api/admin/stats', requireDB, adminAuth, async (req, res) => {
+  try {
+    const stats = await getAdminStats();
+    res.json({ ok: true, stats });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get('/api/admin/users', requireDB, adminAuth, async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    res.json({ ok: true, users });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

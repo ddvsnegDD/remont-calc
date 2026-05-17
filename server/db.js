@@ -125,4 +125,30 @@ export async function activateSubscription(label) {
   return rows[0] || null;
 }
 
+// --- Admin ---
+export async function getAllUsers() {
+  const { rows } = await pool.query(
+    `SELECT u.id, u.email, u.name, u.phone, u.created_at,
+       s.plan AS sub_plan, s.status AS sub_status, s.expires_at AS sub_expires
+     FROM users u
+     LEFT JOIN LATERAL (
+       SELECT plan, status, expires_at FROM subscriptions
+       WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1
+     ) s ON true
+     ORDER BY u.created_at DESC`
+  );
+  return rows;
+}
+
+export async function getAdminStats() {
+  const { rows } = await pool.query(`
+    SELECT
+      (SELECT COUNT(*) FROM users) AS total_users,
+      (SELECT COUNT(*) FROM subscriptions WHERE status = 'trial' AND expires_at > NOW()) AS active_trials,
+      (SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > NOW()) AS active_paid,
+      (SELECT COUNT(*) FROM subscriptions WHERE status = 'pending') AS pending_payments
+  `);
+  return rows[0];
+}
+
 export default pool;

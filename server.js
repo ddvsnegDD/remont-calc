@@ -16,6 +16,9 @@ const SITE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
   : `http://localhost:${PORT}`;
 
+// Флаг доступности БД
+let dbReady = false;
+
 // Битрикс24
 const B24_WEBHOOK = process.env.B24_WEBHOOK;
 if (!B24_WEBHOOK) console.warn('⚠️  B24_WEBHOOK не задан — заявки в CRM отправляться не будут');
@@ -24,6 +27,12 @@ if (!B24_WEBHOOK) console.warn('⚠️  B24_WEBHOOK не задан — заяв
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Middleware: проверка доступности БД для auth-роутов
+function requireDB(req, res, next) {
+  if (!dbReady) return res.status(503).json({ ok: false, error: 'База данных не подключена. Авторизация недоступна.' });
+  next();
+}
 
 // --- JWT helpers ---
 function signToken(user) {
@@ -44,7 +53,7 @@ function authMiddleware(req, res, next) {
 // ==================== AUTH API ====================
 
 // Отправить код на email
-app.post('/api/auth/send-code', async (req, res) => {
+app.post('/api/auth/send-code', requireDB, async (req, res) => {
   const { email } = req.body;
   if (!email || !email.includes('@')) return res.status(400).json({ ok: false, error: 'Введите email' });
   const code = String(Math.floor(1000 + Math.random() * 9000)); // 4 digits
@@ -59,7 +68,7 @@ app.post('/api/auth/send-code', async (req, res) => {
 });
 
 // Проверить код, войти/зарегистрироваться
-app.post('/api/auth/verify', async (req, res) => {
+app.post('/api/auth/verify', requireDB, async (req, res) => {
   const { email, code, name, phone } = req.body;
   if (!email || !code) return res.status(400).json({ ok: false, error: 'Введите email и код' });
   try {
@@ -277,6 +286,8 @@ async function start() {
   if (process.env.DATABASE_URL) {
     try {
       await initDB();
+      dbReady = true;
+      console.log('✅ БД подключена');
     } catch (err) {
       console.error('DB init error:', err.message);
       console.warn('⚠️  Сервер запущен без БД — авторизация и подписки не будут работать');

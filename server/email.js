@@ -17,6 +17,8 @@ function getTransporter() {
     secure: true,
     auth: { user, pass },
     family: 4, // force IPv4 — Railway не поддерживает IPv6 к Яндексу
+    connectionTimeout: 10000, // 10 сек на подключение
+    socketTimeout: 10000,
   });
   return transporter;
 }

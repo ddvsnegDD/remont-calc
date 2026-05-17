@@ -59,7 +59,8 @@ app.post('/api/auth/send-code', requireDB, async (req, res) => {
   const code = String(Math.floor(1000 + Math.random() * 9000)); // 4 digits
   try {
     await saveAuthCode(email, code);
-    await sendAuthCode(email, code);
+    // Отправляем email в фоне — не блокируем ответ
+    sendAuthCode(email, code).catch(err => console.error('Email bg error:', err.message));
     res.json({ ok: true });
   } catch (err) {
     console.error('send-code error:', err);

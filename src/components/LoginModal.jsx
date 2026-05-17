@@ -89,7 +89,7 @@ export default function LoginModal({ open, onClose, onSuccess }) {
   if (!open) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px 24px', overflowY: 'auto' }}
       onClick={onClose}>
       {/* Backdrop */}
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
@@ -107,9 +107,9 @@ export default function LoginModal({ open, onClose, onSuccess }) {
         {step === 'email' && (
           <>
             <div style={{ fontSize: 40, marginBottom: 12, textAlign: 'center' }}>🔑</div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: C.graphite, textAlign: 'center', marginBottom: 8 }}>Вход в Клуб</h2>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: C.graphite, textAlign: 'center', marginBottom: 8 }}>Вход</h2>
             <p style={{ fontSize: 14, color: C.gray500, textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>
-              Укажите email — отправим код для входа. Без пароля.
+              Укажите email — мы отправим код для входа
             </p>
             <form onSubmit={handleSendCode}>
               <input

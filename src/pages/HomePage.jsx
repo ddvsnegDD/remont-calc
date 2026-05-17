@@ -348,8 +348,8 @@ function ProSection() {
   const [ref, vis] = useReveal();
   const navigate = useNavigate();
   const cards = [
-    { icon: <Briefcase size={28} />, title: "Партнёрка B2B", desc: "5% от чека за каждого приведённого заказчика.", cta: "Стать партнёром", highlights: ["5% от чека", "До 1 млн ₽ за проект", "Персональный промокод"] },
-    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "White-label PDF-сметы с логотипом вашей студии, безлимитные расчёты.", cta: "Подключить PRO", price: "2 900 ₽/мес", highlights: ["Безлимит расчётов", "White-label PDF", "API и экспорт CSV"] },
+    { icon: <Briefcase size={28} />, title: "Партнёрка B2B", desc: "5% от чека за каждого приведённого заказчика.", cta: "Стать партнёром", to: "/partner-b2b", highlights: ["5% от чека", "До 1 млн ₽ за проект", "Персональный промокод"] },
+    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "White-label PDF-сметы с логотипом вашей студии, безлимитные расчёты.", cta: "Подключить PRO", to: "/pro", price: "2 900 ₽/мес", highlights: ["Безлимит расчётов", "White-label PDF", "Экспорт CSV"] },
   ];
   return (
     <section id="pro" style={{ padding: "100px 0", position: "relative", overflow: "hidden", background: `url('/images/dark-pro-bg.jpeg') center/cover no-repeat, linear-gradient(135deg, #0F0F11 0%, #1A1A1C 30%, #222225 60%, #1A1A1C 100%)` }}>
@@ -375,7 +375,7 @@ function ProSection() {
                   </div>
                 ))}
               </div>
-              <Btn variant="outlineLight" style={{ width: "100%", borderRadius: 12, borderColor: "rgba(185,92,56,0.4)", color: C.terraLight }} onClick={() => navigate('/auth')}>{c.cta} <ArrowRight size={14} /></Btn>
+              <Btn variant="outlineLight" style={{ width: "100%", borderRadius: 12, borderColor: "rgba(185,92,56,0.4)", color: C.terraLight }} onClick={() => navigate(c.to)}>{c.cta} <ArrowRight size={14} /></Btn>
             </div>
           ))}
         </div>
@@ -403,7 +403,7 @@ function B2BPartnerHero() {
               <span style={{ color: C.terra }}>1%</span> от чека +<br /><span style={{ color: C.terra }}>10%</span> скидка на ваш проект
             </h2>
             <p style={{ fontSize: 16, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 28, maxWidth: 440 }}>Для дизайнеров интерьеров и архитекторов. Рекомендуйте РПКМ — зарабатывайте на каждом проекте.</p>
-            <Btn variant="white" style={{ fontWeight: 700 }} onClick={() => navigate('/auth')}>Стать партнёром <ArrowRight size={16} /></Btn>
+            <Btn variant="white" style={{ fontWeight: 700 }} onClick={() => navigate('/partner-b2b')}>Стать партнёром <ArrowRight size={16} /></Btn>
           </div>
           <div className={`glass-card reveal ${vis ? "visible" : ""} reveal-d2`} style={{ padding: 32, borderRadius: 24 }}>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 20 }}>Пример выплат</div>

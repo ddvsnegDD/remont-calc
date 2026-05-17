@@ -8,18 +8,16 @@ const BENEFITS = [
   'Безлимит расчётов',
   'White-label PDF (логотип, реквизиты)',
   'Офисный fit-out калькулятор (25+ статей)',
-  'База реализованных проектов РПКМ',
   'Персональный менеджер',
   'Приоритетная поддержка (24 ч SLA)',
   'Экспорт CSV / Excel',
-  'API + вебхуки на новые расчёты',
-  'Шаблоны спецификаций',
+  'Чек-лист для заёмщика',
 ];
 
 const FAQ = [
   { q: 'Как работает white-label PDF?', a: 'В настройках профиля загружаете логотип и реквизиты. Все PDF формируются с вашим брендом.' },
-  { q: 'Есть ли скидка при годовой оплате?', a: 'Да, 12 месяцев = 29 000 ₽ (экономия 17%). В демо только месячная подписка.' },
-  { q: 'Что входит в API?', a: 'REST-эндпоинты для расчётов, истории и PDF. Вебхуки на события. В демо не реализован.' },
+  { q: 'Есть ли скидка при годовой оплате?', a: 'Да, 12 месяцев = 29 000 ₽ (экономия 17%).' },
+  { q: 'Что входит в чек-лист для заёмщика?', a: 'Список документов и шагов для получения ипотеки на ремонт. Готовится к публикации.' },
   { q: 'Можно ли совмещать PRO с партнёрской программой?', a: 'Да. PRO даёт инструменты, партнёрка — выплаты. Они независимы.' },
 ];
 
@@ -48,7 +46,7 @@ export default function ProPage() {
                 <span className="section-label">Подписка PRO</span>
                 <h1>PRO-кабинет для дизайнеров и техзаказчиков</h1>
                 <p className="hero-lead">
-                  Безлимитные расчёты, white-label PDF, экспорт в CSV, API для CRM, приоритетная поддержка. Всё за 2 900 ₽/мес.
+                  Безлимитные расчёты, white-label PDF, экспорт в CSV, приоритетная поддержка. Всё за 2 900 ₽/мес.
                 </p>
                 <div className="hero-cta">
                   {subscribed ? (
@@ -56,10 +54,7 @@ export default function ProPage() {
                       ✓ PRO активен (демо)
                     </div>
                   ) : (
-                    <>
-                      <Btn variant="dark" size="lg" onClick={() => setSubscribed(true)}>Оформить PRO за 2 900 ₽/мес</Btn>
-                      <Btn variant="outline" size="lg" onClick={() => navigate('/b2b-login')}>Войти как профи</Btn>
-                    </>
+                    <Btn variant="dark" size="lg" onClick={() => setSubscribed(true)}>Оформить PRO за 2 900 ₽/мес</Btn>
                   )}
                 </div>
                 <div className="hero-stats" style={{ marginTop: 28 }}>
@@ -95,11 +90,10 @@ export default function ProPage() {
                   <li>1 расчёт в месяц</li>
                   <li>Стандартные PDF-сметы</li>
                   <li>История расчётов</li>
-                  <li className="off">— White-label PDF</li>
-                  <li className="off">— База проектов</li>
-                  <li className="off">— Персональный менеджер</li>
-                  <li className="off">— Экспорт CSV / API</li>
-                  <li className="off">— Приоритетная поддержка</li>
+                  <li className="off" style={{ textDecoration: 'line-through' }}>White-label PDF</li>
+                  <li className="off" style={{ textDecoration: 'line-through' }}>Персональный менеджер</li>
+                  <li className="off" style={{ textDecoration: 'line-through' }}>Приоритетная поддержка</li>
+                  <li className="off" style={{ textDecoration: 'line-through' }}>Экспорт в CSV / Excel</li>
                 </ul>
               </div>
               <div className="compare-col compare-featured">
@@ -108,12 +102,10 @@ export default function ProPage() {
                 <ul>
                   <li>Безлимит расчётов</li>
                   <li>White-label PDF (логотип, реквизиты)</li>
-                  <li>База проектов РПКМ</li>
                   <li>Персональный менеджер</li>
                   <li>Приоритетная поддержка (24 ч SLA)</li>
                   <li>Экспорт в CSV / Excel</li>
-                  <li>API + вебхуки</li>
-                  <li>Шаблоны спецификаций</li>
+                  <li>Чек-лист для заёмщика</li>
                 </ul>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }}
                   onClick={() => subscribed ? null : setSubscribed(true)}
@@ -138,17 +130,6 @@ export default function ProPage() {
                   <h3>White-label PDF</h3>
                   <p>Загрузите логотип — все PDF будут с вашим брендом.</p>
                   <Btn variant="outline" onClick={() => setNotice('White-label PDF — в демо не реализовано')}>Настроить →</Btn>
-                </div>
-                <div className="club-card">
-                  <h3>База проектов</h3>
-                  <p>87 проектов РПКМ с фото и бюджетами.</p>
-                  <ul className="club-list">
-                    <li>🏢 Бизнес 80–150 м² · 23 проекта</li>
-                    <li>🌟 Премиум 150–300 м² · 18 проектов</li>
-                    <li>💎 Элит 300+ м² · 6 проектов</li>
-                    <li>🏠 Комфорт 50–80 м² · 40 проектов</li>
-                  </ul>
-                  <Btn variant="outline" onClick={() => setNotice('База проектов — в демо не реализовано')}>Открыть базу →</Btn>
                 </div>
                 <div className="club-card">
                   <h3>Персональный менеджер</h3>

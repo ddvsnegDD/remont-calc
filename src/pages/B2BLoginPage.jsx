@@ -17,12 +17,11 @@ export default function B2BLoginPage() {
   const navigate = useNavigate();
   const { user, sendCode, verify } = useAuth();
 
-  // Если уже авторизован как B2B — сразу в кабинет
   useEffect(() => {
     if (user?.role === 'b2b') navigate('/b2b-cabinet', { replace: true });
   }, [user, navigate]);
 
-  const [step, setStep] = useState('form'); // form | code | success
+  const [step, setStep] = useState('login'); // login | register | code | success
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -33,6 +32,7 @@ export default function B2BLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [isRegistering, setIsRegistering] = useState(false);
   const codeRef = useRef(null);
 
   useEffect(() => {
@@ -48,11 +48,18 @@ export default function B2BLoginPage() {
   const handleSendCode = async (e) => {
     e.preventDefault();
     if (!email || !email.includes('@')) { setError('Введите корректный email'); return; }
-    if (!name.trim()) { setError('Введите ФИО'); return; }
-    if (!phone.trim()) { setError('Введите номер телефона'); return; }
-    if (!organization.trim()) { setError('Введите организацию'); return; }
-    if (!position) { setError('Выберите специализацию'); return; }
     if (!consent) { setError('Необходимо согласие на обработку данных'); return; }
+
+    if (step === 'register') {
+      if (!name.trim()) { setError('Введите ФИО'); return; }
+      if (!phone.trim()) { setError('Введите номер телефона'); return; }
+      if (!organization.trim()) { setError('Введите организацию'); return; }
+      if (!position) { setError('Выберите специализацию'); return; }
+      setIsRegistering(true);
+    } else {
+      setIsRegistering(false);
+    }
+
     setError('');
     setLoading(true);
     try {
@@ -72,7 +79,11 @@ export default function B2BLoginPage() {
     setError('');
     setLoading(true);
     try {
-      await verify(email, code, name, phone, { role: 'b2b', organization, position });
+      if (isRegistering) {
+        await verify(email, code, name, phone, { role: 'b2b', organization, position });
+      } else {
+        await verify(email, code, null, null, { role: 'b2b' });
+      }
       setStep('success');
       setTimeout(() => navigate('/b2b-cabinet'), 1500);
     } catch (err) {
@@ -101,12 +112,59 @@ export default function B2BLoginPage() {
         <div className="quiz-wrap" style={{ maxWidth: 460 }}>
           <div className="quiz-card" style={{ padding: '36px 32px 32px' }}>
 
-            {step === 'form' && (
+            {/* LOGIN step — just email */}
+            {step === 'login' && (
               <>
                 <div style={{ fontSize: 40, marginBottom: 12, textAlign: 'center' }}>👷</div>
                 <h2 style={{ fontSize: 22, fontWeight: 700, color: C.graphite, textAlign: 'center', marginBottom: 6 }}>Вход для профессионалов</h2>
                 <p style={{ fontSize: 14, color: C.gray500, textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>
                   Дизайнеры, архитекторы, технические заказчики
+                </p>
+
+                <form onSubmit={handleSendCode} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 500, color: C.gray600, marginBottom: 4, display: 'block' }}>Email</label>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                      placeholder="you@company.com" autoFocus style={inputStyle}
+                      onFocus={e => e.target.style.borderColor = C.terra}
+                      onBlur={e => e.target.style.borderColor = C.gray200} />
+                  </div>
+
+                  {error && <div style={{ color: '#dc3545', fontSize: 13 }}>{error}</div>}
+
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+                    <input type="checkbox" checked={consent} onChange={e => { setConsent(e.target.checked); setError(''); }}
+                      style={{ marginTop: 2, accentColor: C.terra, width: 16, height: 16, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: C.gray500, lineHeight: 1.5 }}>
+                      Соглашаюсь с{' '}
+                      <Link to="/privacy" style={{ color: C.terra, textDecoration: 'underline' }}>Политикой конфиденциальности</Link>
+                      {' '}и{' '}
+                      <Link to="/offer" style={{ color: C.terra, textDecoration: 'underline' }}>Договором-офертой</Link>
+                    </span>
+                  </label>
+
+                  <Btn variant="dark" size="lg" style={{ width: '100%' }} disabled={loading || !consent}>
+                    {loading ? 'Отправляем...' : 'Получить код'}
+                  </Btn>
+                </form>
+
+                <div style={{ textAlign: 'center', marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.gray100}` }}>
+                  <p style={{ fontSize: 13, color: C.gray400, marginBottom: 8 }}>Нет аккаунта?</p>
+                  <button onClick={() => { setStep('register'); setError(''); }}
+                    style={{ background: 'none', border: 'none', color: C.terra, fontSize: 15, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                    Зарегистрироваться
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* REGISTER step — full form */}
+            {step === 'register' && (
+              <>
+                <div style={{ fontSize: 40, marginBottom: 12, textAlign: 'center' }}>📋</div>
+                <h2 style={{ fontSize: 22, fontWeight: 700, color: C.graphite, textAlign: 'center', marginBottom: 6 }}>Регистрация</h2>
+                <p style={{ fontSize: 14, color: C.gray500, textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>
+                  Заполните данные для создания аккаунта профессионала
                 </p>
 
                 <form onSubmit={handleSendCode} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -166,12 +224,17 @@ export default function B2BLoginPage() {
                   </Btn>
                 </form>
 
-                <p style={{ fontSize: 13, color: C.gray400, textAlign: 'center', marginTop: 16 }}>
-                  Уже есть аккаунт? Просто введите email — мы вас узнаем.
-                </p>
+                <div style={{ textAlign: 'center', marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.gray100}` }}>
+                  <p style={{ fontSize: 13, color: C.gray400, marginBottom: 8 }}>Уже есть аккаунт?</p>
+                  <button onClick={() => { setStep('login'); setError(''); }}
+                    style={{ background: 'none', border: 'none', color: C.terra, fontSize: 15, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                    Войти
+                  </button>
+                </div>
               </>
             )}
 
+            {/* CODE step */}
             {step === 'code' && (
               <>
                 <div style={{ fontSize: 40, marginBottom: 12, textAlign: 'center' }}>✉️</div>
@@ -206,13 +269,14 @@ export default function B2BLoginPage() {
                     </button>
                   )}
                 </div>
-                <button onClick={() => { setStep('form'); setCode(''); setError(''); }}
+                <button onClick={() => { setStep(isRegistering ? 'register' : 'login'); setCode(''); setError(''); }}
                   style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: C.gray500, fontSize: 13, cursor: 'pointer' }}>
                   ← Назад
                 </button>
               </>
             )}
 
+            {/* SUCCESS step */}
             {step === 'success' && (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>

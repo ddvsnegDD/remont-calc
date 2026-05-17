@@ -3,13 +3,11 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, User } from 'lucide-react';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
-import LoginModal from './LoginModal';
 import Btn from './Btn';
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
   const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -87,10 +85,7 @@ export function Header() {
                 onMouseLeave={e => e.target.style.color = C.gray400}>Выйти</button>
             </>
           ) : (
-            <>
-              <Btn variant="outline" style={{ padding: "10px 16px", fontSize: 14 }} onClick={() => setLoginOpen(true)}>Войти</Btn>
-              <Btn variant="dark" style={{ padding: "10px 16px", fontSize: 14 }} onClick={() => navigate('/b2b-login')}>Профи</Btn>
-            </>
+            <Btn variant="dark" style={{ padding: "10px 18px", fontSize: 14 }} onClick={() => navigate('/login')}>Вход</Btn>
           )}
         </div>
 
@@ -111,14 +106,12 @@ export function Header() {
               <button onClick={() => { logout(); setMenuOpen(false); }} style={{ background: 'none', border: 'none', color: C.gray400, fontSize: 13, cursor: 'pointer' }}>Выйти</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <Btn variant="terra" style={{ flex: 1, fontSize: 14 }} onClick={() => { setMenuOpen(false); setLoginOpen(true); }}>Войти</Btn>
-              <Btn variant="dark" style={{ flex: 1, fontSize: 14 }} onClick={() => { setMenuOpen(false); navigate('/b2b-login'); }}>Профи</Btn>
+            <div style={{ marginTop: 16 }}>
+              <Btn variant="dark" style={{ width: '100%', fontSize: 14 }} onClick={() => { setMenuOpen(false); navigate('/login'); }}>Вход</Btn>
             </div>
           )}
         </div>
       )}
-      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </header>
   );
 }

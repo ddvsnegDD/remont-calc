@@ -1,9 +1,9 @@
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
 // Pages
 import HomePage from './pages/HomePage';
-import AuthPage from './pages/AuthPage';
+import LoginChoicePage from './pages/LoginChoicePage';
 import B2CQuizPage from './pages/B2CQuizPage';
 import B2CDetailPage from './pages/B2CDetailPage';
 import B2CResultPage from './pages/B2CResultPage';
@@ -36,7 +36,8 @@ export default function App() {
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/login" element={<LoginChoicePage />} />
+        <Route path="/auth" element={<Navigate to="/login" replace />} />
 
         {/* B2C */}
         <Route path="/b2c" element={<B2CQuizPage />} />

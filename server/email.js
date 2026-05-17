@@ -16,6 +16,7 @@ function getTransporter() {
     port: parseInt(process.env.SMTP_PORT || '465'),
     secure: true,
     auth: { user, pass },
+    family: 4, // force IPv4 — Railway не поддерживает IPv6 к Яндексу
   });
   return transporter;
 }

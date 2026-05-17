@@ -89,7 +89,7 @@ export function Header() {
           ) : (
             <>
               <Btn variant="outline" style={{ padding: "10px 16px", fontSize: 14 }} onClick={() => setLoginOpen(true)}>Войти</Btn>
-              <Btn variant="dark" style={{ padding: "10px 16px", fontSize: 14 }} onClick={() => navigate('/auth')}>Профи</Btn>
+              <Btn variant="dark" style={{ padding: "10px 16px", fontSize: 14 }} onClick={() => navigate('/b2b-login')}>Профи</Btn>
             </>
           )}
         </div>
@@ -113,7 +113,7 @@ export function Header() {
           ) : (
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <Btn variant="terra" style={{ flex: 1, fontSize: 14 }} onClick={() => { setMenuOpen(false); setLoginOpen(true); }}>Войти</Btn>
-              <Btn variant="dark" style={{ flex: 1, fontSize: 14 }} onClick={() => { setMenuOpen(false); navigate('/auth'); }}>Профи</Btn>
+              <Btn variant="dark" style={{ flex: 1, fontSize: 14 }} onClick={() => { setMenuOpen(false); navigate('/b2b-login'); }}>Профи</Btn>
             </div>
           )}
         </div>

@@ -14,8 +14,15 @@ export async function initDB() {
         email VARCHAR(255) UNIQUE NOT NULL,
         name VARCHAR(255),
         phone VARCHAR(50),
+        role VARCHAR(20) DEFAULT 'b2c',
+        organization VARCHAR(255),
+        position VARCHAR(255),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      -- Миграция: добавляем новые колонки если их нет
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'b2c';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS organization VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS position VARCHAR(255);
       CREATE TABLE IF NOT EXISTS auth_codes (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) NOT NULL,
@@ -49,10 +56,18 @@ export async function findUserByEmail(email) {
   return rows[0] || null;
 }
 
-export async function createUser(email, name, phone) {
+export async function createUser(email, name, phone, { role, organization, position } = {}) {
   const { rows } = await pool.query(
-    'INSERT INTO users (email, name, phone) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET name = COALESCE(EXCLUDED.name, users.name), phone = COALESCE(EXCLUDED.phone, users.phone) RETURNING *',
-    [email.toLowerCase(), name || null, phone || null]
+    `INSERT INTO users (email, name, phone, role, organization, position)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (email) DO UPDATE SET
+       name = COALESCE(EXCLUDED.name, users.name),
+       phone = COALESCE(EXCLUDED.phone, users.phone),
+       role = COALESCE(EXCLUDED.role, users.role),
+       organization = COALESCE(EXCLUDED.organization, users.organization),
+       position = COALESCE(EXCLUDED.position, users.position)
+     RETURNING *`,
+    [email.toLowerCase(), name || null, phone || null, role || 'b2c', organization || null, position || null]
   );
   return rows[0];
 }
@@ -128,7 +143,7 @@ export async function activateSubscription(label) {
 // --- Admin ---
 export async function getAllUsers() {
   const { rows } = await pool.query(
-    `SELECT u.id, u.email, u.name, u.phone, u.created_at,
+    `SELECT u.id, u.email, u.name, u.phone, u.role, u.organization, u.position, u.created_at,
        s.plan AS sub_plan, s.status AS sub_status, s.expires_at AS sub_expires
      FROM users u
      LEFT JOIN LATERAL (
@@ -144,6 +159,8 @@ export async function getAdminStats() {
   const { rows } = await pool.query(`
     SELECT
       (SELECT COUNT(*) FROM users) AS total_users,
+      (SELECT COUNT(*) FROM users WHERE role = 'b2c') AS b2c_users,
+      (SELECT COUNT(*) FROM users WHERE role = 'b2b') AS b2b_users,
       (SELECT COUNT(*) FROM subscriptions WHERE status = 'trial' AND expires_at > NOW()) AS active_trials,
       (SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > NOW()) AS active_paid,
       (SELECT COUNT(*) FROM subscriptions WHERE status = 'pending') AS pending_payments

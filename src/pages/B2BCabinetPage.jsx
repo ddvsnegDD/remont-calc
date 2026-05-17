@@ -4,6 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { formatRub } from '../lib/calculator';
+import { useAuth } from '../lib/auth';
 
 const ROLE_LABEL = {
   designer: 'Дизайнер интерьеров',
@@ -15,7 +16,7 @@ const ROLE_LABEL = {
 
 export default function B2BCabinetPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user, loading: authLoading, logout: authLogout } = useAuth();
   const [calcs, setCalcs] = useState([]);
   const [notice, setNotice] = useState(null);
 
@@ -25,26 +26,29 @@ export default function B2BCabinetPage() {
     return () => clearTimeout(t);
   }, [notice]);
 
+  // Redirect if not logged in or not B2B
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('rpkm-b2b-user');
-      if (!raw) { navigate('/b2b-login'); return; }
-      setUser(JSON.parse(raw));
-    } catch { navigate('/b2b-login'); }
+    if (authLoading) return;
+    if (!user) { navigate('/b2b-login'); return; }
+    // Allow both B2B and B2C users to access (B2C might want to switch)
+  }, [user, authLoading, navigate]);
+
+  // Load calcs from localStorage (will move to DB in Stage 2)
+  useEffect(() => {
     try {
       const all = JSON.parse(localStorage.getItem('rpkm-b2b-calcs') || '[]');
       setCalcs(all);
     } catch {}
-  }, [navigate]);
+  }, []);
 
-  const logout = useCallback(() => {
-    sessionStorage.removeItem('rpkm-b2b-user');
+  const handleLogout = useCallback(async () => {
+    await authLogout();
     navigate('/');
-  }, [navigate]);
+  }, [authLogout, navigate]);
 
-  if (!user) return null;
+  if (authLoading || !user) return null;
 
-  const roleLabel = ROLE_LABEL[user.role] || user.role || 'Профессионал';
+  const roleLabel = ROLE_LABEL[user.position] || ROLE_LABEL[user.role] || 'Профессионал';
   const orgLabel = user.organization ? ` · ${user.organization}` : '';
 
   return (
@@ -55,6 +59,7 @@ export default function B2BCabinetPage() {
             <div className="cabinet-user">
               <div className="cabinet-user-name">{user.name || user.email}</div>
               <div className="cabinet-user-role">{roleLabel}{orgLabel}</div>
+              <div style={{ fontSize: 12, color: C.gray400, marginTop: 4 }}>{user.email}</div>
             </div>
             <ul className="cabinet-menu">
               <li className="active">📊 Расчёты</li>
@@ -70,7 +75,7 @@ export default function B2BCabinetPage() {
                 </Link>
               </div>
             </div>
-            <button onClick={logout} style={{ marginTop: 16, background: 'none', border: 'none', color: C.gray500, cursor: 'pointer', fontSize: 13 }}>Выйти</button>
+            <button onClick={handleLogout} style={{ marginTop: 16, background: 'none', border: 'none', color: C.gray500, cursor: 'pointer', fontSize: 13 }}>Выйти</button>
           </aside>
 
           <section className="cabinet-main">
@@ -88,7 +93,7 @@ export default function B2BCabinetPage() {
             </div>
 
             <div className="alert alert-info" style={{ marginBottom: 20 }}>
-              <strong>NDA активен.</strong> Все расчёты хранятся в вашем браузере и не передаются третьим лицам.
+              <strong>NDA активен.</strong> Все расчёты хранятся конфиденциально и не передаются третьим лицам.
             </div>
 
             {calcs.length === 0 ? (

@@ -71,14 +71,14 @@ app.post('/api/auth/send-code', requireDB, async (req, res) => {
 
 // Проверить код, войти/зарегистрироваться
 app.post('/api/auth/verify', requireDB, async (req, res) => {
-  const { email, code, name, phone } = req.body;
+  const { email, code, name, phone, role, organization, position } = req.body;
   if (!email || !code) return res.status(400).json({ ok: false, error: 'Введите email и код' });
   try {
     const valid = await verifyAuthCode(email, code);
     if (!valid) return res.status(400).json({ ok: false, error: 'Неверный или просроченный код' });
-    const user = await createUser(email, name, phone);
-    // Auto-start trial for new users
-    await createTrialSubscription(user.id);
+    const user = await createUser(email, name, phone, { role, organization, position });
+    // Auto-start trial for B2C users
+    if (user.role !== 'b2b') await createTrialSubscription(user.id);
     const sub = await getActiveSubscription(user.id);
     const token = signToken(user);
     res.cookie('rpkm_token', token, {
@@ -87,7 +87,7 @@ app.post('/api/auth/verify', requireDB, async (req, res) => {
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
-    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name }, subscription: sub });
+    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, organization: user.organization }, subscription: sub });
   } catch (err) {
     console.error('verify error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка входа' });
@@ -102,7 +102,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     const sub = await getActiveSubscription(user.id);
     res.json({
       ok: true,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, organization: user.organization },
       subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } : null,
     });
   } catch (err) {

@@ -38,12 +38,12 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const verify = useCallback(async (email, code, name, phone) => {
+  const verify = useCallback(async (email, code, name, phone, extra = {}) => {
     const res = await fetch('/api/auth/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email, code, name, phone }),
+      body: JSON.stringify({ email, code, name, phone, ...extra }),
     });
     const data = await safeParse(res);
     if (!data.ok) throw new Error(data.error || 'Ошибка');

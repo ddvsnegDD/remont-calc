@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
-import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn } from 'lucide-react';
+import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase } from 'lucide-react';
 import Btn from '../components/Btn';
 
 const STATUS_MAP = {
@@ -152,6 +152,7 @@ export default function AdminPage() {
           {stats && (
             <div style={{ display: 'flex', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
               <StatCard icon={Users} label="Всего пользователей" value={stats.total_users} color="#6366f1" />
+              <StatCard icon={Briefcase} label="B2B профи" value={stats.b2b_users} color="#8b5cf6" />
               <StatCard icon={Clock} label="Активных триалов" value={stats.active_trials} color="#2563eb" />
               <StatCard icon={CreditCard} label="Платных подписок" value={stats.active_paid} color="#16a34a" />
               <StatCard icon={AlertCircle} label="Ожидают оплаты" value={stats.pending_payments} color="#d97706" />
@@ -167,7 +168,7 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Email', 'Имя', 'Телефон', 'Подписка', 'Истекает', 'Регистрация'].map(h => (
+                    {['ID', 'Тип', 'Email', 'Имя', 'Организация', 'Подписка', 'Истекает', 'Регистрация'].map(h => (
                       <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: C.gray500, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
@@ -180,9 +181,16 @@ export default function AdminPage() {
                     return (
                       <tr key={u.id} style={{ borderTop: `1px solid ${C.gray100}` }}>
                         <td style={{ padding: '12px 16px', color: C.gray400 }}>{u.id}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                            color: u.role === 'b2b' ? '#7c3aed' : '#2563eb',
+                            background: u.role === 'b2b' ? '#f5f3ff' : '#eff6ff' }}>
+                            {u.role === 'b2b' ? 'B2B' : 'B2C'}
+                          </span>
+                        </td>
                         <td style={{ padding: '12px 16px', fontWeight: 500, color: C.graphite }}>{u.email}</td>
                         <td style={{ padding: '12px 16px', color: u.name ? C.graphite : C.gray300 }}>{u.name || '—'}</td>
-                        <td style={{ padding: '12px 16px', color: u.phone ? C.graphite : C.gray300 }}>{u.phone || '—'}</td>
+                        <td style={{ padding: '12px 16px', color: u.organization ? C.graphite : C.gray300, fontSize: 13 }}>{u.organization || '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           {u.sub_status ? <Badge status={effectiveStatus} /> : <span style={{ color: C.gray300 }}>—</span>}
                         </td>
@@ -196,7 +204,7 @@ export default function AdminPage() {
                     );
                   })}
                   {users.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей</td></tr>
+                    <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей</td></tr>
                   )}
                 </tbody>
               </table>

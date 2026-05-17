@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
@@ -12,6 +13,7 @@ export default function LoginModal({ open, onClose, onSuccess }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [consent, setConsent] = useState(false);
   const codeRef = useRef(null);
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export default function LoginModal({ open, onClose, onSuccess }) {
         setEmail('');
         setCode('');
         setError('');
+        setConsent(false);
       }, 300);
     }
   }, [open]);
@@ -39,6 +42,7 @@ export default function LoginModal({ open, onClose, onSuccess }) {
   const handleSendCode = async (e) => {
     e.preventDefault();
     if (!email || !email.includes('@')) { setError('Введите корректный email'); return; }
+    if (!consent) { setError('Необходимо согласие на обработку данных'); return; }
     setError('');
     setLoading(true);
     try {
@@ -119,13 +123,24 @@ export default function LoginModal({ open, onClose, onSuccess }) {
                 onBlur={e => e.target.style.borderColor = C.gray200}
               />
               {error && <div style={{ color: '#dc3545', fontSize: 13, marginTop: 8 }}>{error}</div>}
-              <Btn variant="terra" size="lg" style={{ width: '100%', marginTop: 16 }} disabled={loading}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16, cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={e => { setConsent(e.target.checked); setError(''); }}
+                  style={{ marginTop: 2, accentColor: C.terra, width: 16, height: 16, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 12, color: C.gray500, lineHeight: 1.5 }}>
+                  Соглашаюсь с{' '}
+                  <Link to="/privacy" onClick={onClose} style={{ color: C.terra, textDecoration: 'underline' }}>Политикой конфиденциальности</Link>
+                  {' '}и{' '}
+                  <Link to="/offer" onClick={onClose} style={{ color: C.terra, textDecoration: 'underline' }}>Договором-офертой</Link>
+                </span>
+              </label>
+              <Btn variant="terra" size="lg" style={{ width: '100%', marginTop: 12 }} disabled={loading || !consent}>
                 {loading ? 'Отправляем...' : 'Получить код'}
               </Btn>
             </form>
-            <p style={{ fontSize: 12, color: C.gray400, textAlign: 'center', marginTop: 16 }}>
-              Нажимая «Получить код», вы соглашаетесь с обработкой email (152-ФЗ)
-            </p>
           </>
         )}
 

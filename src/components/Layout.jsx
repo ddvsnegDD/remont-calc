@@ -161,7 +161,16 @@ export function Footer() {
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>© 2026 РПКМ · Демо-проект</span>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>Не является публичной офертой</span>
+          <div style={{ display: "flex", gap: 20 }}>
+            <Link to="/privacy" style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", textDecoration: "none", transition: "color 0.2s" }}
+              onMouseEnter={e => e.target.style.color = "rgba(255,255,255,0.5)"}
+              onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.25)"}
+            >Политика конфиденциальности</Link>
+            <Link to="/offer" style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", textDecoration: "none", transition: "color 0.2s" }}
+              onMouseEnter={e => e.target.style.color = "rgba(255,255,255,0.5)"}
+              onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.25)"}
+            >Договор-оферта</Link>
+          </div>
         </div>
       </div>
     </footer>

@@ -1,18 +1,206 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { resolve, join } from 'path';
+import { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription } from './server/db.js';
+import { sendAuthCode } from './server/email.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DIST = resolve('dist');
+const JWT_SECRET = process.env.JWT_SECRET || 'rpkm-dev-secret-change-in-prod';
+const YOOMONEY_WALLET = process.env.YOOMONEY_WALLET || '4100183647078';
+const YOOMONEY_SECRET = process.env.YOOMONEY_SECRET || '';
+const SITE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  : `http://localhost:${PORT}`;
 
-// Битрикс24 webhook (входящий вебхук с правами CRM)
+// Битрикс24
 const B24_WEBHOOK = process.env.B24_WEBHOOK;
 if (!B24_WEBHOOK) console.warn('⚠️  B24_WEBHOOK не задан — заявки в CRM отправляться не будут');
 
-// Parse JSON body
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// API: создание сделки + контакта в Битрикс24
+// --- JWT helpers ---
+function signToken(user) {
+  return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+}
+
+function authMiddleware(req, res, next) {
+  const token = req.cookies?.rpkm_token || req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ ok: false, error: 'Не авторизован' });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ ok: false, error: 'Сессия истекла' });
+  }
+}
+
+// ==================== AUTH API ====================
+
+// Отправить код на email
+app.post('/api/auth/send-code', async (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes('@')) return res.status(400).json({ ok: false, error: 'Введите email' });
+  const code = String(Math.floor(1000 + Math.random() * 9000)); // 4 digits
+  try {
+    await saveAuthCode(email, code);
+    await sendAuthCode(email, code);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('send-code error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка отправки кода' });
+  }
+});
+
+// Проверить код, войти/зарегистрироваться
+app.post('/api/auth/verify', async (req, res) => {
+  const { email, code, name, phone } = req.body;
+  if (!email || !code) return res.status(400).json({ ok: false, error: 'Введите email и код' });
+  try {
+    const valid = await verifyAuthCode(email, code);
+    if (!valid) return res.status(400).json({ ok: false, error: 'Неверный или просроченный код' });
+    const user = await createUser(email, name, phone);
+    // Auto-start trial for new users
+    await createTrialSubscription(user.id);
+    const sub = await getActiveSubscription(user.id);
+    const token = signToken(user);
+    res.cookie('rpkm_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name }, subscription: sub });
+  } catch (err) {
+    console.error('verify error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка входа' });
+  }
+});
+
+// Текущий пользователь + подписка
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+    const sub = await getActiveSubscription(user.id);
+    res.json({
+      ok: true,
+      user: { id: user.id, email: user.email, name: user.name },
+      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } : null,
+    });
+  } catch (err) {
+    console.error('me error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// Выход
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('rpkm_token');
+  res.json({ ok: true });
+});
+
+// ==================== SUBSCRIPTION API ====================
+
+const PLANS = {
+  monthly: { price: 490, days: 30, label: 'Клуб РПКМ · 1 месяц' },
+  yearly: { price: 4900, days: 365, label: 'Клуб РПКМ · 1 год' },
+};
+
+// Статус подписки
+app.get('/api/subscription/status', authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    const sub = await getActiveSubscription(user.id);
+    res.json({
+      ok: true,
+      hasAccess: !!sub,
+      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } : null,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// Создать платёж → редирект на ЮMoney
+app.post('/api/subscription/pay', authMiddleware, async (req, res) => {
+  const { plan } = req.body;
+  const planData = PLANS[plan];
+  if (!planData) return res.status(400).json({ ok: false, error: 'Неверный план' });
+
+  try {
+    const user = await findUserByEmail(req.user.email);
+    const label = `sub_${user.id}_${Date.now()}`;
+    await createPendingSubscription(user.id, plan, label, planData.price);
+
+    const params = new URLSearchParams({
+      receiver: YOOMONEY_WALLET,
+      'quickpay-form': 'button',
+      paymentType: 'AC',
+      sum: String(planData.price),
+      label,
+      targets: planData.label,
+      successURL: `${SITE_URL}/club?payment=success&label=${label}`,
+    });
+    const paymentUrl = `https://yoomoney.ru/quickpay/confirm?${params}`;
+    res.json({ ok: true, paymentUrl, label });
+  } catch (err) {
+    console.error('pay error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка создания платежа' });
+  }
+});
+
+// Вебхук ЮMoney — уведомление об оплате
+app.post('/api/subscription/yoomoney-webhook', async (req, res) => {
+  const { notification_type, operation_id, amount, currency, datetime, sender, codepro, label, sha1_hash } = req.body;
+  console.log('💰 ЮMoney webhook:', { label, amount, operation_id });
+
+  // Верификация подписи (если настроен секрет)
+  if (YOOMONEY_SECRET) {
+    const checkStr = `${notification_type}&${operation_id}&${amount}&${currency}&${datetime}&${sender}&${codepro}&${YOOMONEY_SECRET}&${label}`;
+    const hash = crypto.createHash('sha1').update(checkStr).digest('hex');
+    if (hash !== sha1_hash) {
+      console.error('ЮMoney: неверная подпись');
+      return res.status(400).send('Invalid signature');
+    }
+  }
+
+  if (!label) return res.status(400).send('No label');
+
+  try {
+    const sub = await activateSubscription(label);
+    if (sub) {
+      console.log(`✅ Подписка активирована: user_id=${sub.user_id}, plan=${sub.plan}, до ${sub.expires_at}`);
+    } else {
+      console.warn('⚠️  Подписка не найдена для label:', label);
+    }
+    res.send('OK');
+  } catch (err) {
+    console.error('webhook error:', err);
+    res.status(500).send('Error');
+  }
+});
+
+// Ручная активация (для демо / после возврата с ЮMoney)
+app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
+  const { label } = req.body;
+  if (!label) return res.status(400).json({ ok: false });
+  try {
+    const sub = await activateSubscription(label);
+    res.json({ ok: !!sub, subscription: sub });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// ==================== BITRIX24 API ====================
+
 app.post('/api/lead', async (req, res) => {
   const { title, name, phone, email, comment, source } = req.body;
   console.log('→ /api/lead', title);
@@ -25,7 +213,6 @@ app.post('/api/lead', async (req, res) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    // 1. Создаём контакт
     const contactRes = await fetch(`${B24_WEBHOOK}/crm.contact.add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -44,7 +231,6 @@ app.post('/api/lead', async (req, res) => {
     const contactId = contactData.result;
     console.log('← Contact created:', contactId);
 
-    // 2. Создаём сделку, привязанную к контакту
     const dealRes = await fetch(`${B24_WEBHOOK}/crm.deal.add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -77,14 +263,30 @@ app.post('/api/lead', async (req, res) => {
   }
 });
 
-// Serve static files from dist/
+// ==================== STATIC + SPA ====================
+
 app.use(express.static(DIST));
 
-// SPA fallback — любой не-API маршрут → index.html
 app.get('/{*splat}', (req, res) => {
   res.sendFile(join(DIST, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`РПКМ server → http://localhost:${PORT}`);
-});
+// ==================== START ====================
+
+async function start() {
+  if (process.env.DATABASE_URL) {
+    try {
+      await initDB();
+    } catch (err) {
+      console.error('DB init error:', err.message);
+      console.warn('⚠️  Сервер запущен без БД — авторизация и подписки не будут работать');
+    }
+  } else {
+    console.warn('⚠️  DATABASE_URL не задан — авторизация и подписки отключены');
+  }
+  app.listen(PORT, () => {
+    console.log(`РПКМ server → ${SITE_URL}`);
+  });
+}
+
+start();

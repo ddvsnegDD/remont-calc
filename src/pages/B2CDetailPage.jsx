@@ -1,8 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
+import LoginModal from '../components/LoginModal';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
+import { useAuth } from '../lib/auth';
 import { SpecCalc } from '../lib/spec-calculator';
 import { createLead, formatDetailComment } from '../lib/bitrix';
 
@@ -10,6 +12,8 @@ export default function B2CDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const source = searchParams.get('source');
+  const { hasAccess, loading: authLoading } = useAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
 
   // Form state
   const [tier, setTier] = useState('capital');
@@ -23,9 +27,6 @@ export default function B2CDetailPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [agree, setAgree] = useState(false);
-
-  // Subscription gate — доступ только для Клуба и Профи
-  const [hasAccess] = useState(false);
 
   const effectiveMode = tier === 'premium' ? 'full' : mode;
   const effectiveReplan = effectiveMode === 'whitebox' ? 'no' : replan;
@@ -77,6 +78,18 @@ export default function B2CDetailPage() {
     { key: 'full', emoji: '🏗️', label: `Полная · +5% сметы + ${approvalCost.toLocaleString('ru-RU')} ₽ за согласование` },
   ];
 
+  if (authLoading) {
+    return (
+      <PageLayout>
+        <div className="quiz-page">
+          <div className="quiz-wrap" style={{ maxWidth: 760, textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{ fontSize: 14, color: C.gray400 }}>Загрузка...</div>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
   if (!hasAccess) {
     return (
       <PageLayout>
@@ -103,6 +116,7 @@ export default function B2CDetailPage() {
             </div>
           </div>
         </div>
+        <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
       </PageLayout>
     );
   }

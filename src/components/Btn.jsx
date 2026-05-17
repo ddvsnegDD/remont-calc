@@ -1,6 +1,6 @@
 import { C } from '../lib/theme';
 
-const Btn = ({ children, variant = "terra", style: sx, ...rest }) => {
+const Btn = ({ children, variant = "terra", style: sx, disabled, ...rest }) => {
   const base = {
     display: "inline-flex", alignItems: "center", justifyContent: "center",
     gap: 8, padding: "14px 28px", borderRadius: 10, fontWeight: 600,
@@ -15,9 +15,11 @@ const Btn = ({ children, variant = "terra", style: sx, ...rest }) => {
     outlineLight: { ...base, background: "transparent", border: "1.5px solid rgba(255,255,255,0.25)", color: "#fff" },
     white: { ...base, background: "#fff", color: C.graphiteLight, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
   };
+  const disabledStyle = disabled ? { opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' } : {};
   return (
     <button
-      style={{ ...variants[variant], ...sx }}
+      disabled={disabled}
+      style={{ ...variants[variant], ...disabledStyle, ...sx }}
       onMouseEnter={e => {
         e.currentTarget.style.transform = "translateY(-3px)";
         e.currentTarget.style.filter = "brightness(1.1)";

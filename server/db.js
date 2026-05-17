@@ -1,0 +1,128 @@
+import pg from 'pg';
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+
+export async function initDB() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255),
+        phone VARCHAR(50),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS auth_codes (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        code VARCHAR(6) NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        plan VARCHAR(50) NOT NULL DEFAULT 'monthly',
+        status VARCHAR(50) NOT NULL DEFAULT 'trial',
+        started_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        payment_label VARCHAR(255),
+        payment_id VARCHAR(255),
+        amount INTEGER,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log('DB tables ready');
+  } finally {
+    client.release();
+  }
+}
+
+// --- Users ---
+export async function findUserByEmail(email) {
+  const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+  return rows[0] || null;
+}
+
+export async function createUser(email, name, phone) {
+  const { rows } = await pool.query(
+    'INSERT INTO users (email, name, phone) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET name = COALESCE(EXCLUDED.name, users.name), phone = COALESCE(EXCLUDED.phone, users.phone) RETURNING *',
+    [email.toLowerCase(), name || null, phone || null]
+  );
+  return rows[0];
+}
+
+// --- Auth codes ---
+export async function saveAuthCode(email, code) {
+  const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+  await pool.query(
+    'INSERT INTO auth_codes (email, code, expires_at) VALUES ($1, $2, $3)',
+    [email.toLowerCase(), code, expires]
+  );
+}
+
+export async function verifyAuthCode(email, code) {
+  const { rows } = await pool.query(
+    `SELECT * FROM auth_codes WHERE email = $1 AND code = $2 AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`,
+    [email.toLowerCase(), code]
+  );
+  if (!rows[0]) return false;
+  await pool.query('UPDATE auth_codes SET used = TRUE WHERE id = $1', [rows[0].id]);
+  return true;
+}
+
+// --- Subscriptions ---
+export async function getActiveSubscription(userId) {
+  const { rows } = await pool.query(
+    `SELECT * FROM subscriptions WHERE user_id = $1 AND status IN ('trial', 'active') AND expires_at > NOW() ORDER BY expires_at DESC LIMIT 1`,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+export async function createTrialSubscription(userId) {
+  const existing = await getActiveSubscription(userId);
+  if (existing) return existing;
+  // Check if user ever had a trial
+  const { rows: past } = await pool.query(
+    `SELECT id FROM subscriptions WHERE user_id = $1 AND status = 'trial' LIMIT 1`,
+    [userId]
+  );
+  if (past.length > 0) return null; // trial already used
+  const expires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+  const { rows } = await pool.query(
+    `INSERT INTO subscriptions (user_id, plan, status, expires_at) VALUES ($1, 'trial', 'trial', $2) RETURNING *`,
+    [userId, expires]
+  );
+  return rows[0];
+}
+
+export async function createPendingSubscription(userId, plan, label, amount) {
+  const { rows } = await pool.query(
+    `INSERT INTO subscriptions (user_id, plan, status, payment_label, amount, expires_at) VALUES ($1, $2, 'pending', $3, $4, NOW()) RETURNING *`,
+    [userId, plan, label, amount]
+  );
+  return rows[0];
+}
+
+export async function activateSubscription(label) {
+  const days = 30; // default monthly
+  const { rows } = await pool.query(
+    `UPDATE subscriptions SET status = 'active', started_at = NOW(), expires_at = NOW() + INTERVAL '1 day' * $2 WHERE payment_label = $1 AND status = 'pending' RETURNING *`,
+    [label, days]
+  );
+  if (rows[0] && rows[0].plan === 'yearly') {
+    await pool.query(
+      `UPDATE subscriptions SET expires_at = NOW() + INTERVAL '365 days' WHERE id = $1`,
+      [rows[0].id]
+    );
+  }
+  return rows[0] || null;
+}
+
+export default pool;

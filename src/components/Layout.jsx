@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User } from 'lucide-react';
 import { C } from '../lib/theme';
+import { useAuth } from '../lib/auth';
+import LoginModal from './LoginModal';
 import Btn from './Btn';
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -71,8 +75,23 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="desktop-only">
-          <Btn variant="dark" style={{ padding: "10px 20px", fontSize: 14 }} onClick={() => navigate('/auth')}>Кабинет профи</Btn>
+        <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {!loading && user ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: C.terraBg, borderRadius: 8 }}>
+                <User size={16} color={C.terra} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.terra }}>{user.name || user.email.split('@')[0]}</span>
+              </div>
+              <button onClick={logout} style={{ background: 'none', border: 'none', color: C.gray400, fontSize: 13, cursor: 'pointer', padding: '8px 4px' }}
+                onMouseEnter={e => e.target.style.color = C.terra}
+                onMouseLeave={e => e.target.style.color = C.gray400}>Выйти</button>
+            </>
+          ) : (
+            <>
+              <Btn variant="outline" style={{ padding: "10px 16px", fontSize: 14 }} onClick={() => setLoginOpen(true)}>Войти</Btn>
+              <Btn variant="dark" style={{ padding: "10px 16px", fontSize: 14 }} onClick={() => navigate('/auth')}>Профи</Btn>
+            </>
+          )}
         </div>
 
         <button className="mobile-only" onClick={() => setMenuOpen(!menuOpen)} style={{ background: "none", border: "none", cursor: "pointer", padding: 8 }}>
@@ -83,9 +102,23 @@ export function Header() {
       {menuOpen && (
         <div className="mobile-only" style={{ background: "#fff", padding: "8px 24px 20px", borderTop: `1px solid ${C.gray100}` }}>
           {links.map(l => <Link key={l.to} to={l.to} onClick={(e) => { handleNavClick(e, l.to); setMenuOpen(false); }} style={{ display: "block", padding: "14px 0", color: C.graphiteLight, fontSize: 16, textDecoration: "none", borderBottom: `1px solid ${C.gray100}` }}>{l.label}</Link>)}
-          <Btn variant="dark" style={{ width: "100%", marginTop: 16, fontSize: 14 }} onClick={() => { setMenuOpen(false); navigate('/auth'); }}>Кабинет профи</Btn>
+          {!loading && user ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: C.terraBg, borderRadius: 8 }}>
+                <User size={16} color={C.terra} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.terra }}>{user.name || user.email.split('@')[0]}</span>
+              </div>
+              <button onClick={() => { logout(); setMenuOpen(false); }} style={{ background: 'none', border: 'none', color: C.gray400, fontSize: 13, cursor: 'pointer' }}>Выйти</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <Btn variant="terra" style={{ flex: 1, fontSize: 14 }} onClick={() => { setMenuOpen(false); setLoginOpen(true); }}>Войти</Btn>
+              <Btn variant="dark" style={{ flex: 1, fontSize: 14 }} onClick={() => { setMenuOpen(false); navigate('/auth'); }}>Профи</Btn>
+            </div>
+          )}
         </div>
       )}
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </header>
   );
 }

@@ -25,6 +25,7 @@ export default function B2BLoginPage() {
   const [step, setStep] = useState('form'); // form | code | success
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [organization, setOrganization] = useState('');
   const [position, setPosition] = useState('');
   const [code, setCode] = useState('');
@@ -48,6 +49,7 @@ export default function B2BLoginPage() {
     e.preventDefault();
     if (!email || !email.includes('@')) { setError('Введите корректный email'); return; }
     if (!name.trim()) { setError('Введите ФИО'); return; }
+    if (!phone.trim()) { setError('Введите номер телефона'); return; }
     if (!organization.trim()) { setError('Введите организацию'); return; }
     if (!position) { setError('Выберите специализацию'); return; }
     if (!consent) { setError('Необходимо согласие на обработку данных'); return; }
@@ -70,7 +72,7 @@ export default function B2BLoginPage() {
     setError('');
     setLoading(true);
     try {
-      await verify(email, code, name, null, { role: 'b2b', organization, position });
+      await verify(email, code, name, phone, { role: 'b2b', organization, position });
       setStep('success');
       setTimeout(() => navigate('/b2b-cabinet'), 1500);
     } catch (err) {
@@ -119,6 +121,13 @@ export default function B2BLoginPage() {
                     <label style={{ fontSize: 13, fontWeight: 500, color: C.gray600, marginBottom: 4, display: 'block' }}>Email *</label>
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                       placeholder="you@company.com" style={inputStyle}
+                      onFocus={e => e.target.style.borderColor = C.terra}
+                      onBlur={e => e.target.style.borderColor = C.gray200} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 500, color: C.gray600, marginBottom: 4, display: 'block' }}>Телефон *</label>
+                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                      placeholder="+7 (999) 123-45-67" style={inputStyle}
                       onFocus={e => e.target.style.borderColor = C.terra}
                       onBlur={e => e.target.style.borderColor = C.gray200} />
                   </div>

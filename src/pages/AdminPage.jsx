@@ -227,7 +227,7 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Email', 'Имя', 'Организация', 'Специализация', 'Регистрация'].map(h => (
+                    {['ID', 'Email', 'Имя', 'Телефон', 'Организация', 'Специализация', 'Регистрация'].map(h => (
                       <th key={h} style={thStyle}>{h}</th>
                     ))}
                   </tr>
@@ -238,6 +238,7 @@ export default function AdminPage() {
                       <td style={{ ...tdStyle, color: C.gray400 }}>{u.id}</td>
                       <td style={{ ...tdStyle, fontWeight: 500, color: C.graphite }}>{u.email}</td>
                       <td style={{ ...tdStyle, color: u.name ? C.graphite : C.gray300 }}>{u.name || '—'}</td>
+                      <td style={{ ...tdStyle, color: u.phone ? C.graphite : C.gray300 }}>{u.phone || '—'}</td>
                       <td style={{ ...tdStyle, color: u.organization ? C.graphite : C.gray300 }}>{u.organization || '—'}</td>
                       <td style={{ ...tdStyle, color: u.position ? C.graphite : C.gray300 }}>{POSITION_LABELS[u.position] || u.position || '—'}</td>
                       <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
@@ -246,7 +247,7 @@ export default function AdminPage() {
                     </tr>
                   ))}
                   {b2bUsers.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2B</td></tr>
+                    <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2B</td></tr>
                   )}
                 </tbody>
               </table>

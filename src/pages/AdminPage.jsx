@@ -4,6 +4,14 @@ import { C } from '../lib/theme';
 import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase } from 'lucide-react';
 import Btn from '../components/Btn';
 
+const POSITION_LABELS = {
+  designer: 'Дизайнер',
+  architect: 'Архитектор',
+  tech_customer: 'Тех. заказчик',
+  presale_engineer: 'Инженер пресейла',
+  other: 'Другое',
+};
+
 const STATUS_MAP = {
   trial: { label: 'Триал', color: '#2563EB', bg: '#EFF6FF' },
   active: { label: 'Активна', color: '#16a34a', bg: '#f0fdf4' },
@@ -159,57 +167,94 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Users table */}
+          {/* B2C Users table */}
+          {(() => {
+            const b2cUsers = users.filter(u => u.role !== 'b2b');
+            const b2bUsers = users.filter(u => u.role === 'b2b');
+            const tdStyle = { padding: '12px 16px' };
+            const thStyle = { padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: C.gray500, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' };
+            return (<>
           <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${C.gray100}`, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.gray100}` }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: C.graphite }}>Пользователи ({users.length})</h2>
+            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.gray100}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#2563eb', background: '#eff6ff' }}>B2C</span>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: C.graphite }}>Физические лица ({b2cUsers.length})</h2>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Тип', 'Email', 'Имя', 'Организация', 'Подписка', 'Истекает', 'Регистрация'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: C.gray500, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                        {h}
-                      </th>
+                    {['ID', 'Email', 'Имя', 'Телефон', 'Подписка', 'Истекает', 'Регистрация'].map(h => (
+                      <th key={h} style={thStyle}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map(u => {
+                  {b2cUsers.map(u => {
                     const effectiveStatus = isExpired(u.sub_status, u.sub_expires) ? 'expired' : u.sub_status;
                     return (
                       <tr key={u.id} style={{ borderTop: `1px solid ${C.gray100}` }}>
-                        <td style={{ padding: '12px 16px', color: C.gray400 }}>{u.id}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                            color: u.role === 'b2b' ? '#7c3aed' : '#2563eb',
-                            background: u.role === 'b2b' ? '#f5f3ff' : '#eff6ff' }}>
-                            {u.role === 'b2b' ? 'B2B' : 'B2C'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px', fontWeight: 500, color: C.graphite }}>{u.email}</td>
-                        <td style={{ padding: '12px 16px', color: u.name ? C.graphite : C.gray300 }}>{u.name || '—'}</td>
-                        <td style={{ padding: '12px 16px', color: u.organization ? C.graphite : C.gray300, fontSize: 13 }}>{u.organization || '—'}</td>
-                        <td style={{ padding: '12px 16px' }}>
+                        <td style={{ ...tdStyle, color: C.gray400 }}>{u.id}</td>
+                        <td style={{ ...tdStyle, fontWeight: 500, color: C.graphite }}>{u.email}</td>
+                        <td style={{ ...tdStyle, color: u.name ? C.graphite : C.gray300 }}>{u.name || '—'}</td>
+                        <td style={{ ...tdStyle, color: u.phone ? C.graphite : C.gray300 }}>{u.phone || '—'}</td>
+                        <td style={tdStyle}>
                           {u.sub_status ? <Badge status={effectiveStatus} /> : <span style={{ color: C.gray300 }}>—</span>}
                         </td>
-                        <td style={{ padding: '12px 16px', color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
+                        <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                           {u.sub_expires ? formatDate(u.sub_expires) : '—'}
                         </td>
-                        <td style={{ padding: '12px 16px', color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
+                        <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                           {formatDate(u.created_at)}
                         </td>
                       </tr>
                     );
                   })}
-                  {users.length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей</td></tr>
+                  {b2cUsers.length === 0 && (
+                    <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2C</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
+
+          {/* B2B Users table */}
+          <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${C.gray100}`, overflow: 'hidden', marginTop: 28 }}>
+            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.gray100}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#8b5cf6', background: '#f5f3ff' }}>B2B</span>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: C.graphite }}>Профессионалы ({b2bUsers.length})</h2>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                  <tr style={{ background: '#fafafa' }}>
+                    {['ID', 'Email', 'Имя', 'Организация', 'Специализация', 'Регистрация'].map(h => (
+                      <th key={h} style={thStyle}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {b2bUsers.map(u => (
+                    <tr key={u.id} style={{ borderTop: `1px solid ${C.gray100}` }}>
+                      <td style={{ ...tdStyle, color: C.gray400 }}>{u.id}</td>
+                      <td style={{ ...tdStyle, fontWeight: 500, color: C.graphite }}>{u.email}</td>
+                      <td style={{ ...tdStyle, color: u.name ? C.graphite : C.gray300 }}>{u.name || '—'}</td>
+                      <td style={{ ...tdStyle, color: u.organization ? C.graphite : C.gray300 }}>{u.organization || '—'}</td>
+                      <td style={{ ...tdStyle, color: u.position ? C.graphite : C.gray300 }}>{POSITION_LABELS[u.position] || u.position || '—'}</td>
+                      <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
+                        {formatDate(u.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                  {b2bUsers.length === 0 && (
+                    <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2B</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          </>);
+          })()}
+
         </div>
       </div>
 

@@ -21,6 +21,11 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  const safeParse = async (res) => {
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { ok: false, error: text || `Ошибка сервера (${res.status})` }; }
+  };
+
   const sendCode = useCallback(async (email) => {
     const res = await fetch('/api/auth/send-code', {
       method: 'POST',
@@ -28,7 +33,7 @@ export function AuthProvider({ children }) {
       credentials: 'include',
       body: JSON.stringify({ email }),
     });
-    const data = await res.json();
+    const data = await safeParse(res);
     if (!data.ok) throw new Error(data.error || 'Ошибка');
     return data;
   }, []);
@@ -40,7 +45,7 @@ export function AuthProvider({ children }) {
       credentials: 'include',
       body: JSON.stringify({ email, code, name, phone }),
     });
-    const data = await res.json();
+    const data = await safeParse(res);
     if (!data.ok) throw new Error(data.error || 'Ошибка');
     setUser(data.user);
     setSubscription(data.subscription);

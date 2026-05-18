@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import LoginModal from '../components/LoginModal';
@@ -12,7 +12,7 @@ export default function B2CDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const source = searchParams.get('source');
-  const { hasAccess, loading: authLoading } = useAuth();
+  const { user, hasAccess, loading: authLoading } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
 
   // Form state
@@ -27,6 +27,15 @@ export default function B2CDetailPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [agree, setAgree] = useState(false);
+
+  // Auto-fill from user profile
+  useEffect(() => {
+    if (user) {
+      if (user.name) setName(prev => prev || user.name);
+      if (user.phone) setPhone(prev => prev || user.phone);
+      if (user.email) setEmail(prev => prev || user.email);
+    }
+  }, [user]);
 
   const effectiveMode = tier === 'premium' ? 'full' : mode;
   const effectiveReplan = effectiveMode === 'whitebox' ? 'no' : replan;

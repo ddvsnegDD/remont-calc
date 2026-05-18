@@ -1,19 +1,30 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { calculateB2C } from '../lib/calculator';
 import { createLead } from '../lib/bitrix';
+import { useAuth } from '../lib/auth';
 
 export default function B2CBookPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const canResume = searchParams.get('return') === 'quiz';
+  const { user } = useAuth();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [extra, setExtra] = useState('');
+
+  // Auto-fill from user profile
+  useEffect(() => {
+    if (user) {
+      if (user.name) setName(prev => prev || user.name);
+      if (user.phone) setPhone(prev => prev || user.phone);
+      if (user.email) setExtra(prev => prev || user.email);
+    }
+  }, [user]);
   const [address, setAddress] = useState('');
   const [agree, setAgree] = useState(false);
   const [submitted, setSubmitted] = useState(false);

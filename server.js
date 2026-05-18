@@ -87,7 +87,7 @@ app.post('/api/auth/verify', requireDB, async (req, res) => {
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
-    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, organization: user.organization }, subscription: sub });
+    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization }, subscription: sub });
   } catch (err) {
     console.error('verify error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка входа' });
@@ -102,7 +102,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     const sub = await getActiveSubscription(user.id);
     res.json({
       ok: true,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role, organization: user.organization },
+      user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization },
       subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } : null,
     });
   } catch (err) {

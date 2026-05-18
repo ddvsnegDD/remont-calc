@@ -153,10 +153,31 @@ export default function ClubPage() {
                 </div>
               </div>
               <div className="hero-visual">
-                <div className="hero-visual-title">Что внутри клуба</div>
-                <ul className="benefit-list">
-                  {BENEFITS.map((b, i) => <li key={i}><span className="benefit-check">✓</span><span>{b}</span></li>)}
-                </ul>
+                {hasAccess ? (
+                  <>
+                    <div className="hero-visual-title">Ваш статус</div>
+                    <div style={{ padding: '20px 0' }}>
+                      <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center', padding: '10px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
+                        ✓ {subscription?.status === 'trial' ? 'Триал активен' : 'Подписка активна'}
+                      </div>
+                      {expiresLabel && (
+                        <div style={{ fontSize: 14, color: C.gray500, marginBottom: 20 }}>до {expiresLabel}</div>
+                      )}
+                      <div style={{ fontSize: 13, color: C.gray500, marginBottom: 6 }}>
+                        План: {subscription?.plan === 'yearly' ? 'Годовой (4 900 ₽/год)' : subscription?.plan === 'monthly' ? 'Месячный (490 ₽/мес)' : 'Триал (14 дней)'}
+                      </div>
+                    </div>
+                    <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={() => navigate('/b2c-detail')}>Сделать детальную смету</Btn>
+                    <div style={{ fontSize: 12, color: C.gray400, marginTop: 10, textAlign: 'center' }}>Расчёт по 50+ позициям с тендерными ценами</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="hero-visual-title">Что внутри клуба</div>
+                    <ul className="benefit-list">
+                      {BENEFITS.map((b, i) => <li key={i}><span className="benefit-check">✓</span><span>{b}</span></li>)}
+                    </ul>
+                  </>
+                )}
               </div>
             </div>
           </div>

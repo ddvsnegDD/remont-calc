@@ -224,6 +224,17 @@ export default function B2BOfficePage() {
             </div>
 
             <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit}>Сформировать детальную смету</Btn>
+
+            <div style={{ marginTop: 20, padding: '16px 18px', background: '#f0f4fa', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ fontSize: 28, flexShrink: 0 }}>📊</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.graphite, marginBottom: 4 }}>Сводная смета по площадям</div>
+                <div style={{ fontSize: 13, color: C.gray500, lineHeight: 1.5 }}>
+                  Детальный расчёт с 2000+ позициями: отделка (МИН/МАКС) и инженерия (ВИС). Все объёмы пересчитываются от параметров объекта.
+                </div>
+              </div>
+              <Btn variant="outline" style={{ flexShrink: 0 }} onClick={() => navigate('/b2b-office-detail')}>Открыть</Btn>
+            </div>
           </div>
         </div>
       </main>

@@ -15,6 +15,8 @@ import B2BQuizPage from './pages/B2BQuizPage';
 import B2BResultPage from './pages/B2BResultPage';
 import B2BOfficePage from './pages/B2BOfficePage';
 import B2BOfficeResultPage from './pages/B2BOfficeResultPage';
+import { lazy, Suspense } from 'react';
+const B2BOfficeDetailPage = lazy(() => import('./pages/B2BOfficeDetailPage'));
 import ClubPage from './pages/ClubPage';
 import ProPage from './pages/ProPage';
 import PartnerB2BPage from './pages/PartnerB2BPage';
@@ -55,6 +57,7 @@ export default function App() {
         <Route path="/b2b-result" element={<B2BResultPage />} />
         <Route path="/b2b-office" element={<B2BOfficePage />} />
         <Route path="/b2b-office-result" element={<B2BOfficeResultPage />} />
+        <Route path="/b2b-office-detail" element={<Suspense fallback={<div style={{minHeight:'80vh',display:'grid',placeItems:'center'}}>Загрузка калькулятора...</div>}><B2BOfficeDetailPage /></Suspense>} />
 
         {/* Standalone */}
         <Route path="/club" element={<ClubPage />} />

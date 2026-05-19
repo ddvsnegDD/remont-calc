@@ -341,6 +341,105 @@ app.post('/api/lead', async (req, res) => {
   }
 });
 
+// ==================== CONSULTATION API ====================
+
+app.post('/api/consultation', authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+
+    // Проверяем подписку
+    const sub = await getActiveSubscription(user.id);
+    if (!sub) return res.status(403).json({ ok: false, error: 'Нет активной подписки' });
+
+    const title = `Консультация инженера — ${user.name || user.email}`;
+    const comment = [
+      `Запись на консультацию инженера`,
+      `Пользователь: ${user.name || '—'}`,
+      `Email: ${user.email}`,
+      `Телефон: ${user.phone || '—'}`,
+      `Подписка: ${sub.plan} (до ${new Date(sub.expires_at).toLocaleDateString('ru-RU')})`,
+      `Дата запроса: ${new Date().toLocaleString('ru-RU')}`,
+    ].join('\n');
+
+    // Отправляем в Битрикс24
+    let dealId = null;
+    if (B24_WEBHOOK) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        // Ищем существующий контакт или создаём
+        const contactRes = await fetch(`${B24_WEBHOOK}/crm.contact.add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              NAME: user.name || 'Без имени',
+              PHONE: user.phone ? [{ VALUE: user.phone, VALUE_TYPE: 'WORK' }] : [],
+              EMAIL: [{ VALUE: user.email, VALUE_TYPE: 'WORK' }],
+              SOURCE_ID: 'WEB',
+              OPENED: 'Y',
+            }
+          }),
+          signal: controller.signal,
+        });
+        const contactData = await contactRes.json();
+        const contactId = contactData.result;
+
+        const dealRes = await fetch(`${B24_WEBHOOK}/crm.deal.add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              TITLE: title,
+              CONTACT_ID: contactId || undefined,
+              SOURCE_ID: 'WEB',
+              OPENED: 'Y',
+              STAGE_ID: 'NEW',
+              CATEGORY_ID: 0,
+              COMMENTS: comment,
+            }
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        const dealData = await dealRes.json();
+        dealId = dealData.result;
+        console.log(`✅ Консультация → Битрикс24: deal=${dealId}, user=${user.email}`);
+      } catch (err) {
+        console.error('B24 consultation error:', err.message);
+        // Не блокируем — отправим email-уведомление
+      }
+    }
+
+    // Email-уведомление админу
+    sendRawEmail(
+      'ddv1121@yandex.ru',
+      `Запись на консультацию: ${user.name || user.email}`,
+      `<div style="font-family:Arial,sans-serif;max-width:500px;padding:20px">
+        <h2 style="color:#B95C38;margin:0 0 16px">🔔 Новая запись на консультацию</h2>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#6b7280;width:120px">Имя:</td><td style="padding:8px 0;font-weight:600">${user.name || '—'}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Email:</td><td style="padding:8px 0;font-weight:600">${user.email}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Телефон:</td><td style="padding:8px 0;font-weight:600">${user.phone || '—'}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Подписка:</td><td style="padding:8px 0">${sub.plan} до ${new Date(sub.expires_at).toLocaleDateString('ru-RU')}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Дата:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU')}</td></tr>
+          ${dealId ? `<tr><td style="padding:8px 0;color:#6b7280">Битрикс24:</td><td style="padding:8px 0">Сделка #${dealId}</td></tr>` : ''}
+        </table>
+        <hr style="border:none;border-top:1px solid #e4e4e7;margin:16px 0">
+        <p style="color:#9ca3af;font-size:12px">РПКМ · Автоматическое уведомление</p>
+      </div>`
+    ).catch(err => console.error('Consultation notify error:', err.message));
+
+    res.json({ ok: true, dealId });
+  } catch (err) {
+    console.error('consultation error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка записи на консультацию' });
+  }
+});
+
 // ==================== STATIC + SPA ====================
 
 app.use(express.static(DIST));

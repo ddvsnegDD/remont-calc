@@ -85,16 +85,31 @@ export default function ClubPage() {
     setConsultationsLeft(Math.max(0, 3 - used));
   }, [user]);
 
-  const handleConsultation = () => {
+  const handleConsultation = async () => {
     if (consultationsLeft <= 0) {
       setNotice('Все консультации в этом месяце использованы');
       return;
     }
-    const key = `rpkm_consult_${user.id}_${new Date().getFullYear()}_${new Date().getMonth()}`;
-    const used = parseInt(localStorage.getItem(key) || '0', 10);
-    localStorage.setItem(key, String(used + 1));
-    setConsultationsLeft(Math.max(0, 2 - used));
-    setNotice('Запись на консультацию отправлена! Инженер свяжется с вами в течение 24 часов.');
+    try {
+      const res = await fetch('/api/consultation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.ok) {
+        // Обновляем счётчик в localStorage
+        const key = `rpkm_consult_${user.id}_${new Date().getFullYear()}_${new Date().getMonth()}`;
+        const used = parseInt(localStorage.getItem(key) || '0', 10);
+        localStorage.setItem(key, String(used + 1));
+        setConsultationsLeft(Math.max(0, 2 - used));
+        setNotice('Запись на консультацию отправлена! Инженер свяжется с вами в течение 24 часов.');
+      } else {
+        setNotice(data.error || 'Ошибка записи на консультацию');
+      }
+    } catch {
+      setNotice('Ошибка связи с сервером');
+    }
   };
 
   const handlePay = async (plan) => {

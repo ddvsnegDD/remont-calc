@@ -328,7 +328,7 @@ export default function ClubPage() {
                     <li>Стяжка пола</li><li>Штукатурка стен</li><li>Электрика и розетки</li>
                     <li>Сантехника</li><li>Чистовая отделка</li><li>Установка дверей</li>
                   </ul>
-                  <Btn variant="outline" onClick={() => setNotice('Чек-листы готовятся к публикации')}>Открыть библиотеку</Btn>
+                  <Btn variant="outline" onClick={() => navigate('/checklists')}>Открыть чек-листы</Btn>
                 </div>
                 <div className="club-card">
                   <h3>Консультация инженера</h3>

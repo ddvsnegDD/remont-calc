@@ -11,7 +11,7 @@ const FAQ = [
   { q: 'Что даёт статус «Амбассадор»?', a: 'После 3-го реферала ставка повышается с 5 000 до 7 000 ₽. Статус бессрочный.' },
   { q: 'Что если клиент откажется от договора?', a: 'Бонус не выплачивается. Мы платим только за реальные сделки.' },
   { q: 'Сколько действует реф-ссылка?', a: '30 дней с момента первого перехода клиента.' },
-  { q: 'Это рабочая программа или демо?', a: 'Демо-проект. Начисления хранятся в браузере. Логика и интерфейс — рабочие.' },
+  { q: 'Как отслеживать свои начисления?', a: 'После регистрации вы получите доступ в партнёрский кабинет, где отображаются все заявки, начисления и статус выплат.' },
 ];
 
 export default function PartnerB2CPage() {
@@ -88,7 +88,7 @@ export default function PartnerB2CPage() {
                 <div className="form-field"><label>Телефон или email</label><input type="text" value={contact} onChange={e => setContact(e.target.value)} placeholder="+7 (...) или email" /></div>
                 <Btn variant="terra" size="lg" style={{ width: '100%', marginTop: 8 }} onClick={register}>Получить ссылку</Btn>
                 <p style={{ fontSize: 12, color: C.gray500, marginTop: 14, textAlign: 'center' }}>
-                  Это демо — данные хранятся только в вашем браузере.
+                  Нажимая кнопку, вы соглашаетесь с условиями программы.
                 </p>
               </div>
             ) : (
@@ -113,9 +113,6 @@ export default function PartnerB2CPage() {
                 </div>
                 <div style={{ padding: 28, textAlign: 'center', color: C.gray500, background: C.gray50, borderRadius: 8, marginTop: 20 }}>
                   Пока нет начислений. Поделитесь ссылкой — и они появятся здесь.
-                </div>
-                <div className="alert alert-info" style={{ marginTop: 20 }}>
-                  <strong>Демо-режим.</strong> Начисления существуют только в вашем браузере.
                 </div>
               </div>
             )}

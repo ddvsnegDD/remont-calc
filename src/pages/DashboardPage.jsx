@@ -180,9 +180,9 @@ export default function DashboardPage() {
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 28 }}>
             <div>
-              <span className="section-label">Демо-дашборд</span>
+              <span className="section-label">Дашборд</span>
               <h1 style={{ fontSize: 32, margin: '4px 0 6px' }}>Аналитика воронок</h1>
-              <p style={{ color: C.gray500, margin: 0 }}>Досев mock-данных за {days} дней.</p>
+              <p style={{ color: C.gray500, margin: 0 }}>Показатели за {days} дней.</p>
             </div>
             <div className="dash-range">
               {[7, 14, 30].map(d => (
@@ -239,9 +239,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="alert alert-info" style={{ marginTop: 20 }}>
-            <strong>Демо-данные.</strong> Дашборд генерирует mock-данные при каждом открытии.
-          </div>
         </div>
       </main>
     </PageLayout>

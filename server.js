@@ -3,8 +3,8 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { resolve, join } from 'path';
-import { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, getAllUsers, getAdminStats } from './server/db.js';
-import { sendAuthCode } from './server/email.js';
+import { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, cancelSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
+import { sendAuthCode, sendRawEmail } from './server/email.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -77,8 +77,6 @@ app.post('/api/auth/verify', requireDB, async (req, res) => {
     const valid = await verifyAuthCode(email, code);
     if (!valid) return res.status(400).json({ ok: false, error: 'Неверный или просроченный код' });
     const user = await createUser(email, name, phone, { role, organization, position });
-    // Auto-start trial for B2C users
-    if (user.role !== 'b2b') await createTrialSubscription(user.id);
     const sub = await getActiveSubscription(user.id);
     const token = signToken(user);
     res.cookie('rpkm_token', token, {
@@ -198,6 +196,38 @@ app.post('/api/subscription/yoomoney-webhook', async (req, res) => {
   }
 });
 
+// Активировать триал (только по кнопке «Попробовать 14 дней»)
+app.post('/api/subscription/trial', authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (user.role === 'b2b') return res.status(400).json({ ok: false, error: 'Триал только для физических лиц' });
+    const sub = await createTrialSubscription(user.id);
+    if (!sub) return res.json({ ok: false, error: 'Триал уже был использован' });
+    res.json({ ok: true, subscription: { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } });
+  } catch (err) {
+    console.error('trial error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// Отменить подписку
+app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    const sub = await cancelSubscription(user.id);
+    if (!sub) return res.json({ ok: false, error: 'Нет активной подписки' });
+    // Отправить email админу
+    sendRawEmail('ddv1121@yandex.ru',
+      `Отмена подписки: ${user.email}`,
+      `<p>Пользователь <strong>${user.name || user.email}</strong> (${user.email}) отменил подписку.</p><p>План: ${sub.plan}</p><p>Дата отмены: ${new Date().toLocaleString('ru-RU')}</p>`
+    ).catch(err => console.error('Cancel notify error:', err.message));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('cancel error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
 // Ручная активация (для демо / после возврата с ЮMoney)
 app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
   const { label } = req.body;
@@ -231,6 +261,17 @@ app.get('/api/admin/users', requireDB, adminAuth, async (req, res) => {
   try {
     const users = await getAllUsers();
     res.json({ ok: true, users });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Удаление пользователя
+app.delete('/api/admin/users/:id', requireDB, adminAuth, async (req, res) => {
+  try {
+    const user = await deleteUser(Number(req.params.id));
+    if (!user) return res.status(404).json({ ok: false, error: 'Пользователь не найден' });
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

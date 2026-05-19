@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
-import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase } from 'lucide-react';
+import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase, Trash2 } from 'lucide-react';
 import Btn from '../components/Btn';
 
 const POSITION_LABELS = {
@@ -99,6 +99,21 @@ export default function AdminPage() {
     setError('');
   };
 
+  const handleDeleteUser = async (userId, email) => {
+    if (!window.confirm(`Удалить пользователя ${email}?\n\nВсе данные (подписки, коды) будут удалены безвозвратно.`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE', headers });
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+      } else {
+        alert('Ошибка: ' + (data.error || 'Не удалось удалить'));
+      }
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    }
+  };
+
   // Login screen
   if (!token) {
     return (
@@ -183,8 +198,8 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Email', 'Имя', 'Телефон', 'Подписка', 'Истекает', 'Регистрация'].map(h => (
-                      <th key={h} style={thStyle}>{h}</th>
+                    {['ID', 'Email', 'Имя', 'Телефон', 'Подписка', 'Истекает', 'Регистрация', ''].map((h, i) => (
+                      <th key={i} style={thStyle}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -206,11 +221,19 @@ export default function AdminPage() {
                         <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                           {formatDate(u.created_at)}
                         </td>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                          <button onClick={() => handleDeleteUser(u.id, u.email)} title="Удалить"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
+                            onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                   {b2cUsers.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2C</td></tr>
+                    <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2C</td></tr>
                   )}
                 </tbody>
               </table>
@@ -227,8 +250,8 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Email', 'Имя', 'Телефон', 'Организация', 'Специализация', 'Регистрация'].map(h => (
-                      <th key={h} style={thStyle}>{h}</th>
+                    {['ID', 'Email', 'Имя', 'Телефон', 'Организация', 'Специализация', 'Регистрация', ''].map((h, i) => (
+                      <th key={i} style={thStyle}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -244,10 +267,18 @@ export default function AdminPage() {
                       <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                         {formatDate(u.created_at)}
                       </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <button onClick={() => handleDeleteUser(u.id, u.email)} title="Удалить"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
+                          onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {b2bUsers.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2B</td></tr>
+                    <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2B</td></tr>
                   )}
                 </tbody>
               </table>

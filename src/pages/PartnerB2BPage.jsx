@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
+import { X } from 'lucide-react';
 
 function formatRub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 
@@ -14,12 +15,40 @@ const FAQ = [
   { q: 'Что с конкурирующими партнёрами?', a: 'Бонус получает первый, кто привёл клиента (по первому захвату cookie).' },
 ];
 
+function NdaModal({ open, onClose }) {
+  if (!open) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.5)', padding: 24 }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 16, maxWidth: 640, width: '100%', maxHeight: '80vh', overflow: 'auto', padding: 32, position: 'relative' }} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+          <X size={20} color={C.gray400} />
+        </button>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: C.graphite, marginBottom: 16 }}>Соглашение о неразглашении (NDA)</h2>
+        <div style={{ fontSize: 14, color: C.gray600, lineHeight: 1.7 }}>
+          <p><strong>1. Предмет соглашения</strong></p>
+          <p>Стороны обязуются не разглашать конфиденциальную информацию, полученную в рамках партнёрской программы РПКМ, включая: условия вознаграждения, данные клиентов, внутренние процессы компании.</p>
+          <p style={{ marginTop: 12 }}><strong>2. Обязательства сторон</strong></p>
+          <p>Партнёр обязуется: не передавать третьим лицам информацию о клиентах РПКМ; не использовать полученную информацию в целях, не связанных с партнёрской программой; хранить все материалы в защищённом виде.</p>
+          <p style={{ marginTop: 12 }}><strong>3. Срок действия</strong></p>
+          <p>Соглашение действует в течение всего периода участия в партнёрской программе и 2 (два) года после её прекращения.</p>
+          <p style={{ marginTop: 12 }}><strong>4. Ответственность</strong></p>
+          <p>За нарушение условий настоящего соглашения виновная сторона несёт ответственность в соответствии с действующим законодательством РФ.</p>
+        </div>
+        <div style={{ marginTop: 20, textAlign: 'right' }}>
+          <Btn variant="dark" onClick={onClose}>Закрыть</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PartnerB2BPage() {
   const [registered, setRegistered] = useState(false);
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [agree, setAgree] = useState(false);
   const [openFaq, setOpenFaq] = useState(-1);
+  const [ndaOpen, setNdaOpen] = useState(false);
 
   const register = useCallback(() => {
     if (!name || name.length < 2) { alert('Введите имя'); return; }
@@ -32,6 +61,7 @@ export default function PartnerB2BPage() {
 
   return (
     <PageLayout>
+      <NdaModal open={ndaOpen} onClose={() => setNdaOpen(false)} />
       <main>
         {/* Pitch */}
         <section style={{ padding: '60px 0 32px', background: `linear-gradient(180deg, #eaf2fb 0%, ${C.white} 100%)` }}>
@@ -51,7 +81,7 @@ export default function PartnerB2BPage() {
                 <div className="hero-stats">
                   <div><div className="stat-num">1%</div><div className="stat-label">от чека · до 1 млн ₽</div></div>
                   <div><div className="stat-num">10%</div><div className="stat-label">скидка на ваш проект</div></div>
-                  <div><div className="stat-num">NDA</div><div className="stat-label">соглашение о неразглашении</div></div>
+                  <div style={{ cursor: 'pointer' }} onClick={() => setNdaOpen(true)}><div className="stat-num" style={{ textDecoration: 'underline', textDecorationStyle: 'dotted' }}>NDA</div><div className="stat-label">соглашение о неразглашении</div></div>
                 </div>
               </div>
               <div className="hero-visual">
@@ -90,7 +120,7 @@ export default function PartnerB2BPage() {
                 <div className="form-field"><label>Контакт для связи</label><input type="text" value={contact} onChange={e => setContact(e.target.value)} placeholder="Email или Telegram" /></div>
                 <label className="checkbox-row">
                   <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
-                  <span>Согласен с условиями партнёрской программы и NDA. Это демо.</span>
+                  <span>Согласен с условиями партнёрской программы и <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); setNdaOpen(true); }} style={{ color: C.terra, textDecoration: 'underline', cursor: 'pointer' }}>NDA</a>.</span>
                 </label>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 12 }} onClick={register}>Получить реф-код</Btn>
               </div>
@@ -113,9 +143,6 @@ export default function PartnerB2BPage() {
                   <div className="ref-stat"><div className="ref-stat-label">Начислено</div><div className="ref-stat-value">0 ₽</div></div>
                   <div className="ref-stat"><div className="ref-stat-label">К выплате</div><div className="ref-stat-value">0 ₽</div></div>
                   <div className="ref-stat"><div className="ref-stat-label">Скидка на ваш проект</div><div className="ref-stat-value">0%</div></div>
-                </div>
-                <div className="alert alert-info" style={{ marginTop: 20 }}>
-                  <strong>Демо-режим.</strong> Все цифры рассчитываются локально, реальных переводов нет.
                 </div>
               </div>
             )}

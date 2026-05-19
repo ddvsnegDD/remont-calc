@@ -65,6 +65,18 @@ function getProvider() {
   return null;
 }
 
+// Отправить произвольное письмо (для уведомлений админу и т.д.)
+export async function sendRawEmail(to, subject, html) {
+  const p = getProvider();
+  if (!p) { console.log(`📧 [no provider] To: ${to}, Subject: ${subject}`); return; }
+  try {
+    await p.send(to, subject, html, 'РПКМ');
+    console.log(`✉️  Уведомление отправлено на ${to}`);
+  } catch (err) {
+    console.error(`sendRawEmail error:`, err.message);
+  }
+}
+
 export async function sendAuthCode(email, code) {
   console.log(`📧 Код для ${email}: ${code}`);
   const p = getProvider();

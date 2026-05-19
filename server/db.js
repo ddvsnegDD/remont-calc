@@ -140,6 +140,25 @@ export async function activateSubscription(label) {
   return rows[0] || null;
 }
 
+// --- Cancel subscription ---
+export async function cancelSubscription(userId) {
+  const { rows } = await pool.query(
+    `UPDATE subscriptions SET status = 'cancelled', expires_at = NOW()
+     WHERE user_id = $1 AND status IN ('trial', 'active') AND expires_at > NOW()
+     RETURNING *`,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+// --- Delete user ---
+export async function deleteUser(userId) {
+  await pool.query('DELETE FROM subscriptions WHERE user_id = $1', [userId]);
+  await pool.query('DELETE FROM auth_codes WHERE email = (SELECT email FROM users WHERE id = $1)', [userId]);
+  const { rows } = await pool.query('DELETE FROM users WHERE id = $1 RETURNING *', [userId]);
+  return rows[0] || null;
+}
+
 // --- Admin ---
 export async function getAllUsers() {
   const { rows } = await pool.query(

@@ -76,7 +76,10 @@ export function Header() {
         <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {!loading && user ? (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: C.terraBg, borderRadius: 8 }}>
+              <div onClick={() => navigate(user.role === 'b2b' ? '/b2b-cabinet' : '/club')}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: C.terraBg, borderRadius: 8, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
                 <User size={16} color={C.terra} />
                 <span style={{ fontSize: 13, fontWeight: 600, color: C.terra }}>{user.name || user.email.split('@')[0]}</span>
               </div>
@@ -99,7 +102,8 @@ export function Header() {
           {links.map(l => <Link key={l.to} to={l.to} onClick={(e) => { handleNavClick(e, l.to); setMenuOpen(false); }} style={{ display: "block", padding: "14px 0", color: C.graphiteLight, fontSize: 16, textDecoration: "none", borderBottom: `1px solid ${C.gray100}` }}>{l.label}</Link>)}
           {!loading && user ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: C.terraBg, borderRadius: 8 }}>
+              <div onClick={() => { setMenuOpen(false); navigate(user.role === 'b2b' ? '/b2b-cabinet' : '/club'); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: C.terraBg, borderRadius: 8, cursor: 'pointer' }}>
                 <User size={16} color={C.terra} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: C.terra }}>{user.name || user.email.split('@')[0]}</span>
               </div>
@@ -127,7 +131,7 @@ export function Footer() {
               <div style={{ width: 32, height: 32, background: "rgba(255,255,255,0.1)", borderRadius: 8, display: "grid", placeItems: "center", color: "#fff", fontWeight: 800, fontSize: 14 }} className="font-golos">Р</div>
               <span className="font-golos" style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>РПКМ</span>
             </div>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", lineHeight: 1.6, maxWidth: 300 }}>Демо-проект калькулятора стоимости ремонта. Реализован в рамках курса «Зерокодер».</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", lineHeight: 1.6, maxWidth: 300 }}>Калькулятор стоимости ремонта квартир и коммерческих помещений.</p>
           </div>
           <div>
             <h4 className="font-golos" style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Калькулятор</h4>
@@ -153,7 +157,7 @@ export function Footer() {
           </div>
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>© 2026 РПКМ · Демо-проект</span>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>© 2026 РПКМ</span>
           <div style={{ display: "flex", gap: 20 }}>
             <Link to="/privacy" style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", textDecoration: "none", transition: "color 0.2s" }}
               onMouseEnter={e => e.target.style.color = "rgba(255,255,255,0.5)"}

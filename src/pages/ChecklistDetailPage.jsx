@@ -4,8 +4,9 @@ import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { CHECKLISTS } from '../data/checklists';
-import { ArrowLeft, Camera, X, Check, ChevronDown, ChevronUp, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Camera, X, Check, ChevronDown, ChevronUp, Image as ImageIcon, Trash2, FileText, Printer } from 'lucide-react';
 import Btn from '../components/Btn';
+import { openReportWindow } from '../lib/checklistReport';
 
 function getStorageKey(userId, checklistId) {
   return `rpkm_checklist_${userId}_${checklistId}`;
@@ -436,6 +437,31 @@ export default function ChecklistDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Report / Print buttons */}
+          <div style={{
+            marginTop: 24, background: '#fff', borderRadius: 12, padding: '18px',
+            border: `1px solid ${C.gray100}`,
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.graphite, marginBottom: 4 }}>Отчёт приёмки</div>
+            <p style={{ fontSize: 13, color: C.gray500, marginBottom: 14 }}>
+              Сформируйте отчёт для печати и подписания. Включает все отметки, комментарии, фото и поля для подписей.
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={() => openReportWindow(id, state)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
+                  background: C.terra, color: '#fff', border: 'none', borderRadius: 10,
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s',
+                  flex: '1 1 auto', justifyContent: 'center',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+                <FileText size={18} />
+                Сформировать отчёт в PDF
+              </button>
+            </div>
+          </div>
 
         </div>
       </div>

@@ -4,8 +4,9 @@ import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { CHECKLISTS } from '../data/checklists';
-import { ChevronRight, ClipboardCheck, Trash2 } from 'lucide-react';
+import { ChevronRight, ClipboardCheck, Trash2, FileText } from 'lucide-react';
 import Btn from '../components/Btn';
+import { openReportWindow } from '../lib/checklistReport';
 
 function getStorageKey(userId, checklistId) {
   return `rpkm_checklist_${userId}_${checklistId}`;
@@ -43,6 +44,14 @@ export default function ChecklistsPage() {
     });
     setProgresses(p);
   }, [user]);
+
+  const handleReport = (e, checklistId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const raw = localStorage.getItem(getStorageKey(user.id, checklistId));
+    const st = raw ? JSON.parse(raw) : { items: {}, meta: {} };
+    openReportWindow(checklistId, st);
+  };
 
   const handleReset = (e, checklistId) => {
     e.stopPropagation();
@@ -137,7 +146,15 @@ export default function ChecklistsPage() {
                       </div>
 
                       {/* Actions */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                        {started && (
+                          <button onClick={e => handleReport(e, cl.id)} title="Сформировать отчёт"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: C.gray400, borderRadius: 6 }}
+                            onMouseEnter={e => e.currentTarget.style.color = C.terra}
+                            onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
+                            <FileText size={16} />
+                          </button>
+                        )}
                         {started && (
                           <button onClick={e => handleReset(e, cl.id)} title="Сбросить"
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: C.gray300, borderRadius: 6 }}

@@ -6,7 +6,7 @@ const OFFICE_MEETING_ROOM_RATE = 30000;
 const OFFICE_MEETING_ROOMS_PER_M2 = 1 / 30;
 const OFFICE_SERVER_ROOM_FIXED = 200000;
 const OFFICE_URGENCY_MULT = 1.07;
-const OFFICE_RESERVE_PCT = 0.10;
+
 
 export const OfficeCalc = {
   compute(inputs) {
@@ -82,14 +82,11 @@ export const OfficeCalc = {
       mainTotal += cost;
     }
 
-    const reserve = Math.round(mainTotal * OFFICE_RESERVE_PCT);
-    const grandTotal = mainTotal + reserve;
-
     return {
       tier, tierLabel: tierDef.label,
       inputs: { area: A, meetingRooms, workplaces, serverRoom, urgency, designProject, excludeOptional: [...excludeOptional], includeOptional: [...includeOptional] },
       sections, modifiers,
-      totals: { main: mainTotal, reserve, grand: grandTotal, perM2Main: A > 0 ? Math.round(mainTotal / A) : 0, perM2Grand: A > 0 ? Math.round(grandTotal / A) : 0 },
+      totals: { main: mainTotal, reserve: 0, grand: mainTotal, perM2Main: A > 0 ? Math.round(mainTotal / A) : 0, perM2Grand: A > 0 ? Math.round(mainTotal / A) : 0 },
       baselineRate: Math.round(tierDef.pricePerM2 * inflation),
       meta: { inflation, baselineMR, extraMR },
     };

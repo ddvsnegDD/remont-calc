@@ -206,9 +206,6 @@ export default function B2BOfficePage() {
                 <div className="live-preview-value">{preview.totals.grand.toLocaleString('ru-RU')} ₽</div>
                 <div className="live-preview-sub">
                   <span>{preview.totals.perM2Grand.toLocaleString('ru-RU')} ₽/м²</span>
-                  <span style={{ color: C.gray500, marginLeft: 12 }}>
-                    · базовый {preview.totals.main.toLocaleString('ru-RU')} ₽ + резерв {preview.totals.reserve.toLocaleString('ru-RU')} ₽
-                  </span>
                 </div>
               </div>
             )}

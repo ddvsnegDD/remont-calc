@@ -223,17 +223,47 @@ export default function B2BOfficePage() {
               <strong>Расчёт носит предварительный характер.</strong> Точная стоимость определяется после выезда инженера.
             </div>
 
-            <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit}>Сформировать детальную смету</Btn>
+            <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit}>Расшифровка укрупнённого расчёта</Btn>
 
-            <div style={{ marginTop: 20, padding: '16px 18px', background: '#f0f4fa', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ fontSize: 28, flexShrink: 0 }}>📊</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.graphite, marginBottom: 4 }}>Сводная смета по площадям</div>
-                <div style={{ fontSize: 13, color: C.gray500, lineHeight: 1.5 }}>
-                  Детальный расчёт с 2000+ позициями: отделка (МИН/МАКС) и инженерия (ВИС). Все объёмы пересчитываются от параметров объекта.
+            <div style={{
+              marginTop: 24,
+              padding: '24px 24px',
+              background: 'linear-gradient(135deg, #C2582A 0%, #9E4420 100%)',
+              borderRadius: 16,
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                position: 'absolute', top: -30, right: -20, fontSize: 120, opacity: 0.08,
+                pointerEvents: 'none', lineHeight: 1,
+              }}>📊</div>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span style={{ fontSize: 22 }}>📊</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2,
+                    color: 'rgba(255,255,255,0.7)',
+                  }}>Главный инструмент</span>
                 </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 6, lineHeight: 1.3 }}>
+                  Сводная смета по площадям — 3 000+ позиций
+                </div>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, marginBottom: 16 }}>
+                  Полная детализация: отделка (МИН / МАКС) и инженерия (ВИС).
+                  Все объёмы автоматически пересчитываются от параметров вашего объекта.
+                </div>
+                <Btn
+                  variant="outline"
+                  size="lg"
+                  style={{
+                    background: '#fff', color: C.terra, border: 'none',
+                    fontWeight: 700, fontSize: 15, width: '100%',
+                  }}
+                  onClick={() => navigate('/b2b-office-detail')}
+                >
+                  Открыть детальную смету →
+                </Btn>
               </div>
-              <Btn variant="outline" style={{ flexShrink: 0 }} onClick={() => navigate('/b2b-office-detail')}>Открыть</Btn>
             </div>
           </div>
         </div>

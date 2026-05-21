@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
+import { useAuth } from '../lib/auth';
 
 const BENEFITS = [
   'Безлимит расчётов',
@@ -23,6 +24,7 @@ const FAQ = [
 
 export default function ProPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [subscribed, setSubscribed] = useState(false);
   const [openFaq, setOpenFaq] = useState(-1);
   const [notice, setNotice] = useState(null);
@@ -49,7 +51,9 @@ export default function ProPage() {
                   Безлимитные расчёты, white-label PDF, экспорт в CSV, приоритетная поддержка. Всё за 2 900 ₽/мес.
                 </p>
                 <div className="hero-cta">
-                  {subscribed ? (
+                  {!user ? (
+                    <Btn variant="dark" size="lg" onClick={() => navigate('/b2b-login')}>Войти для оформления PRO</Btn>
+                  ) : subscribed ? (
                     <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '12px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600 }}>
                       ✓ PRO активен (демо)
                     </div>
@@ -108,9 +112,9 @@ export default function ProPage() {
                   <li>Чек-лист для заёмщика</li>
                 </ul>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }}
-                  onClick={() => subscribed ? null : setSubscribed(true)}
+                  onClick={() => !user ? navigate('/b2b-login') : subscribed ? null : setSubscribed(true)}
                   disabled={subscribed}>
-                  {subscribed ? '✓ PRO уже активен' : 'Перейти на PRO'}
+                  {!user ? 'Войти для оформления' : subscribed ? '✓ PRO уже активен' : 'Перейти на PRO'}
                 </Btn>
               </div>
             </div>

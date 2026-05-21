@@ -57,7 +57,7 @@ export default function B2BOfficeDetailPage() {
   const result = useMemo(() => {
     const data = activeTab === 'finish' ? OFFICE_FINISH_DATA : OFFICE_VIS_DATA;
 
-    let grandWork = 0, grandMat = 0, grandTotal = 0;
+    let subtotalWork = 0, subtotalMat = 0, subtotalTotal = 0;
     const sections = data.map((section) => {
       const area = params[section.p] || 0;
       let secWork = 0, secMat = 0;
@@ -86,13 +86,24 @@ export default function B2BOfficeDetailPage() {
         return { title: group.title, items, totalW: grpWork, totalM: grpMat, total: grpWork + grpMat };
       });
 
-      grandWork += secWork;
-      grandMat += secMat;
-      grandTotal += secWork + secMat;
+      subtotalWork += secWork;
+      subtotalMat += secMat;
+      subtotalTotal += secWork + secMat;
       return { title: section.t, param: section.p, groups, totalW: secWork, totalM: secMat, total: secWork + secMat };
     });
 
-    return { sections, grandWork, grandMat, grandTotal };
+    // Surcharges: Управление проектом (15%) and Дизайн (5%)
+    const mgmtCost = Math.round(subtotalTotal * 0.15);
+    const designCost = Math.round(subtotalTotal * 0.05);
+    const surcharges = [
+      { id: 'management', label: 'Управление проектом', pct: 15, cost: mgmtCost },
+      { id: 'design', label: 'Проектная документация и дизайн-проект', pct: 5, cost: designCost },
+    ];
+    const grandWork = subtotalWork;
+    const grandMat = subtotalMat;
+    const grandTotal = subtotalTotal + mgmtCost + designCost;
+
+    return { sections, surcharges, subtotalTotal, grandWork, grandMat, grandTotal };
   }, [activeTab, variant, params]);
 
   // Which params are relevant for current tab
@@ -166,8 +177,8 @@ export default function B2BOfficeDetailPage() {
             display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16,
           }}>
             {[
-              { label: 'Работы', value: result.grandWork, color: '#2563eb' },
-              { label: 'Материалы', value: result.grandMat, color: '#16a34a' },
+              { label: 'Работы + Материалы', value: result.subtotalTotal, color: '#2563eb' },
+              { label: 'Управление + Дизайн (20%)', value: result.surcharges.reduce((s, x) => s + x.cost, 0), color: '#7c3aed' },
               { label: 'ИТОГО', value: result.grandTotal, color: C.terra },
             ].map((t, i) => (
               <div key={i} style={{
@@ -287,6 +298,34 @@ export default function B2BOfficeDetailPage() {
             })}
           </div>
 
+          {/* Surcharges: Management + Design */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+            {/* Subtotal row */}
+            <div style={{
+              background: '#fff', borderRadius: 14, border: `1px solid ${C.gray200}`,
+              padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.graphite }}>
+                Подитог ({activeTab === 'finish' ? 'отделка' : 'инженерия'})
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.graphite }}>{fmt(result.subtotalTotal)}</div>
+            </div>
+            {result.surcharges.map(s => (
+              <div key={s.id} style={{
+                background: '#faf5ff', borderRadius: 14, border: '1px solid #e9d5ff',
+                padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#6b21a8' }}>
+                    {s.id === 'management' ? '📋' : '📐'} {s.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#9333ea', marginTop: 2 }}>{s.pct}% от подитога</div>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#6b21a8' }}>{fmt(s.cost)}</div>
+              </div>
+            ))}
+          </div>
+
           {/* Grand total footer */}
           <div style={{
             marginTop: 20, padding: '20px 24px', background: C.graphite, borderRadius: 14,
@@ -294,11 +333,11 @@ export default function B2BOfficeDetailPage() {
           }}>
             <div>
               <div style={{ color: '#fff9', fontSize: 13, marginBottom: 4 }}>
-                {activeTab === 'finish' ? `Отделка (${variant === 'min' ? 'МИН' : 'МАКС'})` : 'Инженерия (ВИС)'} — ИТОГО
+                {activeTab === 'finish' ? `Отделка (${variant === 'min' ? 'МИН' : 'МАКС'})` : 'Инженерия (ВИС)'} — ИТОГО с управлением и дизайном
               </div>
               <div style={{ color: '#fff', fontSize: 28, fontWeight: 800 }}>{fmt(result.grandTotal)}</div>
               <div style={{ color: '#fffa', fontSize: 13, marginTop: 4 }}>
-                Работы: {fmt(result.grandWork)} · Материалы: {fmt(result.grandMat)}
+                Работы + Материалы: {fmt(result.subtotalTotal)} · Управление (15%): {fmt(result.surcharges[0].cost)} · Дизайн (5%): {fmt(result.surcharges[1].cost)}
               </div>
             </div>
             <Btn variant="white" style={{ flexShrink: 0 }} onClick={() => navigate('/b2b-office')}>

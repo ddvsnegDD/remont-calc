@@ -131,7 +131,7 @@ export default function B2BOfficePage() {
             {/* Params */}
             <div className="field-row" style={{ marginTop: 16 }}>
               <div className="form-field"><label>Полезная площадь, м²</label>
-                <input type="number" min="50" max="5000" value={area} onChange={e => setArea(+e.target.value)} /></div>
+                <input type="number" min="50" max="50000" value={area} onChange={e => setArea(+e.target.value)} /></div>
               <div className="form-field"><label>Рабочих мест, шт</label>
                 <input type="number" min="0" max="500" value={workplaces} onChange={e => setWorkplaces(+e.target.value)} /></div>
             </div>

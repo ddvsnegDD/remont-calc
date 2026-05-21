@@ -12,12 +12,14 @@ export const OFFICE_BUDGET_RAW = {
     { section: 'management', title: 'Управление проектом', value: 3725 },
     { section: 'design', title: 'Проектная документация и дизайн-проект', value: 3968 },
     { section: 'general', title: 'Общестроительные работы', subItems: [
+      { id: 'demolition', title: 'Демонтажные работы', optional: true, default: false, value: 2800 },
       { id: 'partitions', title: 'Перегородки и двери', value: 2072 },
       { id: 'walls', title: 'Отделка стен', value: 11661 },
       { id: 'floors', title: 'Отделка пола', value: 5716 },
       { id: 'ceilings', title: 'Потолки', value: 3409 },
       { id: 'accessories', title: 'Установка аксессуаров', value: 90 },
       { id: 'furniture', title: 'Встраиваемая мебель и бытовая техника', value: 901 },
+      { id: 'signage', title: 'Установка вывесок и логотипов', value: 707 },
     ] },
     { section: 'electrical', title: 'Электрические и слаботочные системы', subItems: [
       { id: 'power', title: 'Электроснабжение и розетки', value: 7536 },
@@ -43,15 +45,15 @@ export const OFFICE_BUDGET_RAW = {
     { section: 'management', title: 'Управление проектом', value: 4135 },
     { section: 'design', title: 'Проектная документация и дизайн-проект', value: 5267 },
     { section: 'general', title: 'Общестроительные работы', subItems: [
-      { id: 'demolition', title: 'Демонтажные работы', value: 3108 },
+      { id: 'demolition', title: 'Демонтажные работы', optional: true, default: false, value: 3108 },
       { id: 'partitions', title: 'Перегородки и двери', value: 13394 },
       { id: 'walls', title: 'Отделка стен', value: 9575 },
       { id: 'floors', title: 'Отделка пола', value: 9391 },
-      { id: 'ceilings', title: 'Потолки', value: 5966 },
+      { id: 'ceilings', title: 'Потолки', value: 8950 },
       { id: 'accessories', title: 'Установка аксессуаров', value: 533 },
-      { id: 'furniture', title: 'Встраиваемая мебель и бытовая техника', value: 9770 },
-      { id: 'signage', title: 'Установка вывесок и логотипов', value: 1176 },
+      { id: 'signage', title: 'Установка вывесок и логотипов', value: 1061 },
     ] },
+    { section: 'furniture', title: 'Мебель', value: 9200 },
     { section: 'electrical', title: 'Электрические и слаботочные системы', subItems: [
       { id: 'power', title: 'Электроснабжение и розетки', value: 12157 },
       { id: 'lighting', title: 'Система освещения', value: 9005 },
@@ -76,7 +78,7 @@ export const OFFICE_BUDGET_RAW = {
     { section: 'management', title: 'Управление проектом', value: 4135 },
     { section: 'design', title: 'Проектная документация и дизайн-проект', value: 7559 },
     { section: 'general', title: 'Общестроительные работы', subItems: [
-      { id: 'demolition', title: 'Демонтажные работы', value: 3108 },
+      { id: 'demolition', title: 'Демонтажные работы', optional: true, default: false, value: 3108 },
       { id: 'partitions', title: 'Перегородки и двери', value: 21993 },
       { id: 'walls', title: 'Отделка стен', value: 17899 },
       { id: 'floors', title: 'Отделка пола', value: 17158 },
@@ -111,6 +113,50 @@ export const OFFICE_SECTION_META = {
   management: { title: 'Управление проектом', icon: '📋' },
   design: { title: 'Проектная документация и дизайн-проект', icon: '📐' },
   general: { title: 'Общестроительные работы', icon: '🏗️' },
+  furniture: { title: 'Мебель', icon: '🪑' },
   electrical: { title: 'Электрические и слаботочные системы', icon: '⚡' },
   mechanical: { title: 'Механические системы', icon: '🌬️' },
+};
+
+// ── Scale coefficients for large offices (5 000 – 50 000 м²) ──────────
+// Zone 1: area ≤ flatRateMax  → multiplier = 1.0  (flat rates as-is)
+// Zone 2: flatRateMax < area < scaleRateMin → linear interpolation
+// Zone 3: area ≥ scaleRateMin → power-law scale  (refArea / area)^alpha
+//
+// Finish (general/furniture/management/design):
+//   Volume discount — larger area → cheaper per-m² finish.
+//   Formula: (finishRefArea / area)^finishAlpha
+//
+// Engineering (electrical + mechanical):
+//   Rates calibrated from 43 672 m² reference building.
+//   Formula: targetPerM2_inflated × (refArea / area)^alpha / baselinePerM2
+//   baselinePerM2 = sum of all electrical+mechanical raw values × inflation
+//   (computed at runtime so it stays in sync with OFFICE_BUDGET_RAW)
+
+export const OFFICE_SCALE_CONFIG = {
+  flatRateMax: 5000,     // м² — below this, rates unchanged
+  scaleRateMin: 10000,   // м² — above this, full scale formula
+  // Finish sections — applies to standard & business & premium
+  finish: {
+    alpha: 0.06,
+    refArea: 5000,       // anchor point where mult = 1.0
+  },
+  // Engineering sections — per-tier calibration
+  engineering: {
+    standard: {
+      refArea: 19226,        // Технопарк, надземная часть
+      alpha: 0.20,
+      targetPerM2: 32434,    // ₽/м² (механика 11 216 + ЭОМ 21 218)
+    },
+    business: {
+      refArea: 43672,        // reference building area
+      alpha: 0.20,
+      targetPerM2: 42531,    // ₽/м² from engineering files (before inflation)
+    },
+    premium: {
+      refArea: 43672,        // same ref as business (no separate file)
+      alpha: 0.20,
+      targetPerM2: 69932,    // extrapolated: baseline 116 849 × 0.5985 (business ratio)
+    },
+  },
 };

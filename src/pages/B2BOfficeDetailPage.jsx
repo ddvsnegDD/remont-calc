@@ -11,6 +11,7 @@ import { ChevronDown, ChevronRight, FileText, Pencil, X, Plus, Trash2 } from 'lu
 
 function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 function fmtN(n) { return Math.round(n).toLocaleString('ru-RU'); }
+const PIECE_UNITS = new Set(['шт', 'шт.', 'комплект', 'компл.', 'комплекс', 'Комплекс', 'комп', 'упак.', 'уп.', 'бухта']);
 
 const PARAM_LABELS = {
   S1: 'Площадь надземной части (без КПП)',
@@ -45,6 +46,7 @@ export default function B2BOfficeDetailPage() {
   const [editingItem, setEditingItem] = useState(null);
   const [customItems, setCustomItems] = useState({});
   const [editDraft, setEditDraft] = useState({});
+  const [deletedItems, setDeletedItems] = useState(new Set());
 
   const setParam = useCallback((key, val) => {
     setParams(p => ({ ...p, [key]: Math.max(0, parseFloat(val) || 0) }));
@@ -131,6 +133,14 @@ export default function B2BOfficeDetailPage() {
     });
   }, []);
 
+  const deleteItem = useCallback((key) => {
+    setDeletedItems(prev => new Set(prev).add(key));
+  }, []);
+
+  const restoreItem = useCallback((key) => {
+    setDeletedItems(prev => { const next = new Set(prev); next.delete(key); return next; });
+  }, []);
+
   // Compute results
   const result = useMemo(() => {
     const finishData = tier === 'business' ? OFFICE_FINISH_DATA_BUSINESS : OFFICE_FINISH_DATA;
@@ -161,11 +171,40 @@ export default function B2BOfficeDetailPage() {
             itemMat = ov.material;
             itemUnit = ov.unit;
           } else {
-            vol = Math.round(area * it.k * 1.10 * areaMult * 100) / 100;
+            if (it.rtype && tier === 'business' && activeTab !== 'finish') {
+              // Business VIS: formula-based qty from Excel (Q-Z columns)
+              const ratio = area / 43671.88;
+              const rt = it.rtype;
+              const qO = it.qOrig || 0;
+              const mn = it.min || 0;
+              const kr = it.krat || 1;
+              if (rt === 'Площадь') {
+                vol = Math.ceil(qO * ratio);
+              } else if (rt === 'Шт' || rt === 'Минимум') {
+                vol = Math.max(mn, Math.ceil(qO * ratio / kr) * kr);
+              } else if (rt === 'Фикс') {
+                vol = Math.ceil(qO);
+              } else if (rt === 'Расценки') {
+                vol = qO;
+              } else if (rt === 'Количество') {
+                vol = Math.ceil(qO * ratio);
+              } else {
+                vol = Math.ceil(qO * ratio);
+              }
+              pw = it.pw;
+              pm = it.pm;
+              if (rt === 'Расценки') {
+                pw = Math.round(it.pw * ratio * 100) / 100;
+                pm = Math.round(it.pm * ratio * 100) / 100;
+              }
+            } else {
+              vol = area * it.k * 1.10 * areaMult;
+              vol = PIECE_UNITS.has(it.u) ? Math.round(vol) : Math.round(vol * 100) / 100;
+            }
             if (activeTab === 'finish') {
               pw = Array.isArray(it.pw) ? it.pw[variant === 'min' ? 0 : 1] : it.pw;
               pm = Array.isArray(it.pm) ? it.pm[variant === 'min' ? 0 : 1] : it.pm;
-            } else {
+            } else if (!it.rtype || tier !== 'business') {
               pw = it.pw;
               pm = it.pm;
             }
@@ -173,12 +212,13 @@ export default function B2BOfficeDetailPage() {
             itemMat = activeTab === 'finish' ? (Array.isArray(it.mat) ? it.mat[variant === 'min' ? 0 : 1] : it.mat) : (it.c || '');
             itemUnit = it.u;
           }
-          const costW = Math.round(vol * pw * 100) / 100;
-          const costM = Math.round(vol * pm * 100) / 100;
+          const isDeleted = deletedItems.has(key);
+          const costW = isDeleted ? 0 : Math.round(vol * pw * 100) / 100;
+          const costM = isDeleted ? 0 : Math.round(vol * pm * 100) / 100;
           const costT = costW + costM;
           grpWork += costW;
           grpMat += costM;
-          return { ...it, _key: key, _name: itemName, _mat: itemMat, _unit: itemUnit, vol, pw, pm, costW, costM, costT, _hasOverride: !!ov };
+          return { ...it, _key: key, _name: itemName, _mat: itemMat, _unit: itemUnit, vol, pw, pm, costW, costM, costT, _hasOverride: !!ov, _deleted: isDeleted };
         });
 
         const gKey = `${activeTab}_${tier}_${si}_${gi}`;
@@ -213,7 +253,7 @@ export default function B2BOfficeDetailPage() {
     const grandTotal = subtotalTotal + mgmtCost + designCost;
 
     return { sections, surcharges, subtotalTotal, grandWork: subtotalWork, grandMat: subtotalMat, grandTotal };
-  }, [activeTab, variant, params, tier, overrides, customItems]);
+  }, [activeTab, variant, params, tier, overrides, customItems, deletedItems]);
 
   // Which params are relevant for current tab
   const relevantParams = useMemo(() => {
@@ -408,32 +448,49 @@ export default function B2BOfficeDetailPage() {
                                     {group.items.map((it, ii) => (
                                       <tr key={it._key} style={{
                                         borderBottom: `1px solid ${C.gray50}`,
-                                        background: it._hasOverride ? '#fffbeb' : it._isCustom ? '#f0fdf4' : 'transparent',
+                                        background: it._deleted ? '#fef2f2' : it._hasOverride ? '#fffbeb' : it._isCustom ? '#f0fdf4' : 'transparent',
+                                        opacity: it._deleted ? 0.5 : 1,
                                       }}>
                                         {editMode && (
                                           <td style={{ padding: '4px 4px', textAlign: 'center', verticalAlign: 'top' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-                                              <button onClick={() => it._isCustom
-                                                ? openEditModalCustom(it._key, customItems[group._gKey]?.[parseInt(it._key.split('_').pop())])
-                                                : openEditModal(it._key, it)
-                                              } title="Редактировать" style={{
-                                                background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-                                                color: it._hasOverride ? '#b45309' : it._isCustom ? '#16a34a' : C.gray400,
-                                                borderRadius: 4,
-                                              }}>
-                                                <Pencil size={14} />
-                                              </button>
-                                              {it._hasOverride && (
+                                              {!it._deleted && (
+                                                <button onClick={() => it._isCustom
+                                                  ? openEditModalCustom(it._key, customItems[group._gKey]?.[parseInt(it._key.split('_').pop())])
+                                                  : openEditModal(it._key, it)
+                                                } title="Редактировать" style={{
+                                                  background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                                                  color: it._hasOverride ? '#b45309' : it._isCustom ? '#16a34a' : C.gray400,
+                                                  borderRadius: 4,
+                                                }}>
+                                                  <Pencil size={14} />
+                                                </button>
+                                              )}
+                                              {it._hasOverride && !it._deleted && (
                                                 <button onClick={() => removeOverride(it._key)} title="Сбросить" style={{
                                                   background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#ef4444', borderRadius: 4,
                                                 }}>
                                                   <X size={12} />
                                                 </button>
                                               )}
-                                              {it._isCustom && (
+                                              {it._isCustom ? (
                                                 <button onClick={() => removeCustomItem(group._gKey, parseInt(it._key.split('_').pop()))} title="Удалить" style={{
                                                   background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#ef4444', borderRadius: 4,
                                                 }}>
+                                                  <Trash2 size={12} />
+                                                </button>
+                                              ) : it._deleted ? (
+                                                <button onClick={() => restoreItem(it._key)} title="Восстановить" style={{
+                                                  background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#2563eb', borderRadius: 4, fontSize: 11,
+                                                }}>
+                                                  ↩
+                                                </button>
+                                              ) : (
+                                                <button onClick={() => deleteItem(it._key)} title="Удалить позицию" style={{
+                                                  background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: C.gray400, borderRadius: 4,
+                                                }}
+                                                onMouseEnter={e => e.target.style.color = '#ef4444'}
+                                                onMouseLeave={e => e.target.style.color = C.gray400}>
                                                   <Trash2 size={12} />
                                                 </button>
                                               )}

@@ -65,7 +65,7 @@ export default function B2BOfficeDetailPage() {
       const groups = section.g.map((group) => {
         let grpWork = 0, grpMat = 0;
         const items = group.items.map((it) => {
-          const vol = Math.round(area * it.k * 100) / 100;
+          const vol = Math.round(area * it.k * 1.10 * 100) / 100;
           let pw, pm;
           if (activeTab === 'finish') {
             pw = Array.isArray(it.pw) ? it.pw[variant === 'min' ? 0 : 1] : it.pw;

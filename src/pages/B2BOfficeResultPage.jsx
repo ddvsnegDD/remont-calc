@@ -71,7 +71,7 @@ export default function B2BOfficeResultPage() {
 
             {/* Hero */}
             <div className="result-hero">
-              <div className="result-label">Итоговая стоимость с резервом</div>
+              <div className="result-label">Итоговая стоимость</div>
               <div className="result-price"><span className="accent">{fmt(r.totals.grand)}</span></div>
               <div style={{ fontSize: 16, color: C.gray600, marginTop: 6 }}>
                 {r.totals.perM2Grand.toLocaleString('ru-RU')} ₽/м² · категория <strong>{r.tierLabel}</strong> · площадь {inp.area} м²
@@ -87,6 +87,7 @@ export default function B2BOfficeResultPage() {
               <div><div className="meta-item-label">Площадь</div><div className="meta-item-value">{inp.area} м²</div></div>
               <div><div className="meta-item-label">Рабочих мест</div><div className="meta-item-value">{inp.workplaces}</div></div>
               <div><div className="meta-item-label">Переговорных</div><div className="meta-item-value">{inp.meetingRooms}</div></div>
+              <div><div className="meta-item-label">Мебель</div><div className="meta-item-value">{inp.furniture !== false ? 'Включена' : 'Нет'}</div></div>
               <div><div className="meta-item-label">Серверная</div><div className="meta-item-value">{inp.serverRoom ? 'Есть' : 'Нет'}</div></div>
               <div><div className="meta-item-label">Сроки</div><div className="meta-item-value">{inp.urgency === 'fast' ? 'Срочно' : 'Стандарт'}</div></div>
               <div><div className="meta-item-label">Дизайн-проект</div><div className="meta-item-value">{inp.designProject === 'have' ? 'Есть' : 'Нужен'}</div></div>
@@ -175,13 +176,6 @@ export default function B2BOfficeResultPage() {
                   <div className="breakdown-sub">Сумма по разделам + модификаторы</div>
                 </div>
                 <div className="breakdown-amount"><strong>{fmt(r.totals.main)}</strong></div>
-              </div>
-              <div className="breakdown-row" style={{ background: '#fef4e6' }}>
-                <div>
-                  <div className="breakdown-label">Резерв на непредвиденные расходы (10%)</div>
-                  <div className="breakdown-sub">Контрактные риски, скрытые работы, изменения</div>
-                </div>
-                <div className="breakdown-amount"><strong>+{fmt(r.totals.reserve)}</strong></div>
               </div>
               <div className="breakdown-row" style={{ background: '#e8eef7', border: `2px solid ${C.terra}` }}>
                 <div>

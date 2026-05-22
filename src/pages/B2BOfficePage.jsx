@@ -12,6 +12,7 @@ export default function B2BOfficePage() {
   const [workplaces, setWorkplaces] = useState(40);
   const [meetingRooms, setMeetingRooms] = useState(6);
   const [serverRoom, setServerRoom] = useState(false);
+  const [furniture, setFurniture] = useState(true);
   const [designProject, setDesignProject] = useState('need');
   const [urgency, setUrgency] = useState('standard');
   const [projectName, setProjectName] = useState('');
@@ -66,8 +67,8 @@ export default function B2BOfficePage() {
       if (defaultIncluded.has(id) && !optionalStates[id]) excludeOptional.push(id);
       if (!defaultIncluded.has(id) && optionalStates[id]) includeOptional.push(id);
     }
-    return { tier, area, meetingRooms, workplaces, serverRoom, urgency, designProject, excludeOptional, includeOptional };
-  }, [tier, area, meetingRooms, workplaces, serverRoom, urgency, designProject, optionalStates]);
+    return { tier, area, meetingRooms, workplaces, serverRoom, furniture, urgency, designProject, excludeOptional, includeOptional };
+  }, [tier, area, meetingRooms, workplaces, serverRoom, furniture, urgency, designProject, optionalStates]);
 
   const preview = useMemo(() => {
     if (!area || area < 50) return null;
@@ -148,6 +149,11 @@ export default function B2BOfficePage() {
               </div>
               <div className="form-field">
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', paddingTop: 24 }}>
+                  <input type="checkbox" checked={furniture} onChange={e => setFurniture(e.target.checked)} style={{ width: 18, height: 18 }} />
+                  <span>Мебель</span>
+                </label>
+                <div style={{ fontSize: 12, color: C.gray500, marginTop: 4 }}>Встраиваемая мебель и техника</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 12 }}>
                   <input type="checkbox" checked={serverRoom} onChange={e => setServerRoom(e.target.checked)} style={{ width: 18, height: 18 }} />
                   <span>Серверная (+200 000 ₽)</span>
                 </label>

@@ -78,6 +78,7 @@ export const OfficeCalc = {
     const meetingRooms = Math.max(0, parseInt(inputs.meetingRooms) || 0);
     const workplaces = Math.max(0, parseInt(inputs.workplaces) || 0);
     const serverRoom = !!inputs.serverRoom;
+    const furniture = inputs.furniture !== false; // default true
     const urgency = inputs.urgency === 'fast' ? 'fast' : 'standard';
     const designProject = inputs.designProject === 'have' ? 'have' : 'need';
     const excludeOptional = new Set(inputs.excludeOptional || []);
@@ -99,11 +100,20 @@ export const OfficeCalc = {
         continue;
       }
 
+      if (sec.section === 'furniture' && !furniture) {
+        sectionEntry.skipped = true;
+        sectionEntry.skipReason = 'Мебель не включена в расчёт';
+        sections.push(sectionEntry);
+        continue;
+      }
+
       if (sec.subItems) {
         for (const item of sec.subItems) {
           const isOptional = !!item.optional;
           let included = true;
-          if (isOptional) {
+          // Skip furniture subItem when furniture toggle is off
+          if (item.id === 'furniture' && !furniture) included = false;
+          else if (isOptional) {
             if (item.default === false) { included = includeOptional.has(item.id); }
             else { included = !excludeOptional.has(item.id); }
           }
@@ -166,7 +176,7 @@ export const OfficeCalc = {
 
     return {
       tier, tierLabel: tierDef.label,
-      inputs: { area: A, meetingRooms, workplaces, serverRoom, urgency, designProject, excludeOptional: [...excludeOptional], includeOptional: [...includeOptional] },
+      inputs: { area: A, meetingRooms, workplaces, serverRoom, furniture, urgency, designProject, excludeOptional: [...excludeOptional], includeOptional: [...includeOptional] },
       sections, modifiers, scaleApplied,
       totals: { main: mainTotal, reserve: 0, grand: mainTotal, perM2Main: A > 0 ? Math.round(mainTotal / A) : 0, perM2Grand: A > 0 ? Math.round(mainTotal / A) : 0 },
       baselineRate: Math.round(tierDef.pricePerM2 * inflation),

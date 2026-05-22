@@ -7,7 +7,7 @@ import { OFFICE_FINISH_DATA } from '../data/office-finish-data';
 import { OFFICE_VIS_DATA } from '../data/office-vis-data';
 import { OFFICE_FINISH_DATA_BUSINESS } from '../data/office-finish-data-business';
 import { OFFICE_VIS_DATA_BUSINESS } from '../data/office-vis-data-business';
-import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Pencil, X, Plus, Trash2 } from 'lucide-react';
 
 function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 function fmtN(n) { return Math.round(n).toLocaleString('ru-RU'); }
@@ -40,6 +40,11 @@ export default function B2BOfficeDetailPage() {
   const [params, setParams] = useState({ S1: 500, S2: 0, S3: 0, S4: 0, S5: 0 });
   const [openSections, setOpenSections] = useState(new Set([0]));
   const [openGroups, setOpenGroups] = useState(new Set());
+  const [editMode, setEditMode] = useState(false);
+  const [overrides, setOverrides] = useState({});
+  const [editingItem, setEditingItem] = useState(null);
+  const [customItems, setCustomItems] = useState({});
+  const [editDraft, setEditDraft] = useState({});
 
   const setParam = useCallback((key, val) => {
     setParams(p => ({ ...p, [key]: Math.max(0, parseFloat(val) || 0) }));
@@ -61,44 +66,136 @@ export default function B2BOfficeDetailPage() {
     });
   }, []);
 
+  const openEditModal = useCallback((key, item) => {
+    setEditingItem(key);
+    const ov = overrides[key];
+    setEditDraft({
+      name: ov?.name ?? item.n,
+      material: ov?.material ?? (item.mat || item.c || ''),
+      unit: ov?.unit ?? item.u,
+      volume: ov?.volume ?? item.vol,
+      priceWork: ov?.priceWork ?? item.pw,
+      priceMat: ov?.priceMat ?? item.pm,
+    });
+  }, [overrides]);
+
+  const openEditModalCustom = useCallback((key, item) => {
+    setEditingItem(key);
+    setEditDraft({
+      name: item.name,
+      material: item.material,
+      unit: item.unit,
+      volume: item.volume,
+      priceWork: item.priceWork,
+      priceMat: item.priceMat,
+    });
+  }, []);
+
+  const saveEdit = useCallback(() => {
+    if (!editingItem) return;
+    if (editingItem.startsWith('custom_')) {
+      const gKey = editingItem.replace('custom_', '').replace(/_\d+$/, '');
+      const idx = parseInt(editingItem.split('_').pop());
+      setCustomItems(prev => {
+        const arr = [...(prev[gKey] || [])];
+        arr[idx] = { ...editDraft };
+        return { ...prev, [gKey]: arr };
+      });
+    } else {
+      setOverrides(prev => ({ ...prev, [editingItem]: { ...editDraft } }));
+    }
+    setEditingItem(null);
+  }, [editingItem, editDraft]);
+
+  const removeOverride = useCallback((key) => {
+    setOverrides(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const addCustomItem = useCallback((gKey) => {
+    setCustomItems(prev => {
+      const arr = [...(prev[gKey] || [])];
+      arr.push({ name: 'Новая позиция', material: '', unit: 'шт', volume: 0, priceWork: 0, priceMat: 0 });
+      return { ...prev, [gKey]: arr };
+    });
+  }, []);
+
+  const removeCustomItem = useCallback((gKey, idx) => {
+    setCustomItems(prev => {
+      const arr = [...(prev[gKey] || [])];
+      arr.splice(idx, 1);
+      return { ...prev, [gKey]: arr };
+    });
+  }, []);
+
   // Compute results
   const result = useMemo(() => {
     const finishData = tier === 'business' ? OFFICE_FINISH_DATA_BUSINESS : OFFICE_FINISH_DATA;
     const visData = tier === 'business' ? OFFICE_VIS_DATA_BUSINESS : OFFICE_VIS_DATA;
     const data = activeTab === 'finish' ? finishData : visData;
 
-    // Business tier: area-dependent volume scaling (ref 50,000 m², smaller = higher per-m²)
     const BIZ_REF_AREA = 50000;
     const BIZ_ALPHA = activeTab === 'finish' ? 0.08 : 0.12;
 
     let subtotalWork = 0, subtotalMat = 0, subtotalTotal = 0;
-    const sections = data.map((section) => {
+    const sections = data.map((section, si) => {
       const area = params[section.p] || 0;
       const areaMult = (tier === 'business' && area > 0) ? Math.pow(BIZ_REF_AREA / area, BIZ_ALPHA) : 1;
       let secWork = 0, secMat = 0;
 
-      const groups = section.g.map((group) => {
+      const groups = section.g.map((group, gi) => {
         let grpWork = 0, grpMat = 0;
-        const items = group.items.map((it) => {
-          const vol = Math.round(area * it.k * 1.10 * areaMult * 100) / 100;
-          let pw, pm;
-          if (activeTab === 'finish') {
-            pw = Array.isArray(it.pw) ? it.pw[variant === 'min' ? 0 : 1] : it.pw;
-            pm = Array.isArray(it.pm) ? it.pm[variant === 'min' ? 0 : 1] : it.pm;
+        const items = group.items.map((it, ii) => {
+          const key = `${activeTab}_${tier}_${si}_${gi}_${ii}`;
+          const ov = overrides[key];
+          let vol, pw, pm, itemName, itemMat, itemUnit;
+
+          if (ov) {
+            vol = parseFloat(ov.volume) || 0;
+            pw = parseFloat(ov.priceWork) || 0;
+            pm = parseFloat(ov.priceMat) || 0;
+            itemName = ov.name;
+            itemMat = ov.material;
+            itemUnit = ov.unit;
           } else {
-            pw = it.pw;
-            pm = it.pm;
+            vol = Math.round(area * it.k * 1.10 * areaMult * 100) / 100;
+            if (activeTab === 'finish') {
+              pw = Array.isArray(it.pw) ? it.pw[variant === 'min' ? 0 : 1] : it.pw;
+              pm = Array.isArray(it.pm) ? it.pm[variant === 'min' ? 0 : 1] : it.pm;
+            } else {
+              pw = it.pw;
+              pm = it.pm;
+            }
+            itemName = it.n;
+            itemMat = activeTab === 'finish' ? (Array.isArray(it.mat) ? it.mat[variant === 'min' ? 0 : 1] : it.mat) : (it.c || '');
+            itemUnit = it.u;
           }
           const costW = Math.round(vol * pw * 100) / 100;
           const costM = Math.round(vol * pm * 100) / 100;
           const costT = costW + costM;
           grpWork += costW;
           grpMat += costM;
-          return { ...it, vol, pw, pm, costW, costM, costT };
+          return { ...it, _key: key, _name: itemName, _mat: itemMat, _unit: itemUnit, vol, pw, pm, costW, costM, costT, _hasOverride: !!ov };
         });
+
+        const gKey = `${activeTab}_${tier}_${si}_${gi}`;
+        const customs = (customItems[gKey] || []).map((ci, idx) => {
+          const vol = parseFloat(ci.volume) || 0;
+          const pw = parseFloat(ci.priceWork) || 0;
+          const pm = parseFloat(ci.priceMat) || 0;
+          const costW = Math.round(vol * pw * 100) / 100;
+          const costM = Math.round(vol * pm * 100) / 100;
+          grpWork += costW;
+          grpMat += costM;
+          return { _key: `custom_${gKey}_${idx}`, _name: ci.name, _mat: ci.material, _unit: ci.unit, vol, pw, pm, costW, costM, costT: costW + costM, _isCustom: true };
+        });
+
         secWork += grpWork;
         secMat += grpMat;
-        return { title: group.title, items, totalW: grpWork, totalM: grpMat, total: grpWork + grpMat };
+        return { title: group.title, _gKey: gKey, items: [...items, ...customs], totalW: grpWork, totalM: grpMat, total: grpWork + grpMat };
       });
 
       subtotalWork += secWork;
@@ -107,19 +204,16 @@ export default function B2BOfficeDetailPage() {
       return { title: section.t, param: section.p, groups, totalW: secWork, totalM: secMat, total: secWork + secMat };
     });
 
-    // Surcharges: Управление проектом (15%) and Дизайн (5%)
     const mgmtCost = Math.round(subtotalTotal * 0.15);
     const designCost = Math.round(subtotalTotal * 0.05);
     const surcharges = [
       { id: 'management', label: 'Управление проектом', pct: 15, cost: mgmtCost },
       { id: 'design', label: 'Проектная документация и дизайн-проект', pct: 5, cost: designCost },
     ];
-    const grandWork = subtotalWork;
-    const grandMat = subtotalMat;
     const grandTotal = subtotalTotal + mgmtCost + designCost;
 
-    return { sections, surcharges, subtotalTotal, grandWork, grandMat, grandTotal };
-  }, [activeTab, variant, params, tier]);
+    return { sections, surcharges, subtotalTotal, grandWork: subtotalWork, grandMat: subtotalMat, grandTotal };
+  }, [activeTab, variant, params, tier, overrides, customItems]);
 
   // Which params are relevant for current tab
   const relevantParams = useMemo(() => {
@@ -176,6 +270,23 @@ export default function B2BOfficeDetailPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Edit mode toggle */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button
+              onClick={() => setEditMode(m => !m)}
+              style={{
+                padding: '10px 20px', borderRadius: 10,
+                border: `2px solid ${editMode ? '#f59e0b' : C.terra}`,
+                background: editMode ? '#fffbeb' : C.terraBg,
+                color: editMode ? '#b45309' : C.terra,
+                fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: 8,
+                boxShadow: editMode ? '0 0 0 3px rgba(245,158,11,0.15)' : 'none',
+              }}>
+              <Pencil size={16} /> {editMode ? '✓ Готово' : '✏️ Редактировать смету'}
+            </button>
           </div>
 
           {/* Tabs */}
@@ -283,6 +394,7 @@ export default function B2BOfficeDetailPage() {
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                                   <thead>
                                     <tr style={{ borderBottom: `1px solid ${C.gray100}` }}>
+                                      {editMode && <th style={{ width: 32 }} />}
                                       <th style={{ textAlign: 'left', padding: '6px 8px', color: C.gray500, fontWeight: 500 }}>#</th>
                                       <th style={{ textAlign: 'left', padding: '6px 8px', color: C.gray500, fontWeight: 500 }}>Наименование</th>
                                       <th style={{ textAlign: 'left', padding: '6px 8px', color: C.gray500, fontWeight: 500 }}>Ед.</th>
@@ -293,28 +405,70 @@ export default function B2BOfficeDetailPage() {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {group.items.map((it, ii) => {
-                                      const mat = activeTab === 'finish'
-                                        ? (Array.isArray(it.mat) ? it.mat[variant === 'min' ? 0 : 1] : it.mat)
-                                        : (it.c || '');
-                                      return (
-                                        <tr key={ii} style={{ borderBottom: `1px solid ${C.gray50}` }}>
-                                          <td style={{ padding: '6px 8px', color: C.gray400 }}>{ii + 1}</td>
-                                          <td style={{ padding: '6px 8px', color: C.graphite, maxWidth: 340 }}>
-                                            <div>{it.n}</div>
-                                            {mat && <div style={{ fontSize: 11, color: C.gray400, marginTop: 2 }}>{mat}</div>}
+                                    {group.items.map((it, ii) => (
+                                      <tr key={it._key} style={{
+                                        borderBottom: `1px solid ${C.gray50}`,
+                                        background: it._hasOverride ? '#fffbeb' : it._isCustom ? '#f0fdf4' : 'transparent',
+                                      }}>
+                                        {editMode && (
+                                          <td style={{ padding: '4px 4px', textAlign: 'center', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                                              <button onClick={() => it._isCustom
+                                                ? openEditModalCustom(it._key, customItems[group._gKey]?.[parseInt(it._key.split('_').pop())])
+                                                : openEditModal(it._key, it)
+                                              } title="Редактировать" style={{
+                                                background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                                                color: it._hasOverride ? '#b45309' : it._isCustom ? '#16a34a' : C.gray400,
+                                                borderRadius: 4,
+                                              }}>
+                                                <Pencil size={14} />
+                                              </button>
+                                              {it._hasOverride && (
+                                                <button onClick={() => removeOverride(it._key)} title="Сбросить" style={{
+                                                  background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#ef4444', borderRadius: 4,
+                                                }}>
+                                                  <X size={12} />
+                                                </button>
+                                              )}
+                                              {it._isCustom && (
+                                                <button onClick={() => removeCustomItem(group._gKey, parseInt(it._key.split('_').pop()))} title="Удалить" style={{
+                                                  background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#ef4444', borderRadius: 4,
+                                                }}>
+                                                  <Trash2 size={12} />
+                                                </button>
+                                              )}
+                                            </div>
                                           </td>
-                                          <td style={{ padding: '6px 8px', color: C.gray500, whiteSpace: 'nowrap' }}>{it.u}</td>
-                                          <td style={{ padding: '6px 8px', textAlign: 'right', color: C.gray600 }}>{it.vol > 0 ? it.vol.toLocaleString('ru-RU') : '—'}</td>
-                                          <td style={{ padding: '6px 8px', textAlign: 'right', color: '#2563eb' }}>{it.costW > 0 ? fmtN(it.costW) : '—'}</td>
-                                          <td style={{ padding: '6px 8px', textAlign: 'right', color: '#16a34a' }}>{it.costM > 0 ? fmtN(it.costM) : '—'}</td>
-                                          <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: C.graphite }}>{it.costT > 0 ? fmtN(it.costT) : '—'}</td>
-                                        </tr>
-                                      );
-                                    })}
+                                        )}
+                                        <td style={{ padding: '6px 8px', color: C.gray400 }}>{ii + 1}</td>
+                                        <td style={{ padding: '6px 8px', color: C.graphite, maxWidth: 340 }}>
+                                          <div>{it._name}{it._hasOverride && <span style={{ fontSize: 10, color: '#b45309', marginLeft: 4 }}>изменено</span>}{it._isCustom && <span style={{ fontSize: 10, color: '#16a34a', marginLeft: 4 }}>добавлено</span>}</div>
+                                          {it._mat && <div style={{ fontSize: 11, color: C.gray400, marginTop: 2 }}>{it._mat}</div>}
+                                        </td>
+                                        <td style={{ padding: '6px 8px', color: C.gray500, whiteSpace: 'nowrap' }}>{it._unit}</td>
+                                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.gray600 }}>{it.vol > 0 ? it.vol.toLocaleString('ru-RU') : '—'}</td>
+                                        <td style={{ padding: '6px 8px', textAlign: 'right', color: '#2563eb' }}>{it.costW > 0 ? fmtN(it.costW) : '—'}</td>
+                                        <td style={{ padding: '6px 8px', textAlign: 'right', color: '#16a34a' }}>{it.costM > 0 ? fmtN(it.costM) : '—'}</td>
+                                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: C.graphite }}>{it.costT > 0 ? fmtN(it.costT) : '—'}</td>
+                                      </tr>
+                                    ))}
+                                    {/* Add custom item button */}
+                                    {editMode && (
+                                      <tr>
+                                        <td colSpan={8} style={{ padding: '6px 8px' }}>
+                                          <button onClick={() => addCustomItem(group._gKey)} style={{
+                                            background: 'none', border: `1px dashed ${C.gray300}`, borderRadius: 6,
+                                            padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: C.gray500,
+                                            display: 'flex', alignItems: 'center', gap: 4, width: '100%', justifyContent: 'center',
+                                          }}>
+                                            <Plus size={13} /> Добавить позицию
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    )}
                                     {/* Group total row */}
                                     <tr style={{ borderTop: `2px solid ${C.gray200}`, fontWeight: 600 }}>
-                                      <td colSpan={4} style={{ padding: '8px 8px', color: C.graphite }}>Итого по разделу</td>
+                                      <td colSpan={editMode ? 5 : 4} style={{ padding: '8px 8px', color: C.graphite }}>Итого по разделу</td>
                                       <td style={{ padding: '8px 8px', textAlign: 'right', color: '#2563eb' }}>{fmtN(group.totalW)}</td>
                                       <td style={{ padding: '8px 8px', textAlign: 'right', color: '#16a34a' }}>{fmtN(group.totalM)}</td>
                                       <td style={{ padding: '8px 8px', textAlign: 'right', color: C.graphite }}>{fmtN(group.total)}</td>
@@ -385,6 +539,90 @@ export default function B2BOfficeDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Edit modal */}
+      {editingItem && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }} onClick={() => setEditingItem(null)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: 16, padding: '24px 28px', maxWidth: 480, width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Редактирование позиции</h3>
+              <button onClick={() => setEditingItem(null)} style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: C.gray400,
+              }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Наименование работы</label>
+                <input type="text" value={editDraft.name || ''} onChange={e => setEditDraft(d => ({ ...d, name: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Наименование материалов</label>
+                <input type="text" value={editDraft.material || ''} onChange={e => setEditDraft(d => ({ ...d, material: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Ед. изм.</label>
+                  <input type="text" value={editDraft.unit || ''} onChange={e => setEditDraft(d => ({ ...d, unit: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Количество</label>
+                  <input type="number" step="0.01" value={editDraft.volume ?? ''} onChange={e => setEditDraft(d => ({ ...d, volume: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Ед. расценка работ, ₽</label>
+                  <input type="number" step="0.01" value={editDraft.priceWork ?? ''} onChange={e => setEditDraft(d => ({ ...d, priceWork: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Ед. расценка мат-лов, ₽</label>
+                  <input type="number" step="0.01" value={editDraft.priceMat ?? ''} onChange={e => setEditDraft(d => ({ ...d, priceMat: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
+                </div>
+              </div>
+
+              {/* Live preview of total */}
+              {(() => {
+                const vol = parseFloat(editDraft.volume) || 0;
+                const pw = parseFloat(editDraft.priceWork) || 0;
+                const pm = parseFloat(editDraft.priceMat) || 0;
+                const totalW = Math.round(vol * pw);
+                const totalM = Math.round(vol * pm);
+                return (
+                  <div style={{ background: C.gray50, borderRadius: 10, padding: '12px 14px', marginTop: 4 }}>
+                    <div style={{ fontSize: 12, color: C.gray500, marginBottom: 6 }}>Итого по позиции</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                      <span>Работы: <strong style={{ color: '#2563eb' }}>{fmtN(totalW)} ₽</strong></span>
+                      <span>Мат-лы: <strong style={{ color: '#16a34a' }}>{fmtN(totalM)} ₽</strong></span>
+                      <span>Всего: <strong style={{ color: C.terra }}>{fmtN(totalW + totalM)} ₽</strong></span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <Btn variant="dark" style={{ flex: 1 }} onClick={saveEdit}>Сохранить</Btn>
+              <Btn variant="outline" style={{ flex: 1 }} onClick={() => setEditingItem(null)}>Отмена</Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }

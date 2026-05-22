@@ -5,6 +5,8 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { OFFICE_FINISH_DATA } from '../data/office-finish-data';
 import { OFFICE_VIS_DATA } from '../data/office-vis-data';
+import { OFFICE_FINISH_DATA_BUSINESS } from '../data/office-finish-data-business';
+import { OFFICE_VIS_DATA_BUSINESS } from '../data/office-vis-data-business';
 import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 
 function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
@@ -20,6 +22,11 @@ const PARAM_LABELS = {
 
 const PARAM_UNITS = { S1: 'м²', S2: 'м²', S3: 'м²', S4: 'м²', S5: 'шт' };
 
+const TIER_OPTIONS = [
+  { id: 'standard', label: 'Стандарт', desc: '~79 000 ₽/м²' },
+  { id: 'business', label: 'Бизнес', desc: '~162 000 ₽/м²' },
+];
+
 const TABS = [
   { id: 'finish', label: 'Отделка', icon: '🎨' },
   { id: 'vis', label: 'Инженерия (ВИС)', icon: '⚙️' },
@@ -27,6 +34,7 @@ const TABS = [
 
 export default function B2BOfficeDetailPage() {
   const navigate = useNavigate();
+  const [tier, setTier] = useState('standard');
   const [activeTab, setActiveTab] = useState('finish');
   const [variant, setVariant] = useState('min'); // min or max (for finish)
   const [params, setParams] = useState({ S1: 500, S2: 0, S3: 0, S4: 0, S5: 0 });
@@ -55,17 +63,24 @@ export default function B2BOfficeDetailPage() {
 
   // Compute results
   const result = useMemo(() => {
-    const data = activeTab === 'finish' ? OFFICE_FINISH_DATA : OFFICE_VIS_DATA;
+    const finishData = tier === 'business' ? OFFICE_FINISH_DATA_BUSINESS : OFFICE_FINISH_DATA;
+    const visData = tier === 'business' ? OFFICE_VIS_DATA_BUSINESS : OFFICE_VIS_DATA;
+    const data = activeTab === 'finish' ? finishData : visData;
+
+    // Business tier: area-dependent volume scaling (ref 50,000 m², smaller = higher per-m²)
+    const BIZ_REF_AREA = 50000;
+    const BIZ_ALPHA = activeTab === 'finish' ? 0.08 : 0.12;
 
     let subtotalWork = 0, subtotalMat = 0, subtotalTotal = 0;
     const sections = data.map((section) => {
       const area = params[section.p] || 0;
+      const areaMult = (tier === 'business' && area > 0) ? Math.pow(BIZ_REF_AREA / area, BIZ_ALPHA) : 1;
       let secWork = 0, secMat = 0;
 
       const groups = section.g.map((group) => {
         let grpWork = 0, grpMat = 0;
         const items = group.items.map((it) => {
-          const vol = Math.round(area * it.k * 1.10 * 100) / 100;
+          const vol = Math.round(area * it.k * 1.10 * areaMult * 100) / 100;
           let pw, pm;
           if (activeTab === 'finish') {
             pw = Array.isArray(it.pw) ? it.pw[variant === 'min' ? 0 : 1] : it.pw;
@@ -104,14 +119,16 @@ export default function B2BOfficeDetailPage() {
     const grandTotal = subtotalTotal + mgmtCost + designCost;
 
     return { sections, surcharges, subtotalTotal, grandWork, grandMat, grandTotal };
-  }, [activeTab, variant, params]);
+  }, [activeTab, variant, params, tier]);
 
   // Which params are relevant for current tab
   const relevantParams = useMemo(() => {
-    const data = activeTab === 'finish' ? OFFICE_FINISH_DATA : OFFICE_VIS_DATA;
+    const finishData = tier === 'business' ? OFFICE_FINISH_DATA_BUSINESS : OFFICE_FINISH_DATA;
+    const visData = tier === 'business' ? OFFICE_VIS_DATA_BUSINESS : OFFICE_VIS_DATA;
+    const data = activeTab === 'finish' ? finishData : visData;
     const used = new Set(data.map(s => s.p));
     return Object.keys(PARAM_LABELS).filter(k => used.has(k));
-  }, [activeTab]);
+  }, [activeTab, tier]);
 
   return (
     <PageLayout>
@@ -122,6 +139,24 @@ export default function B2BOfficeDetailPage() {
             <Btn variant="outline" style={{ padding: '6px 14px', fontSize: 13 }} onClick={() => navigate('/b2b-office')}>
               ← Быстрый расчёт
             </Btn>
+          </div>
+
+          {/* Tier selector */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            {TIER_OPTIONS.map(t => (
+              <button key={t.id} onClick={() => setTier(t.id)}
+                style={{
+                  flex: 1, padding: '12px 16px', borderRadius: 10,
+                  border: `2px solid ${tier === t.id ? C.terra : C.gray200}`,
+                  background: tier === t.id ? C.terraBg : '#fff',
+                  color: tier === t.id ? C.terra : C.gray600,
+                  fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'all 0.15s',
+                  textAlign: 'center',
+                }}>
+                <div>{t.label}</div>
+                <div style={{ fontSize: 12, fontWeight: 500, marginTop: 2, opacity: 0.7 }}>{t.desc}</div>
+              </button>
+            ))}
           </div>
 
           {/* Params card */}
@@ -333,7 +368,7 @@ export default function B2BOfficeDetailPage() {
           }}>
             <div>
               <div style={{ color: '#fff9', fontSize: 13, marginBottom: 4 }}>
-                {activeTab === 'finish' ? `Отделка (${variant === 'min' ? 'МИН' : 'МАКС'})` : 'Инженерия (ВИС)'} — ИТОГО с управлением и дизайном
+                {tier === 'business' ? 'Бизнес' : 'Стандарт'} · {activeTab === 'finish' ? `Отделка (${variant === 'min' ? 'МИН' : 'МАКС'})` : 'Инженерия (ВИС)'} — ИТОГО с управлением и дизайном
               </div>
               <div style={{ color: '#fff', fontSize: 28, fontWeight: 800 }}>{fmt(result.grandTotal)}</div>
               <div style={{ color: '#fffa', fontSize: 13, marginTop: 4 }}>

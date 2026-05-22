@@ -46,6 +46,14 @@ export default function B2BCabinetPage() {
     navigate('/');
   }, [authLogout, navigate]);
 
+  const handleDelete = useCallback((id) => {
+    if (!confirm('Удалить этот расчёт?')) return;
+    const updated = calcs.filter(c => c.id !== id);
+    setCalcs(updated);
+    localStorage.setItem('rpkm-b2b-calcs', JSON.stringify(updated));
+    setNotice('Расчёт удалён');
+  }, [calcs]);
+
   if (authLoading || !user) return null;
 
   const roleLabel = ROLE_LABEL[user.position] || ROLE_LABEL[user.role] || 'Профессионал';
@@ -63,8 +71,7 @@ export default function B2BCabinetPage() {
             </div>
             <ul className="cabinet-menu">
               <li className="active">📊 Расчёты</li>
-              <li onClick={() => setNotice('Шаблоны спецификаций — в демо не реализовано')}>📁 Шаблоны спецификаций</li>
-              <li onClick={() => setNotice('Настройки профиля — в демо не реализовано')}>⚙️ Настройки профиля</li>
+              <li onClick={() => navigate('/b2b-profile')}>⚙️ Настройки профиля</li>
             </ul>
             <div style={{ marginTop: 16 }}>
               <div className="pro-upsell">
@@ -132,10 +139,23 @@ export default function B2BCabinetPage() {
                         <td>{tierLabel}</td>
                         <td><strong>{sum}</strong></td>
                         <td>
-                          <Btn variant="outline" style={{ padding: '6px 10px', fontSize: 13 }}
-                               onClick={() => { sessionStorage.setItem('rpkm-b2b-current', JSON.stringify(c)); navigate(link); }}>
-                            Открыть →
-                          </Btn>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <Btn variant="outline" style={{ padding: '6px 10px', fontSize: 13 }}
+                                 onClick={() => { sessionStorage.setItem('rpkm-b2b-current', JSON.stringify(c)); navigate(link); }}>
+                              Открыть →
+                            </Btn>
+                            <button onClick={() => handleDelete(c.id)}
+                              title="Удалить расчёт"
+                              style={{
+                                padding: '6px 8px', borderRadius: 6, border: `1px solid ${C.gray200}`,
+                                background: '#fff', color: C.gray400, cursor: 'pointer', fontSize: 14,
+                                lineHeight: 1, transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={e => { e.target.style.color = '#dc2626'; e.target.style.borderColor = '#fca5a5'; }}
+                              onMouseLeave={e => { e.target.style.color = C.gray400; e.target.style.borderColor = C.gray200; }}>
+                              🗑
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

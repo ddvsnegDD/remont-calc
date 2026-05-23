@@ -23,7 +23,10 @@ export function AuthProvider({ children }) {
 
   const safeParse = async (res) => {
     const text = await res.text();
-    try { return JSON.parse(text); } catch { return { ok: false, error: text || `Ошибка сервера (${res.status})` }; }
+    try { return JSON.parse(text); } catch {
+      console.error(`[auth] Response ${res.status}: ${text?.slice(0, 200)}`);
+      return { ok: false, error: `Ошибка сервера (${res.status}). Попробуйте обновить страницу (Ctrl+Shift+R).` };
+    }
   };
 
   const sendCode = useCallback(async (email) => {

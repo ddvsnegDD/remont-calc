@@ -3,7 +3,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { resolve, join } from 'path';
-import { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, cancelSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
+import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, cancelSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
 
 const app = express();
@@ -50,6 +50,22 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ ok: false, error: 'Сессия истекла' });
   }
 }
+
+// ==================== HEALTH CHECK ====================
+
+app.get('/api/health', async (req, res) => {
+  const status = { server: true, db: dbReady, email: !!(process.env.BREVO_API_KEY || process.env.RESEND_API_KEY) };
+  try {
+    if (dbReady) {
+      const { rows } = await pool.query('SELECT 1');
+      status.dbLive = rows.length > 0;
+    }
+  } catch (err) {
+    status.dbLive = false;
+    status.dbError = err.message;
+  }
+  res.json(status);
+});
 
 // ==================== AUTH API ====================
 

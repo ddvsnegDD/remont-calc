@@ -1,13 +1,38 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
-import { OFFICE_FINISH_DATA } from '../data/office-finish-data';
-import { OFFICE_VIS_DATA } from '../data/office-vis-data';
-import { OFFICE_FINISH_DATA_BUSINESS } from '../data/office-finish-data-business';
-import { OFFICE_VIS_DATA_BUSINESS } from '../data/office-vis-data-business';
 import { ChevronDown, ChevronRight, FileText, Pencil, X, Plus, Trash2 } from 'lucide-react';
+
+const dataCache = {};
+function useData(tier) {
+  const [finishData, setFinishData] = useState(dataCache[`finish_${tier}`] || null);
+  const [visData, setVisData] = useState(dataCache[`vis_${tier}`] || null);
+  useEffect(() => {
+    let cancelled = false;
+    const fKey = `finish_${tier}`, vKey = `vis_${tier}`;
+    if (dataCache[fKey] && dataCache[vKey]) {
+      setFinishData(dataCache[fKey]);
+      setVisData(dataCache[vKey]);
+      return;
+    }
+    const loaders = tier === 'business'
+      ? [import('../data/office-finish-data-business'), import('../data/office-vis-data-business')]
+      : [import('../data/office-finish-data'), import('../data/office-vis-data')];
+    Promise.all(loaders).then(([fm, vm]) => {
+      if (cancelled) return;
+      const fd = tier === 'business' ? fm.OFFICE_FINISH_DATA_BUSINESS : fm.OFFICE_FINISH_DATA;
+      const vd = tier === 'business' ? vm.OFFICE_VIS_DATA_BUSINESS : vm.OFFICE_VIS_DATA;
+      dataCache[fKey] = fd;
+      dataCache[vKey] = vd;
+      setFinishData(fd);
+      setVisData(vd);
+    });
+    return () => { cancelled = true; };
+  }, [tier]);
+  return { finishData, visData, loading: !finishData || !visData };
+}
 
 function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 function fmtN(n) { return Math.round(n).toLocaleString('ru-RU'); }
@@ -47,6 +72,7 @@ export default function B2BOfficeDetailPage() {
   const [customItems, setCustomItems] = useState({});
   const [editDraft, setEditDraft] = useState({});
   const [deletedItems, setDeletedItems] = useState(new Set());
+  const { finishData, visData, loading: dataLoading } = useData(tier);
 
   const setParam = useCallback((key, val) => {
     setParams(p => ({ ...p, [key]: Math.max(0, parseFloat(val) || 0) }));
@@ -143,8 +169,7 @@ export default function B2BOfficeDetailPage() {
 
   // Compute results
   const result = useMemo(() => {
-    const finishData = tier === 'business' ? OFFICE_FINISH_DATA_BUSINESS : OFFICE_FINISH_DATA;
-    const visData = tier === 'business' ? OFFICE_VIS_DATA_BUSINESS : OFFICE_VIS_DATA;
+    if (!finishData || !visData) return null;
     const data = activeTab === 'finish' ? finishData : visData;
 
     const BIZ_REF_AREA = 50000;
@@ -154,6 +179,7 @@ export default function B2BOfficeDetailPage() {
     const sections = data.map((section, si) => {
       const area = params[section.p] || 0;
       const areaMult = (tier === 'business' && area > 0) ? Math.pow(BIZ_REF_AREA / area, BIZ_ALPHA) : 1;
+      const refArea = section.ref || 43671.88;
       let secWork = 0, secMat = 0;
 
       const groups = section.g.map((group, gi) => {
@@ -171,9 +197,8 @@ export default function B2BOfficeDetailPage() {
             itemMat = ov.material;
             itemUnit = ov.unit;
           } else {
-            if (it.rtype && tier === 'business' && activeTab !== 'finish') {
-              // Business VIS: formula-based qty from Excel (Q-Z columns)
-              const ratio = area / 43671.88;
+            if (it.rtype && activeTab !== 'finish') {
+              const ratio = area / refArea;
               const rt = it.rtype;
               const qO = it.qOrig || 0;
               const mn = it.min || 0;
@@ -197,14 +222,14 @@ export default function B2BOfficeDetailPage() {
                 pw = Math.round(it.pw * ratio * 100) / 100;
                 pm = Math.round(it.pm * ratio * 100) / 100;
               }
-            } else {
+            } else if (activeTab === 'finish') {
               vol = area * it.k * 1.10 * areaMult;
               vol = PIECE_UNITS.has(it.u) ? Math.round(vol) : Math.round(vol * 100) / 100;
-            }
-            if (activeTab === 'finish') {
               pw = Array.isArray(it.pw) ? it.pw[variant === 'min' ? 0 : 1] : it.pw;
               pm = Array.isArray(it.pm) ? it.pm[variant === 'min' ? 0 : 1] : it.pm;
-            } else if (!it.rtype || tier !== 'business') {
+            } else {
+              vol = area * (it.k || 0) * 1.10 * areaMult;
+              vol = PIECE_UNITS.has(it.u) ? Math.round(vol) : Math.round(vol * 100) / 100;
               pw = it.pw;
               pm = it.pm;
             }
@@ -253,16 +278,15 @@ export default function B2BOfficeDetailPage() {
     const grandTotal = subtotalTotal + mgmtCost + designCost;
 
     return { sections, surcharges, subtotalTotal, grandWork: subtotalWork, grandMat: subtotalMat, grandTotal };
-  }, [activeTab, variant, params, tier, overrides, customItems, deletedItems]);
+  }, [activeTab, variant, params, tier, overrides, customItems, deletedItems, finishData, visData]);
 
   // Which params are relevant for current tab
   const relevantParams = useMemo(() => {
-    const finishData = tier === 'business' ? OFFICE_FINISH_DATA_BUSINESS : OFFICE_FINISH_DATA;
-    const visData = tier === 'business' ? OFFICE_VIS_DATA_BUSINESS : OFFICE_VIS_DATA;
+    if (!finishData || !visData) return Object.keys(PARAM_LABELS);
     const data = activeTab === 'finish' ? finishData : visData;
     const used = new Set(data.map(s => s.p));
     return Object.keys(PARAM_LABELS).filter(k => used.has(k));
-  }, [activeTab, tier]);
+  }, [activeTab, finishData, visData]);
 
   return (
     <PageLayout>
@@ -359,6 +383,11 @@ export default function B2BOfficeDetailPage() {
           </div>
 
           {/* Totals bar */}
+          {dataLoading || !result ? (
+            <div style={{ minHeight: 200, display: 'grid', placeItems: 'center', color: C.gray500, fontSize: 15 }}>
+              Загрузка данных...
+            </div>
+          ) : (<>
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16,
           }}>
@@ -594,6 +623,7 @@ export default function B2BOfficeDetailPage() {
           <div style={{ marginTop: 16, padding: '14px 18px', background: C.terraBg, borderRadius: 12, fontSize: 13, color: C.gray600, lineHeight: 1.6 }}>
             <strong>Расчёт носит предварительный характер.</strong> Все объёмы определены через коэффициенты к площадям. Точные объёмы и стоимость определяются после обследования объекта инженером.
           </div>
+          </>)}
         </div>
       </main>
 

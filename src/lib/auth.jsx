@@ -27,15 +27,29 @@ export function AuthProvider({ children }) {
   };
 
   const sendCode = useCallback(async (email) => {
-    const res = await fetch('/api/auth/send-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email }),
-    });
-    const data = await safeParse(res);
-    if (!data.ok) throw new Error(data.error || 'Ошибка');
-    return data;
+    let lastErr;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('/api/auth/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email }),
+        });
+        const data = await safeParse(res);
+        if (!data.ok) {
+          if (res.status >= 500 && attempt === 0) { lastErr = data.error; await new Promise(r => setTimeout(r, 1500)); continue; }
+          throw new Error(data.error || 'Ошибка');
+        }
+        return data;
+      } catch (e) {
+        if (attempt === 0 && (!e.message || e.message.includes('сервера') || e.message === 'Failed to fetch')) {
+          lastErr = e.message; await new Promise(r => setTimeout(r, 1500)); continue;
+        }
+        throw e;
+      }
+    }
+    throw new Error(lastErr || 'Сервер временно недоступен, попробуйте через минуту');
   }, []);
 
   const verify = useCallback(async (email, code, name, phone, extra = {}) => {

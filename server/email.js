@@ -1,11 +1,84 @@
-// Поддержка двух провайдеров: Brevo (приоритет) и Resend (фолбэк)
+// Поддержка провайдеров (по аналогии с VideoAI/VidFlex):
+//   SMTP Mail.ru (РФ, основной — работает на VPS) → UniSender Go (HTTP, для Railway) → Brevo → Resend
+import nodemailer from 'nodemailer';
 
 let provider = null;
+let smtpTransporter = null;
 
 function getProvider() {
   if (provider) return provider;
 
-  // 1. Brevo (ex-Sendinblue) — бесплатно 300 писем/день, любые получатели
+  // 0. SMTP Mail.ru (Россия, серверы в РФ) — как на VideoAI/VidFlex. Требует открытых SMTP-портов (VPS, не Railway)
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  if (smtpUser && smtpPass) {
+    const host = process.env.SMTP_HOST || 'smtp.mail.ru';
+    const port = Number(process.env.SMTP_PORT || 587);
+    provider = {
+      name: 'SMTP Mail.ru',
+      async send(to, subject, html, fromName) {
+        if (!smtpTransporter) {
+          smtpTransporter = nodemailer.createTransport({
+            host,
+            port,
+            secure: port === 465,       // 465 = SSL, 587 = STARTTLS
+            requireTLS: port === 587,
+            auth: { user: smtpUser, pass: smtpPass },
+          });
+        }
+        const fromEmail = process.env.EMAIL_FROM || smtpUser;
+        await smtpTransporter.sendMail({
+          from: `"${fromName}" <${fromEmail}>`,
+          to,
+          subject,
+          html,
+        });
+        return true;
+      },
+    };
+    console.log('📧 Email провайдер: SMTP Mail.ru');
+    return provider;
+  }
+
+  // 1. UniSender Go (Россия, РФ-юрисдикция) — транзакционный HTTP API, работает на Railway (без SMTP-портов)
+  const usgKey = process.env.UNISENDER_GO_API_KEY;
+  if (usgKey) {
+    // По умолчанию российский сервер go1; при регистрации на другом ДЦ задать UNISENDER_GO_API_URL
+    const apiUrl = process.env.UNISENDER_GO_API_URL
+      || 'https://go1.unisender.ru/ru/transactional/api/v1/email/send.json';
+    provider = {
+      name: 'UniSender Go',
+      async send(to, subject, html, fromName) {
+        const fromEmail = process.env.EMAIL_FROM || 'noreply@rpkm.ru';
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'X-API-KEY': usgKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: {
+              recipients: [{ email: to }],
+              subject,
+              from_email: fromEmail,
+              from_name: fromName,
+              body: { html },
+            },
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        // UniSender Go возвращает 200 даже при частичных ошибках — проверяем failed
+        if (!res.ok || (data.failed_emails && Object.keys(data.failed_emails).length)) {
+          throw new Error(`UniSender Go ${res.status}: ${JSON.stringify(data)}`);
+        }
+        return true;
+      },
+    };
+    console.log('📧 Email провайдер: UniSender Go');
+    return provider;
+  }
+
+  // 2. Brevo (ex-Sendinblue) — бесплатно 300 писем/день, любые получатели
   const brevoKey = process.env.BREVO_API_KEY;
   if (brevoKey) {
     provider = {
@@ -36,7 +109,7 @@ function getProvider() {
     return provider;
   }
 
-  // 2. Resend — фолбэк
+  // 3. Resend — фолбэк
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
     let resendClient = null;

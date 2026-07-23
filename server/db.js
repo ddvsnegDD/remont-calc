@@ -1,8 +1,11 @@
 import pg from 'pg';
 
+const dbUrl = process.env.DATABASE_URL || '';
+// Локальная БД на VPS (localhost / unix-socket) не требует SSL; облачная (Railway) — требует.
+const isLocalDB = /localhost|127\.0\.0\.1|\/var\/run/.test(dbUrl);
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString: dbUrl,
+  ssl: process.env.NODE_ENV === 'production' && !isLocalDB ? { rejectUnauthorized: false } : false,
 });
 
 export async function initDB() {

@@ -7,15 +7,16 @@ import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode
 import { sendAuthCode, sendRawEmail } from './server/email.js';
 
 const app = express();
+app.set('trust proxy', 1); // за Nginx reverse-proxy (VPS): корректный req.ip/req.protocol и secure-кука по HTTPS
 const PORT = process.env.PORT || 3000;
 const DIST = resolve('dist');
 const JWT_SECRET = process.env.JWT_SECRET || 'rpkm-dev-secret-change-in-prod';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'rpkm-admin-2026';
 const YOOMONEY_WALLET = process.env.YOOMONEY_WALLET || '4100183647078';
 const YOOMONEY_SECRET = process.env.YOOMONEY_SECRET || '';
-const SITE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
-  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-  : `http://localhost:${PORT}`;
+const SITE_URL = process.env.APP_URL // явный публичный URL (VPS): https://ddrpkm.ru
+  || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
+  || `http://localhost:${PORT}`;
 
 // Флаг доступности БД
 let dbReady = false;
@@ -54,7 +55,7 @@ function authMiddleware(req, res, next) {
 // ==================== HEALTH CHECK ====================
 
 app.get('/api/health', async (req, res) => {
-  const status = { server: true, db: dbReady, email: !!(process.env.BREVO_API_KEY || process.env.RESEND_API_KEY) };
+  const status = { server: true, db: dbReady, email: !!((process.env.SMTP_USER && process.env.SMTP_PASS) || process.env.UNISENDER_GO_API_KEY || process.env.BREVO_API_KEY || process.env.RESEND_API_KEY) };
   try {
     if (dbReady) {
       const { rows } = await pool.query('SELECT 1');

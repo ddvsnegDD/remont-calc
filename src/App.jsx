@@ -25,6 +25,7 @@ import PartnerB2CPage from './pages/PartnerB2CPage';
 import DashboardPage from './pages/DashboardPage';
 import PrivacyPage from './pages/PrivacyPage';
 import OfferPage from './pages/OfferPage';
+import ConsentPage from './pages/ConsentPage';
 import AdminPage from './pages/AdminPage';
 import ChecklistsPage from './pages/ChecklistsPage';
 import ChecklistDetailPage from './pages/ChecklistDetailPage';
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/offer" element={<OfferPage />} />
+        <Route path="/consent" element={<ConsentPage />} />
         <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/checklists/:id" element={<ChecklistDetailPage />} />
         <Route path="/admin" element={<AdminPage />} />

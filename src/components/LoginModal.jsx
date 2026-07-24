@@ -131,10 +131,12 @@ export default function LoginModal({ open, onClose, onSuccess }) {
                   style={{ marginTop: 2, accentColor: C.terra, width: 16, height: 16, flexShrink: 0 }}
                 />
                 <span style={{ fontSize: 12, color: C.gray500, lineHeight: 1.5 }}>
-                  Соглашаюсь с{' '}
-                  <Link to="/privacy" onClick={onClose} style={{ color: C.terra, textDecoration: 'underline' }}>Политикой конфиденциальности</Link>
+                  Даю{' '}
+                  <Link to="/consent" onClick={onClose} style={{ color: C.terra, textDecoration: 'underline' }}>согласие на обработку персональных данных</Link>
+                  {' '}и принимаю{' '}
+                  <Link to="/privacy" onClick={onClose} style={{ color: C.terra, textDecoration: 'underline' }}>Политику конфиденциальности</Link>
                   {' '}и{' '}
-                  <Link to="/offer" onClick={onClose} style={{ color: C.terra, textDecoration: 'underline' }}>Договором-офертой</Link>
+                  <Link to="/offer" onClick={onClose} style={{ color: C.terra, textDecoration: 'underline' }}>Договор-оферту</Link>
                 </span>
               </label>
               <Btn variant="terra" size="lg" style={{ width: '100%', marginTop: 12 }} disabled={loading || !consent}>

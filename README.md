@@ -3,17 +3,18 @@
 Веб-приложение для расчёта стоимости ремонта квартир и офисного fit-out в Москве.
 
 > Проект выполнен в рамках курса «Зерокодер».
+> Сайт: **https://ddrpkm.ru**
 
 ## Стек
 
-- **Frontend:** React 18.3 + Vite 5.4 (SPA, 27 маршрутов)
+- **Frontend:** React 18.3 + Vite 5.4 (SPA, 28 маршрутов)
 - **Backend:** Express 5 (API: auth, subscriptions, admin, CRM-прокси)
-- **БД:** PostgreSQL (пользователи, авторизационные коды, подписки)
+- **БД:** PostgreSQL (пользователи, авторизационные коды, подписки) — локально на VPS в РФ
 - **Auth:** Passwordless (email + одноразовый 4-значный код), JWT в httpOnly cookie
-- **Email:** Brevo HTTP API (приоритет) + Resend (фолбэк)
+- **Email:** UniSender Go (транзакционный, серверы в РФ). В коде также поддержка SMTP Mail.ru (приоритетный, если заданы `SMTP_*`) и Brevo/Resend как фолбэк
 - **Платежи:** ЮMoney (P2P для MVP)
 - **CRM:** Битрикс24 REST API (контакты + сделки через серверный прокси)
-- **Хостинг:** Railway (auto-deploy из GitHub)
+- **Хостинг:** reg.cloud VPS (Москва, РФ) — Nginx + Let's Encrypt + PM2
 
 ## Функционал
 
@@ -39,7 +40,7 @@
 
 ### Прочее
 - Админ-панель (/admin) со статистикой и управлением пользователями
-- Политика конфиденциальности (152-ФЗ) и Договор-оферта
+- Юр-страницы: Политика конфиденциальности (`/privacy`), Согласие на обработку ПДн (`/consent`), Договор-оферта (`/offer`) — под 152-ФЗ
 - Партнёрская программа B2B (NDA) и реферальная B2C
 
 ## Запуск
@@ -58,28 +59,60 @@ Vite проксирует `/api` -> `localhost:3001` автоматически.
 
 ```bash
 npm run build    # -> dist/
-npm start        # Express на PORT (по умолчанию 3000)
+npm start        # Express на PORT (по умолчанию 3000; на VPS — 3001)
 ```
+
+## Инфраструктура (reg.cloud VPS, РФ)
+
+РПКМ размещён на том же VPS, что и VidFlex/VideoAI (Москва, IP 194.226.20.185), изолированно:
+
+- **Порт:** 3001 (VidFlex занимает 3000)
+- **PM2-процесс:** `rpkm` (под пользователем `deploy`), автозапуск включён (`pm2 save` + `pm2-deploy.service`)
+- **БД:** отдельная база `rpkm` в локальном PostgreSQL (не общая с VideoAI)
+- **Путь на сервере:** `/home/deploy/rpkm`
+- **Nginx:** server-block `ddrpkm.ru` → `127.0.0.1:3001` (`nginx/rpkm.conf`), HTTPS Let's Encrypt
+- **Данные n8n** (Docker/containerd) вынесены на отдельный диск `/dev/sdb`, чтобы не забивать корень
 
 ### Деплой
 
-Push в `main` -> Railway автоматически собирает и деплоит.
+```bash
+# локально (Mac): закоммитить и запушить в рабочий репозиторий
+git push neworigin main            # github.com/ddvsnegDD/remont-calc
+
+# на сервере (SSH):
+cd /home/deploy/rpkm
+sudo -u deploy -H git pull
+sudo -u deploy -H npm run build
+sudo -u deploy -H pm2 restart rpkm
+```
+
+> Railway (прежний хостинг, США) выведен из эксплуатации.
 
 ## Переменные окружения
 
 | Переменная | Описание | Обязательна |
 |------------|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string | Да |
-| `B24_WEBHOOK` | URL вебхука Битрикс24 | Да |
-| `BREVO_API_KEY` | API-ключ Brevo для email | Да |
-| `EMAIL_FROM` | Email отправителя (верифицирован в Brevo) | Да |
+| `DATABASE_URL` | PostgreSQL connection string (локальная база `rpkm`) | Да |
+| `PORT` | Порт приложения (на VPS — `3001`) | Да (задан в ecosystem) |
+| `APP_URL` | Публичный URL сайта (`https://ddrpkm.ru`) | Да |
 | `JWT_SECRET` | Секрет для подписи JWT | Да |
 | `ADMIN_PASSWORD` | Пароль админ-панели | Да |
-| `NODE_ENV` | `production` | Да |
+| `B24_WEBHOOK` | URL вебхука Битрикс24 | Да |
+| `UNISENDER_GO_API_KEY` | API-ключ UniSender Go (отправка кодов) | Да |
+| `UNISENDER_GO_API_URL` | Эндпоинт UniSender Go (для аккаунта на go2: `https://go2.unisender.ru/ru/transactional/api/v1/email/send.json`) | Да (для go2) |
+| `EMAIL_FROM` | Email отправителя (`noreply@ddrpkm.ru`) | Да |
 | `YOOMONEY_WALLET` | Номер кошелька ЮMoney | Да |
-| `YOOMONEY_SECRET` | Секрет для вебхуков ЮMoney | Рекомендуется |
-| `RESEND_API_KEY` | API-ключ Resend (фолбэк email) | Опционально |
+| `YOOMONEY_SECRET` | Секрет для вебхуков ЮMoney | Опционально |
+| `SMTP_HOST/PORT/USER/PASS` | SMTP Mail.ru (альтернатива UniSender; приоритетный провайдер, если задан) | Опционально |
+| `BREVO_API_KEY` / `RESEND_API_KEY` | Легаси-фолбэк email | Опционально |
+| `NODE_ENV` | `production` | Да |
 
 ## Диагностика
 
-`GET /api/health` -- статус сервера, БД и email-провайдера.
+`GET /api/health` — статус сервера, БД (`dbLive` — реальный ping) и наличие email-провайдера.
+
+## Юридический статус (152-ФЗ)
+
+- Оператор ПДн: Дзыга Дмитрий Владиславович (самозанятый, ИНН 505004685439), запись в реестре Роскомнадзора **77-26-556640**.
+- Данные граждан РФ обрабатываются и хранятся на сервере в РФ (reg.cloud, Москва); трансграничная передача не осуществляется.
+- Обработчики: ЮMoney, UniSender Go, Битрикс24, reg.cloud — все в РФ.

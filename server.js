@@ -3,7 +3,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { resolve, join } from 'path';
-import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, cancelSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
+import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
 
 const app = express();
@@ -288,6 +288,28 @@ app.delete('/api/admin/users/:id', requireDB, adminAuth, async (req, res) => {
   try {
     const user = await deleteUser(Number(req.params.id));
     if (!user) return res.status(404).json({ ok: false, error: 'Пользователь не найден' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Выдать подписку вручную
+app.post('/api/admin/users/:id/subscription', requireDB, adminAuth, async (req, res) => {
+  try {
+    const days = Math.max(1, Math.min(36500, Number(req.body?.days) || 365));
+    const plan = req.body?.plan === 'monthly' ? 'monthly' : 'yearly';
+    const sub = await grantSubscription(Number(req.params.id), plan, days);
+    res.json({ ok: true, subscription: sub });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Отозвать подписку вручную
+app.delete('/api/admin/users/:id/subscription', requireDB, adminAuth, async (req, res) => {
+  try {
+    await cancelSubscription(Number(req.params.id));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

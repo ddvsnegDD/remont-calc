@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
-import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase, Trash2 } from 'lucide-react';
+import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase, Trash2, Gift, Ban } from 'lucide-react';
 import Btn from '../components/Btn';
 
 const POSITION_LABELS = {
@@ -114,6 +114,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleGrantSub = async (userId, email) => {
+    const input = window.prompt(`Выдать подписку пользователю ${email}.\nНа сколько дней? (год — 365, «навсегда» — 3650)`, '3650');
+    if (input === null) return;
+    const days = parseInt(input, 10);
+    if (!days || days < 1) { alert('Введите число дней'); return; }
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/subscription`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: days >= 365 ? 'yearly' : 'monthly', days }),
+      });
+      const data = await res.json();
+      if (data.ok) fetchData();
+      else alert('Ошибка: ' + (data.error || 'не удалось выдать'));
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    }
+  };
+
+  const handleRevokeSub = async (userId, email) => {
+    if (!window.confirm(`Отозвать активную подписку у ${email}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/subscription`, { method: 'DELETE', headers });
+      const data = await res.json();
+      if (data.ok) fetchData();
+      else alert('Ошибка: ' + (data.error || 'не удалось отозвать'));
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    }
+  };
+
   // Login screen
   if (!token) {
     return (
@@ -221,7 +252,21 @@ export default function AdminPage() {
                         <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                           {formatDate(u.created_at)}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <button onClick={() => handleGrantSub(u.id, u.email)} title="Выдать подписку"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#16a34a'}
+                            onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
+                            <Gift size={15} />
+                          </button>
+                          {!isExpired(u.sub_status, u.sub_expires) && (u.sub_status === 'active' || u.sub_status === 'trial') && (
+                            <button onClick={() => handleRevokeSub(u.id, u.email)} title="Отозвать подписку"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
+                              onMouseEnter={e => e.currentTarget.style.color = '#d97706'}
+                              onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
+                              <Ban size={15} />
+                            </button>
+                          )}
                           <button onClick={() => handleDeleteUser(u.id, u.email)} title="Удалить"
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
                             onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
@@ -267,7 +312,21 @@ export default function AdminPage() {
                       <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                         {formatDate(u.created_at)}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                      <td style={{ ...tdStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <button onClick={() => handleGrantSub(u.id, u.email)} title="Выдать подписку"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#16a34a'}
+                          onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
+                          <Gift size={15} />
+                        </button>
+                        {!isExpired(u.sub_status, u.sub_expires) && (u.sub_status === 'active' || u.sub_status === 'trial') && (
+                          <button onClick={() => handleRevokeSub(u.id, u.email)} title="Отозвать подписку"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#d97706'}
+                            onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
+                            <Ban size={15} />
+                          </button>
+                        )}
                         <button onClick={() => handleDeleteUser(u.id, u.email)} title="Удалить"
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
                           onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}

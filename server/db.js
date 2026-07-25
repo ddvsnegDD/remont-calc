@@ -143,6 +143,22 @@ export async function activateSubscription(label) {
   return rows[0] || null;
 }
 
+// --- Grant subscription manually (admin) ---
+export async function grantSubscription(userId, plan = 'yearly', days = 365) {
+  // завершаем текущие активные/триал/pending, чтобы не было дублей
+  await pool.query(
+    `UPDATE subscriptions SET status = 'cancelled', expires_at = NOW()
+     WHERE user_id = $1 AND status IN ('trial', 'active', 'pending')`,
+    [userId]
+  );
+  const { rows } = await pool.query(
+    `INSERT INTO subscriptions (user_id, plan, status, started_at, expires_at)
+     VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '1 day' * $3) RETURNING *`,
+    [userId, plan, days]
+  );
+  return rows[0];
+}
+
 // --- Cancel subscription ---
 export async function cancelSubscription(userId) {
   const { rows } = await pool.query(

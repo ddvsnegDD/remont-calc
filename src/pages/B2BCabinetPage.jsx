@@ -6,6 +6,11 @@ import { C } from '../lib/theme';
 import { formatRub } from '../lib/calculator';
 import { useAuth } from '../lib/auth';
 
+const formatSubDate = (d) => {
+  if (!d) return null;
+  return new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+};
+
 const ROLE_LABEL = {
   designer: 'Дизайнер интерьеров',
   architect: 'Архитектор',
@@ -16,7 +21,7 @@ const ROLE_LABEL = {
 
 export default function B2BCabinetPage() {
   const navigate = useNavigate();
-  const { user, loading: authLoading, logout: authLogout } = useAuth();
+  const { user, subscription, hasAccess, loading: authLoading, logout: authLogout } = useAuth();
   const [calcs, setCalcs] = useState([]);
   const [notice, setNotice] = useState(null);
 
@@ -74,13 +79,26 @@ export default function B2BCabinetPage() {
               <li onClick={() => navigate('/b2b-profile')}>⚙️ Настройки профиля</li>
             </ul>
             <div style={{ marginTop: 16 }}>
-              <div className="pro-upsell">
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.graphite, marginBottom: 4 }}>Бесплатный план</div>
-                <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>3 расчёта/мес · базовый PDF</div>
-                <Link to="/pro" className="btn-link" style={{ fontSize: 12 }}>
-                  <Btn variant="outline" style={{ width: '100%', fontSize: 12, padding: '8px 12px' }}>Перейти на PRO →</Btn>
-                </Link>
-              </div>
+              {hasAccess ? (
+                <div className="pro-upsell" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>
+                    {subscription?.status === 'trial' ? '⭐ Триал активен' : '⭐ PRO активен'}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.gray500 }}>
+                    {subscription?.expiresAt
+                      ? `Действует до ${formatSubDate(subscription.expiresAt)}`
+                      : 'Полный доступ к PRO-функциям'}
+                  </div>
+                </div>
+              ) : (
+                <div className="pro-upsell">
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.graphite, marginBottom: 4 }}>Бесплатный план</div>
+                  <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>3 расчёта/мес · базовый PDF</div>
+                  <Link to="/pro" className="btn-link" style={{ fontSize: 12 }}>
+                    <Btn variant="outline" style={{ width: '100%', fontSize: 12, padding: '8px 12px' }}>Перейти на PRO →</Btn>
+                  </Link>
+                </div>
+              )}
             </div>
             <button onClick={handleLogout} style={{ marginTop: 16, background: 'none', border: 'none', color: C.gray500, cursor: 'pointer', fontSize: 13 }}>Выйти</button>
           </aside>

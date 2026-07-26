@@ -295,13 +295,15 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Email', 'Имя', 'Телефон', 'Организация', 'Специализация', 'Регистрация', ''].map((h, i) => (
+                    {['ID', 'Email', 'Имя', 'Телефон', 'Организация', 'Специализация', 'Подписка', 'Истекает', 'Регистрация', ''].map((h, i) => (
                       <th key={i} style={thStyle}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {b2bUsers.map(u => (
+                  {b2bUsers.map(u => {
+                    const effectiveStatus = isExpired(u.sub_status, u.sub_expires) ? 'expired' : u.sub_status;
+                    return (
                     <tr key={u.id} style={{ borderTop: `1px solid ${C.gray100}` }}>
                       <td style={{ ...tdStyle, color: C.gray400 }}>{u.id}</td>
                       <td style={{ ...tdStyle, fontWeight: 500, color: C.graphite }}>{u.email}</td>
@@ -309,6 +311,12 @@ export default function AdminPage() {
                       <td style={{ ...tdStyle, color: u.phone ? C.graphite : C.gray300 }}>{u.phone || '—'}</td>
                       <td style={{ ...tdStyle, color: u.organization ? C.graphite : C.gray300 }}>{u.organization || '—'}</td>
                       <td style={{ ...tdStyle, color: u.position ? C.graphite : C.gray300 }}>{POSITION_LABELS[u.position] || u.position || '—'}</td>
+                      <td style={tdStyle}>
+                        {u.sub_status ? <Badge status={effectiveStatus} /> : <span style={{ color: C.gray300 }}>—</span>}
+                      </td>
+                      <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
+                        {u.sub_expires ? formatDate(u.sub_expires) : '—'}
+                      </td>
                       <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                         {formatDate(u.created_at)}
                       </td>
@@ -335,9 +343,10 @@ export default function AdminPage() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {b2bUsers.length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2B</td></tr>
+                    <tr><td colSpan={10} style={{ padding: 40, textAlign: 'center', color: C.gray400 }}>Нет пользователей B2B</td></tr>
                   )}
                 </tbody>
               </table>

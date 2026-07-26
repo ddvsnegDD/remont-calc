@@ -1,6 +1,13 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { tierOf } from '../data/tariffs';
 
 const AuthContext = createContext(null);
+
+// Уровень активной подписки: 'club' | 'pro' | null
+function subTier(sub) {
+  if (!sub || !(sub.status === 'trial' || sub.status === 'active')) return null;
+  return tierOf(sub.plan);
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -80,15 +87,19 @@ export function AuthProvider({ children }) {
     const data = await res.json();
     if (data?.ok) {
       setSubscription(data.subscription);
-      return data;
+      const tier = subTier(data.subscription);
+      return { ...data, tier, hasClub: tier === 'club' || tier === 'pro', hasPro: tier === 'pro' };
     }
     return null;
   }, []);
 
-  const hasAccess = !!(subscription && (subscription.status === 'trial' || subscription.status === 'active'));
+  const tier = subTier(subscription);
+  const hasClub = tier === 'club' || tier === 'pro';
+  const hasPro = tier === 'pro';
+  const hasAccess = hasClub; // алиас для обратной совместимости
 
   return (
-    <AuthContext.Provider value={{ user, subscription, loading, hasAccess, sendCode, verify, logout, refreshSubscription }}>
+    <AuthContext.Provider value={{ user, subscription, loading, tier, hasClub, hasPro, hasAccess, sendCode, verify, logout, refreshSubscription }}>
       {children}
     </AuthContext.Provider>
   );

@@ -21,7 +21,7 @@ const ROLE_LABEL = {
 
 export default function B2BCabinetPage() {
   const navigate = useNavigate();
-  const { user, subscription, hasAccess, loading: authLoading, logout: authLogout } = useAuth();
+  const { user, subscription, hasPro, loading: authLoading, logout: authLogout } = useAuth();
   const [calcs, setCalcs] = useState([]);
   const [notice, setNotice] = useState(null);
 
@@ -79,7 +79,7 @@ export default function B2BCabinetPage() {
               <li onClick={() => navigate('/b2b-profile')}>⚙️ Настройки профиля</li>
             </ul>
             <div style={{ marginTop: 16 }}>
-              {hasAccess ? (
+              {hasPro ? (
                 <div className="pro-upsell" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>
                     {subscription?.status === 'trial' ? '⭐ Триал активен' : '⭐ PRO активен'}
@@ -111,7 +111,7 @@ export default function B2BCabinetPage() {
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Btn variant="outline" onClick={() => navigate('/b2b-quiz')}>+ Квартира</Btn>
-                <Btn variant="outline" onClick={() => navigate(hasAccess ? '/b2b-office' : '/pro')} style={{ position: 'relative' }}>
+                <Btn variant="outline" onClick={() => navigate(hasPro ? '/b2b-office' : '/pro')} style={{ position: 'relative' }}>
                   + Офис <span style={{ fontSize: 10, background: C.terra, color: 'white', padding: '2px 6px', borderRadius: 999, marginLeft: 4, verticalAlign: 'middle' }}>PRO</span>
                 </Btn>
               </div>

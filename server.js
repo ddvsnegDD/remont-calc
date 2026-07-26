@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { resolve, join } from 'path';
 import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
+import { PLANS, tierOf } from './src/data/tariffs.js';
 
 const app = express();
 app.set('trust proxy', 1); // за Nginx reverse-proxy (VPS): корректный req.ip/req.protocol и secure-кука по HTTPS
@@ -118,7 +119,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     res.json({
       ok: true,
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization },
-      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } : null,
+      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null,
     });
   } catch (err) {
     console.error('me error:', err);
@@ -133,11 +134,7 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // ==================== SUBSCRIPTION API ====================
-
-const PLANS = {
-  monthly: { price: 490, days: 30, label: 'Клуб РПКМ · 1 месяц' },
-  yearly: { price: 4900, days: 365, label: 'Клуб РПКМ · 1 год' },
-};
+// Тарифы (PLANS) — единый источник из src/data/tariffs.js
 
 // Статус подписки
 app.get('/api/subscription/status', authMiddleware, async (req, res) => {
@@ -147,7 +144,7 @@ app.get('/api/subscription/status', authMiddleware, async (req, res) => {
     res.json({
       ok: true,
       hasAccess: !!sub,
-      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } : null,
+      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null,
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: 'Ошибка' });
@@ -165,6 +162,8 @@ app.post('/api/subscription/pay', authMiddleware, async (req, res) => {
     const label = `sub_${user.id}_${Date.now()}`;
     await createPendingSubscription(user.id, plan, label, planData.price);
 
+    // Возврат по уровню плана: PRO → /pro, Клуб → /club
+    const returnPath = planData.tier === 'pro' ? '/pro' : '/club';
     const params = new URLSearchParams({
       receiver: YOOMONEY_WALLET,
       'quickpay-form': 'button',
@@ -172,7 +171,7 @@ app.post('/api/subscription/pay', authMiddleware, async (req, res) => {
       sum: String(planData.price),
       label,
       targets: planData.label,
-      successURL: `${SITE_URL}/club?payment=success&label=${label}`,
+      successURL: `${SITE_URL}${returnPath}?payment=success&label=${label}`,
     });
     const paymentUrl = `https://yoomoney.ru/quickpay/confirm?${params}`;
     res.json({ ok: true, paymentUrl, label });
@@ -297,8 +296,9 @@ app.delete('/api/admin/users/:id', requireDB, adminAuth, async (req, res) => {
 // Выдать подписку вручную
 app.post('/api/admin/users/:id/subscription', requireDB, adminAuth, async (req, res) => {
   try {
-    const days = Math.max(1, Math.min(36500, Number(req.body?.days) || 365));
-    const plan = req.body?.plan === 'monthly' ? 'monthly' : 'yearly';
+    // План — конкретный id из PLANS (club_monthly | club_yearly | pro_monthly); дефолт — клубный годовой
+    const plan = PLANS[req.body?.plan] ? req.body.plan : 'club_yearly';
+    const days = Math.max(1, Math.min(36500, Number(req.body?.days) || PLANS[plan].days));
     const sub = await grantSubscription(Number(req.params.id), plan, days);
     res.json({ ok: true, subscription: sub });
   } catch (err) {

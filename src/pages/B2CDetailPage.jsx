@@ -7,6 +7,7 @@ import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { SpecCalc } from '../lib/spec-calculator';
 import { createLead, formatDetailComment } from '../lib/bitrix';
+import { PLANS, formatPrice } from '../data/tariffs';
 
 export default function B2CDetailPage() {
   const navigate = useNavigate();
@@ -112,7 +113,7 @@ export default function B2CDetailPage() {
                 Доступен участникам <strong>Клуба владельцев</strong> и <strong>Профи</strong>.
               </p>
               <div style={{ display: 'inline-block', background: C.terraBg, color: C.terra, fontWeight: 600, fontSize: 14, padding: '6px 16px', borderRadius: 8, margin: '8px 0 24px' }}>
-                Подписка — 490 ₽/мес · 14 дней бесплатно
+                Подписка — {formatPrice(PLANS.club_monthly.price)} ₽/мес · 14 дней бесплатно
               </div>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Btn variant="terra" size="lg" onClick={() => navigate('/club')}>Попробовать 14 дней бесплатно</Btn>

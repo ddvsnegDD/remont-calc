@@ -1,41 +1,115 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
+import { PLANS, formatPrice } from '../data/tariffs';
+
+const PRO_PRICE = formatPrice(PLANS.pro_monthly.price); // «2 900»
 
 const BENEFITS = [
   'Безлимит расчётов',
-  'White-label PDF (логотип, реквизиты)',
   'Офисный fit-out калькулятор (25+ статей)',
+  'Детальная спецификация B2B по тендерным ценам',
+  'White-label PDF (логотип, реквизиты)',
   'Персональный менеджер',
   'Приоритетная поддержка (24 ч SLA)',
   'Экспорт CSV / Excel',
-  'Чек-лист для заёмщика',
 ];
 
 const FAQ = [
-  { q: 'Как работает white-label PDF?', a: 'В настройках профиля загружаете логотип и реквизиты. Все PDF формируются с вашим брендом.' },
-  { q: 'Есть ли скидка при годовой оплате?', a: 'Да, 12 месяцев = 29 000 ₽ (экономия 17%).' },
-  { q: 'Что входит в чек-лист для заёмщика?', a: 'Список документов и шагов для получения ипотеки на ремонт. Готовится к публикации.' },
+  { q: 'Что входит в PRO?', a: 'Всё из Клуба владельцев плюс инструменты для профессионалов: офисный fit-out калькулятор и детальная спецификация B2B по тендерным ценам, а также white-label PDF и приоритетная поддержка.' },
+  { q: 'Есть ли годовой тариф PRO?', a: 'Пока доступен месячный тариф — 2 900 ₽/мес с отменой в любой момент. Годовой тариф готовится.' },
+  { q: 'Как работает white-label PDF?', a: 'В настройках профиля загружаете логотип и реквизиты. Все PDF формируются с вашим брендом. Функция готовится к запуску.' },
   { q: 'Можно ли совмещать PRO с партнёрской программой?', a: 'Да. PRO даёт инструменты, партнёрка — выплаты. Они независимы.' },
 ];
 
 export default function ProPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [subscribed, setSubscribed] = useState(false);
+  const [searchParams] = useSearchParams();
+  const { user, subscription, hasPro, refreshSubscription } = useAuth();
   const [openFaq, setOpenFaq] = useState(-1);
   const [notice, setNotice] = useState(null);
+  const [payLoading, setPayLoading] = useState(false);
 
   const toggleFaq = useCallback((i) => { setOpenFaq(prev => prev === i ? -1 : i); }, []);
 
   useEffect(() => {
     if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 3000);
+    const t = setTimeout(() => setNotice(null), 4000);
     return () => clearTimeout(t);
   }, [notice]);
+
+  // Возврат с ЮMoney: активируем подписку и поллим статус
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    const label = searchParams.get('label');
+    if (payment === 'success' && label) {
+      fetch('/api/subscription/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ label }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            setNotice('Подписка PRO активирована!');
+            refreshSubscription();
+          } else {
+            setNotice('Оплата получена. Подписка активируется в течение нескольких минут.');
+            const interval = setInterval(() => {
+              refreshSubscription().then(d => {
+                if (d?.hasPro) {
+                  clearInterval(interval);
+                  setNotice('Подписка PRO активирована!');
+                }
+              });
+            }, 5000);
+            setTimeout(() => clearInterval(interval), 120000);
+          }
+        })
+        .catch(() => setNotice('Ожидаем подтверждения оплаты...'));
+    }
+  }, [searchParams, refreshSubscription]);
+
+  const handlePay = useCallback(async () => {
+    if (!user) { navigate('/b2b-login'); return; }
+    setPayLoading(true);
+    try {
+      const res = await fetch('/api/subscription/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ plan: 'pro_monthly' }),
+      });
+      const data = await res.json();
+      if (data.ok && data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        setNotice(data.error || 'Ошибка создания платежа');
+      }
+    } catch {
+      setNotice('Ошибка связи с сервером');
+    } finally {
+      setPayLoading(false);
+    }
+  }, [user, navigate]);
+
+  const expiresLabel = subscription?.expiresAt
+    ? new Date(subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
+  const heroCta = !user
+    ? <Btn variant="dark" size="lg" onClick={() => navigate('/b2b-login')}>Войти для оформления PRO</Btn>
+    : hasPro
+      ? (
+        <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '12px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600 }}>
+          ✓ PRO активен{expiresLabel && <span style={{ fontWeight: 400, fontSize: 13 }}>до {expiresLabel}</span>}
+        </div>
+      )
+      : <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>;
 
   return (
     <PageLayout>
@@ -48,21 +122,12 @@ export default function ProPage() {
                 <span className="section-label">Подписка PRO</span>
                 <h1>PRO-кабинет для дизайнеров и техзаказчиков</h1>
                 <p className="hero-lead">
-                  Безлимитные расчёты, white-label PDF, экспорт в CSV, приоритетная поддержка. Всё за 2 900 ₽/мес.
+                  Офисный fit-out калькулятор, детальная спецификация B2B, безлимитные расчёты,
+                  white-label PDF, приоритетная поддержка. Всё за {PRO_PRICE} ₽/мес.
                 </p>
-                <div className="hero-cta">
-                  {!user ? (
-                    <Btn variant="dark" size="lg" onClick={() => navigate('/b2b-login')}>Войти для оформления PRO</Btn>
-                  ) : subscribed ? (
-                    <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '12px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600 }}>
-                      ✓ PRO активен (демо)
-                    </div>
-                  ) : (
-                    <Btn variant="dark" size="lg" onClick={() => setSubscribed(true)}>Оформить PRO за 2 900 ₽/мес</Btn>
-                  )}
-                </div>
+                <div className="hero-cta">{heroCta}</div>
                 <div className="hero-stats" style={{ marginTop: 28 }}>
-                  <div><div className="stat-num">2 900 ₽</div><div className="stat-label">в месяц · отмена в один клик</div></div>
+                  <div><div className="stat-num">{PRO_PRICE} ₽</div><div className="stat-label">в месяц · отмена в один клик</div></div>
                   <div><div className="stat-num">∞</div><div className="stat-label">расчётов в месяц</div></div>
                   <div><div className="stat-num">24 часа</div><div className="stat-label">SLA на ответ инженера</div></div>
                 </div>
@@ -91,30 +156,30 @@ export default function ProPage() {
                 <div className="compare-name">Бесплатный</div>
                 <div className="compare-price">0 ₽</div>
                 <ul>
-                  <li>1 расчёт в месяц</li>
+                  <li>Быстрый предварительный расчёт</li>
                   <li>Стандартные PDF-сметы</li>
                   <li>История расчётов</li>
+                  <li className="off" style={{ textDecoration: 'line-through' }}>Офисный fit-out калькулятор</li>
+                  <li className="off" style={{ textDecoration: 'line-through' }}>Детальная спецификация B2B</li>
                   <li className="off" style={{ textDecoration: 'line-through' }}>White-label PDF</li>
-                  <li className="off" style={{ textDecoration: 'line-through' }}>Персональный менеджер</li>
-                  <li className="off" style={{ textDecoration: 'line-through' }}>Приоритетная поддержка</li>
                   <li className="off" style={{ textDecoration: 'line-through' }}>Экспорт в CSV / Excel</li>
                 </ul>
               </div>
               <div className="compare-col compare-featured">
                 <div className="compare-name">PRO</div>
-                <div className="compare-price">2 900 ₽<span style={{ fontSize: 14, color: C.gray500, fontWeight: 500 }}>/мес</span></div>
+                <div className="compare-price">{PRO_PRICE} ₽<span style={{ fontSize: 14, color: C.gray500, fontWeight: 500 }}>/мес</span></div>
                 <ul>
                   <li>Безлимит расчётов</li>
+                  <li>Офисный fit-out калькулятор</li>
+                  <li>Детальная спецификация B2B</li>
                   <li>White-label PDF (логотип, реквизиты)</li>
-                  <li>Персональный менеджер</li>
                   <li>Приоритетная поддержка (24 ч SLA)</li>
                   <li>Экспорт в CSV / Excel</li>
-                  <li>Чек-лист для заёмщика</li>
                 </ul>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }}
-                  onClick={() => !user ? navigate('/b2b-login') : subscribed ? null : setSubscribed(true)}
-                  disabled={subscribed}>
-                  {!user ? 'Войти для оформления' : subscribed ? '✓ PRO уже активен' : 'Перейти на PRO'}
+                  onClick={() => !user ? navigate('/b2b-login') : hasPro ? null : handlePay()}
+                  disabled={hasPro || payLoading}>
+                  {!user ? 'Войти для оформления' : hasPro ? '✓ PRO уже активен' : 'Перейти на PRO'}
                 </Btn>
               </div>
             </div>
@@ -122,7 +187,7 @@ export default function ProPage() {
         </section>
 
         {/* Member area */}
-        {subscribed && (
+        {hasPro && (
           <section>
             <div className="container" style={{ maxWidth: 960 }}>
               <div className="section-head">
@@ -130,31 +195,27 @@ export default function ProPage() {
                 <h2>Управление подпиской</h2>
               </div>
               <div className="club-grid">
+                <div className="club-card" style={{ borderLeft: `4px solid ${C.terra}`, background: `linear-gradient(180deg, ${C.terraBg} 0%, white 60%)` }}>
+                  <h3>Офисный fit-out</h3>
+                  <p>Детальная смета офиса по 25+ статьям расходов.</p>
+                  <Btn variant="terra" style={{ marginTop: 8 }} onClick={() => navigate('/b2b-office')}>Открыть калькулятор →</Btn>
+                </div>
                 <div className="club-card">
                   <h3>White-label PDF</h3>
                   <p>Загрузите логотип — все PDF будут с вашим брендом.</p>
-                  <Btn variant="outline" onClick={() => setNotice('White-label PDF — в демо не реализовано')}>Настроить →</Btn>
-                </div>
-                <div className="club-card">
-                  <h3>Персональный менеджер</h3>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: 12, background: C.gray50, borderRadius: 8, margin: '8px 0 12px' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: `linear-gradient(135deg, ${C.graphite}, ${C.gray600})`, color: 'white', display: 'grid', placeItems: 'center', fontWeight: 700 }}>АВ</div>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>Анна Воронцова</div>
-                      <div style={{ fontSize: 13, color: C.gray500 }}>Старший инженер пресейла · 8 лет</div>
-                    </div>
-                  </div>
-                  <Btn variant="outline" onClick={() => setNotice('Чат с менеджером — в демо не реализовано')}>Написать →</Btn>
+                  <Btn variant="outline" onClick={() => setNotice('White-label PDF — скоро')}>Настроить →</Btn>
                 </div>
                 <div className="club-card">
                   <h3>Экспорт в CSV</h3>
                   <p>Скачайте историю расчётов одним файлом.</p>
-                  <Btn variant="outline" onClick={() => setNotice('Экспорт CSV — в демо не реализовано')}>Скачать CSV →</Btn>
+                  <Btn variant="outline" onClick={() => setNotice('Экспорт CSV — скоро')}>Скачать CSV →</Btn>
                 </div>
                 <div className="club-card">
                   <h3>Управление подпиской</h3>
-                  <p style={{ color: C.gray500, fontSize: 14 }}>PRO активен (демо). Стоимость: 2 900 ₽/мес</p>
-                  <Btn variant="outline" style={{ marginTop: 12 }} onClick={() => setSubscribed(false)}>Отменить подписку</Btn>
+                  <p style={{ color: C.gray500, fontSize: 14 }}>
+                    PRO активен{expiresLabel ? ` до ${expiresLabel}` : ''}. Стоимость: {PRO_PRICE} ₽/мес
+                  </p>
+                  <Btn variant="outline" style={{ marginTop: 12 }} onClick={() => navigate('/b2b-cabinet')}>В кабинет →</Btn>
                 </div>
               </div>
             </div>

@@ -11,7 +11,7 @@ import ProPaywall from '../components/ProPaywall';
 
 export default function B2BResultPage() {
   const navigate = useNavigate();
-  const { user, hasAccess, loading: authLoading } = useAuth();
+  const { user, hasPro, loading: authLoading } = useAuth();
   const [calc, setCalc] = useState(null);
   const [specMode, setSpecMode] = useState('full');
   const [specTier, setSpecTier] = useState('capital');
@@ -137,9 +137,10 @@ export default function B2BResultPage() {
             </div>
 
             {/* Spec block — PRO */}
-            {specResult && !authLoading && !hasAccess && (
+            {specResult && !authLoading && !hasPro && (
               <ProPaywall
                 inline
+                target="pro"
                 heading="Детальная спецификация"
                 sub="Расчёт по тендерным расценкам с разбивкой на работы и материалы — доступен по подписке PRO."
                 positions={specResult.lines.length}
@@ -147,7 +148,7 @@ export default function B2BResultPage() {
                 onLogin={() => setLoginOpen(true)}
               />
             )}
-            {specResult && hasAccess && (
+            {specResult && hasPro && (
               <div style={{ marginTop: 28, paddingTop: 24, borderTop: `2px solid ${C.gray200}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
                   <div>

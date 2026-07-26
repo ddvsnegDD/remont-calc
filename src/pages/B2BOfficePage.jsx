@@ -15,7 +15,7 @@ const OFFICE_PAYWALL = {
 
 export default function B2BOfficePage() {
   const navigate = useNavigate();
-  const { user, hasAccess, loading: authLoading } = useAuth();
+  const { user, hasPro, loading: authLoading } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [tier, setTier] = useState('business');
   const [area, setArea] = useState(500);
@@ -124,7 +124,7 @@ export default function B2BOfficePage() {
     );
   }
 
-  if (!hasAccess) {
+  if (!hasPro) {
     return (
       <>
         <ProPaywall {...OFFICE_PAYWALL} showLogin={!user} onLogin={() => setLoginOpen(true)} />

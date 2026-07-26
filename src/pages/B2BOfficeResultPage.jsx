@@ -12,7 +12,7 @@ function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 
 export default function B2BOfficeResultPage() {
   const navigate = useNavigate();
-  const { user, hasAccess, loading: authLoading } = useAuth();
+  const { user, hasPro, loading: authLoading } = useAuth();
   const [calc, setCalc] = useState(null);
   const [openGroups, setOpenGroups] = useState(new Set([0, 1]));
   const [loginOpen, setLoginOpen] = useState(false);
@@ -51,7 +51,7 @@ export default function B2BOfficeResultPage() {
     );
   }
 
-  if (!hasAccess) {
+  if (!hasPro) {
     return (
       <>
         <ProPaywall

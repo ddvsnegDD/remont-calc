@@ -63,7 +63,7 @@ const TABS = [
 
 export default function B2BOfficeDetailPage() {
   const navigate = useNavigate();
-  const { user, hasAccess, loading: authLoading } = useAuth();
+  const { user, hasPro, loading: authLoading } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [tier, setTier] = useState('standard');
   const [activeTab, setActiveTab] = useState('finish');
@@ -305,7 +305,7 @@ export default function B2BOfficeDetailPage() {
     );
   }
 
-  if (!hasAccess) {
+  if (!hasPro) {
     return (
       <>
         <ProPaywall

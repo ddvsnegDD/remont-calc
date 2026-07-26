@@ -5,6 +5,11 @@ import LoginModal from '../components/LoginModal';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
+import { PLANS, formatPrice } from '../data/tariffs';
+
+const CLUB_M = PLANS.club_monthly.price; // 99
+const CLUB_Y = PLANS.club_yearly.price;  // 990
+const CLUB_Y_PER_MONTH = Math.round(CLUB_Y / 12); // ~82
 
 const BENEFITS = [
   'Детальная смета по тендерным ценам (50+ позиций)',
@@ -207,8 +212,8 @@ export default function ClubPage() {
                 {!hasAccess && !user && <div style={{ fontSize: 13, color: C.gray500, marginTop: 10 }}>Без карты. Триал 14 дней при нажатии кнопки.</div>}
                 <div className="hero-stats" style={{ marginTop: 28 }}>
                   <div><div className="stat-num">14 дней</div><div className="stat-label">бесплатный триал</div></div>
-                  <div><div className="stat-num">490 ₽</div><div className="stat-label">в месяц</div></div>
-                  <div><div className="stat-num">4 900 ₽</div><div className="stat-label">в год (-17%)</div></div>
+                  <div><div className="stat-num">{formatPrice(CLUB_M)} ₽</div><div className="stat-label">в месяц</div></div>
+                  <div><div className="stat-num">{formatPrice(CLUB_Y)} ₽</div><div className="stat-label">в год (-17%)</div></div>
                 </div>
               </div>
               <div className="hero-visual">
@@ -223,7 +228,7 @@ export default function ClubPage() {
                         <div style={{ fontSize: 14, color: C.gray500, marginBottom: 12 }}>до {expiresLabel}</div>
                       )}
                       <div style={{ fontSize: 13, color: C.gray500, marginBottom: 6 }}>
-                        План: {subscription?.plan === 'yearly' ? 'Годовой (4 900 ₽/год)' : subscription?.plan === 'monthly' ? 'Месячный (490 ₽/мес)' : 'Триал (14 дней)'}
+                        План: {subscription?.status === 'trial' ? 'Триал (14 дней)' : (subscription?.plan === 'club_yearly' || subscription?.plan === 'yearly') ? `Клуб · год (${formatPrice(CLUB_Y)} ₽/год)` : `Клуб · месяц (${formatPrice(CLUB_M)} ₽/мес)`}
                       </div>
                     </div>
                     <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={() => navigate('/b2c-detail')}>Сделать детальную смету</Btn>
@@ -281,34 +286,34 @@ export default function ClubPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, maxWidth: 600, margin: '0 auto' }}>
               {/* Monthly */}
               {(() => {
-                const isCurrent = hasAccess && (subscription?.plan === 'monthly' || subscription?.status === 'trial');
+                const isCurrent = hasAccess && (subscription?.plan === 'club_monthly' || subscription?.plan === 'monthly' || subscription?.status === 'trial');
                 return (
                   <div style={{ background: '#fff', border: isCurrent ? `2px solid #16794a` : `1.5px solid ${C.gray200}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
                     {isCurrent && <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#16794a', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>{subscription?.status === 'trial' ? 'ТРИАЛ' : 'ТЕКУЩИЙ'}</div>}
                     <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Месяц</div>
-                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>490 <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
+                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>{formatPrice(CLUB_M)} <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
                     <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>в месяц</div>
                     {isCurrent && expiresLabel ? (
                       <div style={{ padding: '12px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 14 }}>✓ до {expiresLabel}</div>
                     ) : (
-                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('monthly')} disabled={payLoading}>Оплатить</Btn>
+                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_monthly')} disabled={payLoading}>Оплатить</Btn>
                     )}
                   </div>
                 );
               })()}
               {/* Yearly */}
               {(() => {
-                const isCurrent = hasAccess && subscription?.plan === 'yearly';
+                const isCurrent = hasAccess && (subscription?.plan === 'club_yearly' || subscription?.plan === 'yearly');
                 return (
                   <div style={{ background: '#fff', border: `2px solid ${isCurrent ? '#16794a' : C.terra}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
                     <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: isCurrent ? '#16794a' : C.terra, color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>{isCurrent ? 'ТЕКУЩИЙ' : 'ВЫГОДНО'}</div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Год</div>
-                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>4 900 <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
-                    <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>408 ₽/мес · экономия 17%</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>{formatPrice(CLUB_Y)} <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
+                    <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>{formatPrice(CLUB_Y_PER_MONTH)} ₽/мес · экономия 17%</div>
                     {isCurrent && expiresLabel ? (
                       <div style={{ padding: '12px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 14 }}>✓ до {expiresLabel}</div>
                     ) : (
-                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('yearly')} disabled={payLoading}>Оплатить</Btn>
+                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_yearly')} disabled={payLoading}>Оплатить</Btn>
                     )}
                   </div>
                 );
@@ -359,7 +364,7 @@ export default function ClubPage() {
                       : `Активна до ${expiresLabel || '—'}`}
                   </p>
                   <div style={{ fontSize: 13, color: C.gray400, marginTop: 8 }}>
-                    План: {subscription?.plan === 'yearly' ? 'Годовой' : subscription?.plan === 'monthly' ? 'Месячный' : 'Триал'}
+                    План: {subscription?.status === 'trial' ? 'Триал' : (subscription?.plan === 'club_yearly' || subscription?.plan === 'yearly') ? 'Клуб · год' : 'Клуб · месяц'}
                   </div>
                   <button onClick={handleCancel}
                     style={{ marginTop: 12, background: 'none', border: 'none', color: '#dc3545', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>

@@ -2,10 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { PageLayout } from './Layout';
 import Btn from './Btn';
 import { C } from '../lib/theme';
+import { PLANS, formatPrice } from '../data/tariffs';
 
 /**
- * PRO-пейволл для B2B-функций (детальная спецификация, офисный калькулятор).
- * Показывается, когда hasAccess === false.
+ * Пейволл для платных функций.
+ * Показывается, когда доступа нет (PRO-функции — !hasPro, клубные — !hasClub).
  *
  * @param {string}  heading    — заголовок
  * @param {string}  sub        — короткое описание функции
@@ -13,9 +14,16 @@ import { C } from '../lib/theme';
  * @param {boolean} showLogin  — показать кнопку «Войти» (для неавторизованных)
  * @param {func}    onLogin    — клик по «Войти» (открыть LoginModal)
  * @param {boolean} inline     — встроить в существующую карточку (без PageLayout)
+ * @param {string}  target     — 'pro' (по умолчанию) → /pro, 'club' → /club
  */
-export default function ProPaywall({ heading, sub, positions, showLogin, onLogin, inline = false }) {
+export default function ProPaywall({ heading, sub, positions, showLogin, onLogin, inline = false, target = 'pro' }) {
   const navigate = useNavigate();
+
+  const isPro = target !== 'club';
+  const plan = isPro ? PLANS.pro_monthly : PLANS.club_monthly;
+  const badgeText = `${isPro ? 'PRO' : 'Клуб'} — ${formatPrice(plan.price)} ₽/мес`;
+  const ctaText = isPro ? 'Оформить PRO' : 'Оформить Клуб';
+  const to = isPro ? '/pro' : '/club';
 
   const inner = (
     <>
@@ -26,10 +34,10 @@ export default function ProPaywall({ heading, sub, positions, showLogin, onLogin
         {positions != null && <> Полная детализация — <strong>{positions}+ позиций</strong> по тендерным расценкам.</>}
       </p>
       <div style={{ display: 'inline-block', background: C.terraBg, color: C.terra, fontWeight: 600, fontSize: 14, padding: '6px 16px', borderRadius: 8, margin: '8px 0 24px' }}>
-        PRO — 2 900 ₽/мес
+        {badgeText}
       </div>
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <Btn variant="terra" size="lg" onClick={() => navigate('/pro')}>Оформить PRO</Btn>
+        <Btn variant="terra" size="lg" onClick={() => navigate(to)}>{ctaText}</Btn>
         {showLogin && <Btn variant="outline" size="lg" onClick={onLogin}>Войти</Btn>}
       </div>
     </>

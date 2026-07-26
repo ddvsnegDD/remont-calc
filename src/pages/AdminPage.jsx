@@ -3,6 +3,19 @@ import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
 import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase, Trash2, Gift, Ban } from 'lucide-react';
 import Btn from '../components/Btn';
+import { tierOf, TIER_LABEL } from '../data/tariffs';
+
+// Чип уровня подписки (Клуб / PRO)
+function LevelChip({ plan }) {
+  const tier = tierOf(plan);
+  if (!tier) return null;
+  const isPro = tier === 'pro';
+  return (
+    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: isPro ? '#B95C38' : '#2563eb', background: isPro ? 'rgba(185,92,56,0.10)' : '#eff6ff' }}>
+      {TIER_LABEL[tier]}
+    </span>
+  );
+}
 
 const POSITION_LABELS = {
   designer: 'Дизайнер',
@@ -115,15 +128,20 @@ export default function AdminPage() {
   };
 
   const handleGrantSub = async (userId, email) => {
-    const input = window.prompt(`Выдать подписку пользователю ${email}.\nНа сколько дней? (год — 365, «навсегда» — 3650)`, '3650');
+    const levelInput = window.prompt(`Выдать подписку пользователю ${email}.\nУровень: введите "pro" (офис + детальная спецификация B2B) или "club" (клубные функции).`, 'pro');
+    if (levelInput === null) return;
+    const level = levelInput.trim().toLowerCase() === 'pro' ? 'pro' : 'club';
+    const input = window.prompt(`Уровень: ${level.toUpperCase()}.\nНа сколько дней? (год — 365, «навсегда» — 3650)`, '3650');
     if (input === null) return;
     const days = parseInt(input, 10);
     if (!days || days < 1) { alert('Введите число дней'); return; }
+    // Конкретный план из PLANS: PRO — только месячный тариф; Клуб — годовой/месячный по сроку
+    const plan = level === 'pro' ? 'pro_monthly' : (days >= 365 ? 'club_yearly' : 'club_monthly');
     try {
       const res = await fetch(`/api/admin/users/${userId}/subscription`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: days >= 365 ? 'yearly' : 'monthly', days }),
+        body: JSON.stringify({ plan, days }),
       });
       const data = await res.json();
       if (data.ok) fetchData();
@@ -248,7 +266,12 @@ export default function AdminPage() {
                         <td style={{ ...tdStyle, color: u.name ? C.graphite : C.gray300 }}>{u.name || '—'}</td>
                         <td style={{ ...tdStyle, color: u.phone ? C.graphite : C.gray300 }}>{u.phone || '—'}</td>
                         <td style={tdStyle}>
-                          {u.sub_status ? <Badge status={effectiveStatus} /> : <span style={{ color: C.gray300 }}>—</span>}
+                          {u.sub_status ? (
+                            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <Badge status={effectiveStatus} />
+                              <LevelChip plan={u.sub_plan} />
+                            </span>
+                          ) : <span style={{ color: C.gray300 }}>—</span>}
                         </td>
                         <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                           {u.sub_expires ? formatDate(u.sub_expires) : '—'}
@@ -316,7 +339,12 @@ export default function AdminPage() {
                       <td style={{ ...tdStyle, color: u.organization ? C.graphite : C.gray300 }}>{u.organization || '—'}</td>
                       <td style={{ ...tdStyle, color: u.position ? C.graphite : C.gray300 }}>{POSITION_LABELS[u.position] || u.position || '—'}</td>
                       <td style={tdStyle}>
-                        {u.sub_status ? <Badge status={effectiveStatus} /> : <span style={{ color: C.gray300 }}>—</span>}
+                        {u.sub_status ? (
+                          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <Badge status={effectiveStatus} />
+                            <LevelChip plan={u.sub_plan} />
+                          </span>
+                        ) : <span style={{ color: C.gray300 }}>—</span>}
                       </td>
                       <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                         {u.sub_expires ? formatDate(u.sub_expires) : '—'}

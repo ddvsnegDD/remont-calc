@@ -6,6 +6,7 @@ import Btn from '../components/Btn';
 import SectionLabel from '../components/SectionLabel';
 import { useReveal } from '../lib/hooks';
 import { C } from '../lib/theme';
+import { PLANS, formatPrice } from '../data/tariffs';
 
 /* --- CalcWidget (premium glassmorphism) --- */
 function CalcWidget({ area, setArea, houseType, setHouseType, calculate, estimate, fmt }) {
@@ -318,8 +319,8 @@ function ClubSection() {
           <div className={`reveal ${vis ? "visible" : ""} reveal-d2`} style={{ background: C.offWhite, borderRadius: 20, padding: 32, border: `1px solid ${C.gray200}` }}>
             <div style={{ textAlign: "center", marginBottom: 24 }}>
               <div style={{ fontSize: 13, color: C.gray500, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Подписка</div>
-              <div className="font-golos" style={{ fontSize: 48, fontWeight: 800, color: C.graphiteLight, lineHeight: 1 }}>490 <span style={{ fontSize: 20, fontWeight: 600 }}>₽/мес</span></div>
-              <div style={{ fontSize: 14, color: C.gray400, marginTop: 8 }}>или 4 900 ₽/год <span style={{ color: C.terra, fontWeight: 600 }}>−17%</span></div>
+              <div className="font-golos" style={{ fontSize: 48, fontWeight: 800, color: C.graphiteLight, lineHeight: 1 }}>{formatPrice(PLANS.club_monthly.price)} <span style={{ fontSize: 20, fontWeight: 600 }}>₽/мес</span></div>
+              <div style={{ fontSize: 14, color: C.gray400, marginTop: 8 }}>или {formatPrice(PLANS.club_yearly.price)} ₽/год <span style={{ color: C.terra, fontWeight: 600 }}>−17%</span></div>
             </div>
             <div style={{ background: "#fff", borderRadius: 16, padding: 20, marginBottom: 20, boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
               {[
@@ -349,7 +350,7 @@ function ProSection() {
   const navigate = useNavigate();
   const cards = [
     { icon: <Briefcase size={28} />, title: "Партнёрка B2B", desc: "5% от чека за каждого приведённого заказчика.", cta: "Стать партнёром", to: "/partner-b2b", highlights: ["5% от чека", "До 1 млн ₽ за проект", "Персональный промокод"] },
-    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "White-label PDF-сметы с логотипом вашей студии, безлимитные расчёты.", cta: "Подключить PRO", to: "/pro", price: "2 900 ₽/мес", highlights: ["Безлимит расчётов", "White-label PDF", "Экспорт CSV"] },
+    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "White-label PDF-сметы с логотипом вашей студии, безлимитные расчёты.", cta: "Подключить PRO", to: "/pro", price: `${formatPrice(PLANS.pro_monthly.price)} ₽/мес`, highlights: ["Безлимит расчётов", "White-label PDF", "Экспорт CSV"] },
   ];
   return (
     <section id="pro" style={{ padding: "100px 0", position: "relative", overflow: "hidden", background: `url('/images/dark-pro-bg.jpeg') center/cover no-repeat, linear-gradient(135deg, #0F0F11 0%, #1A1A1C 30%, #222225 60%, #1A1A1C 100%)` }}>

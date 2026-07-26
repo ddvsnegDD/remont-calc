@@ -4,13 +4,18 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { OFFICE_TIERS } from '../lib/office-calculator';
+import { useAuth } from '../lib/auth';
+import LoginModal from '../components/LoginModal';
+import ProPaywall from '../components/ProPaywall';
 
 function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 
 export default function B2BOfficeResultPage() {
   const navigate = useNavigate();
+  const { user, hasAccess, loading: authLoading } = useAuth();
   const [calc, setCalc] = useState(null);
   const [openGroups, setOpenGroups] = useState(new Set([0, 1]));
+  const [loginOpen, setLoginOpen] = useState(false);
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -33,6 +38,32 @@ export default function B2BOfficeResultPage() {
       return next;
     });
   };
+
+  if (authLoading) {
+    return (
+      <PageLayout>
+        <div className="quiz-page b2b">
+          <div className="quiz-wrap" style={{ maxWidth: 920, textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{ fontSize: 14, color: C.gray400 }}>Загрузка...</div>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <>
+        <ProPaywall
+          heading="Детальная смета офиса"
+          sub="Офисный fit-out с разбивкой по 25+ статьям расходов — PRO-функция для профессионалов."
+          showLogin={!user}
+          onLogin={() => setLoginOpen(true)}
+        />
+        <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+      </>
+    );
+  }
 
   if (!calc) {
     return (

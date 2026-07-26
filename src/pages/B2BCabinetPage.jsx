@@ -111,7 +111,7 @@ export default function B2BCabinetPage() {
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Btn variant="outline" onClick={() => navigate('/b2b-quiz')}>+ Квартира</Btn>
-                <Btn variant="outline" onClick={() => navigate('/b2b-office')} style={{ position: 'relative' }}>
+                <Btn variant="outline" onClick={() => navigate(hasAccess ? '/b2b-office' : '/pro')} style={{ position: 'relative' }}>
                   + Офис <span style={{ fontSize: 10, background: C.terra, color: 'white', padding: '2px 6px', borderRadius: 999, marginLeft: 4, verticalAlign: 'middle' }}>PRO</span>
                 </Btn>
               </div>

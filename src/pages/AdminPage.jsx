@@ -219,6 +219,10 @@ export default function AdminPage() {
             const b2bUsers = users.filter(u => u.role === 'b2b');
             const tdStyle = { padding: '12px 16px' };
             const thStyle = { padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: C.gray500, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' };
+            // Закреплённая справа колонка действий, чтобы кнопки были видны без прокрутки
+            const stickyShadow = '-6px 0 8px -6px rgba(0,0,0,0.12)';
+            const stickyTh = { ...thStyle, position: 'sticky', right: 0, background: '#fafafa', textAlign: 'center', boxShadow: stickyShadow, zIndex: 1 };
+            const stickyTd = { ...tdStyle, position: 'sticky', right: 0, background: '#fff', textAlign: 'center', whiteSpace: 'nowrap', boxShadow: stickyShadow };
             return (<>
           <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${C.gray100}`, overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.gray100}`, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -229,8 +233,8 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Email', 'Имя', 'Телефон', 'Подписка', 'Истекает', 'Регистрация', ''].map((h, i) => (
-                      <th key={i} style={thStyle}>{h}</th>
+                    {['ID', 'Email', 'Имя', 'Телефон', 'Подписка', 'Истекает', 'Регистрация', 'Действия'].map((h, i, arr) => (
+                      <th key={i} style={i === arr.length - 1 ? stickyTh : thStyle}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -252,7 +256,7 @@ export default function AdminPage() {
                         <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                           {formatDate(u.created_at)}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <td style={stickyTd}>
                           <button onClick={() => handleGrantSub(u.id, u.email)} title="Выдать подписку"
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
                             onMouseEnter={e => e.currentTarget.style.color = '#16a34a'}
@@ -295,8 +299,8 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#fafafa' }}>
-                    {['ID', 'Email', 'Имя', 'Телефон', 'Организация', 'Специализация', 'Подписка', 'Истекает', 'Регистрация', ''].map((h, i) => (
-                      <th key={i} style={thStyle}>{h}</th>
+                    {['ID', 'Email', 'Имя', 'Телефон', 'Организация', 'Специализация', 'Подписка', 'Истекает', 'Регистрация', 'Действия'].map((h, i, arr) => (
+                      <th key={i} style={i === arr.length - 1 ? stickyTh : thStyle}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -320,7 +324,7 @@ export default function AdminPage() {
                       <td style={{ ...tdStyle, color: C.gray500, whiteSpace: 'nowrap', fontSize: 13 }}>
                         {formatDate(u.created_at)}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <td style={stickyTd}>
                         <button onClick={() => handleGrantSub(u.id, u.email)} title="Выдать подписку"
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
                           onMouseEnter={e => e.currentTarget.style.color = '#16a34a'}

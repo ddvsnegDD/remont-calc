@@ -4,9 +4,19 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { OfficeCalc, OFFICE_TIERS, OFFICE_BUDGET_RAW, OFFICE_INFLATION_2026 } from '../lib/office-calculator';
+import { useAuth } from '../lib/auth';
+import LoginModal from '../components/LoginModal';
+import ProPaywall from '../components/ProPaywall';
+
+const OFFICE_PAYWALL = {
+  heading: 'Калькулятор офисного fit-out',
+  sub: 'Детальная смета офиса с разбивкой по 25+ статьям расходов — PRO-функция для профессионалов.',
+};
 
 export default function B2BOfficePage() {
   const navigate = useNavigate();
+  const { user, hasAccess, loading: authLoading } = useAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
   const [tier, setTier] = useState('business');
   const [area, setArea] = useState(500);
   const [workplaces, setWorkplaces] = useState(40);
@@ -101,6 +111,27 @@ export default function B2BOfficePage() {
     price: `~${t.pricePerM2.toLocaleString('ru-RU')} ₽/м²`,
     desc: t.description,
   }));
+
+  if (authLoading) {
+    return (
+      <PageLayout>
+        <div className="quiz-page b2b">
+          <div className="quiz-wrap" style={{ maxWidth: 820, textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{ fontSize: 14, color: C.gray400 }}>Загрузка...</div>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <>
+        <ProPaywall {...OFFICE_PAYWALL} showLogin={!user} onLogin={() => setLoginOpen(true)} />
+        <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+      </>
+    );
+  }
 
   return (
     <PageLayout>

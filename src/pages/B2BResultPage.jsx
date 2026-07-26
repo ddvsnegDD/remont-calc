@@ -5,13 +5,17 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { formatRub, formatDays } from '../lib/calculator';
 import { SpecCalc } from '../lib/spec-calculator';
+import { useAuth } from '../lib/auth';
+import LoginModal from '../components/LoginModal';
+import ProPaywall from '../components/ProPaywall';
 
 export default function B2BResultPage() {
   const navigate = useNavigate();
+  const { user, hasAccess, loading: authLoading } = useAuth();
   const [calc, setCalc] = useState(null);
   const [specMode, setSpecMode] = useState('full');
   const [specTier, setSpecTier] = useState('capital');
-  const [showSpec, setShowSpec] = useState(true); // demo: always show
+  const [loginOpen, setLoginOpen] = useState(false);
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -132,8 +136,18 @@ export default function B2BResultPage() {
               <strong>Расчёт носит предварительный характер.</strong> Точная стоимость формируется после выезда инженера на обмер помещений и согласования спецификаций.
             </div>
 
-            {/* Spec block */}
-            {showSpec && specResult && (
+            {/* Spec block — PRO */}
+            {specResult && !authLoading && !hasAccess && (
+              <ProPaywall
+                inline
+                heading="Детальная спецификация"
+                sub="Расчёт по тендерным расценкам с разбивкой на работы и материалы — доступен по подписке PRO."
+                positions={specResult.lines.length}
+                showLogin={!user}
+                onLogin={() => setLoginOpen(true)}
+              />
+            )}
+            {specResult && hasAccess && (
               <div style={{ marginTop: 28, paddingTop: 24, borderTop: `2px solid ${C.gray200}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
                   <div>
@@ -217,6 +231,7 @@ export default function B2BResultPage() {
           {notice}
         </div>
       )}
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </PageLayout>
   );
 }

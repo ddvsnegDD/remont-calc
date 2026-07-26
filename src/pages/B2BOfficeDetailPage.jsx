@@ -4,6 +4,9 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { ChevronDown, ChevronRight, FileText, Pencil, X, Plus, Trash2 } from 'lucide-react';
+import { useAuth } from '../lib/auth';
+import LoginModal from '../components/LoginModal';
+import ProPaywall from '../components/ProPaywall';
 
 const dataCache = {};
 function useData(tier) {
@@ -60,6 +63,8 @@ const TABS = [
 
 export default function B2BOfficeDetailPage() {
   const navigate = useNavigate();
+  const { user, hasAccess, loading: authLoading } = useAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
   const [tier, setTier] = useState('standard');
   const [activeTab, setActiveTab] = useState('finish');
   const [variant, setVariant] = useState('min'); // min or max (for finish)
@@ -287,6 +292,32 @@ export default function B2BOfficeDetailPage() {
     const used = new Set(data.map(s => s.p));
     return Object.keys(PARAM_LABELS).filter(k => used.has(k));
   }, [activeTab, finishData, visData]);
+
+  if (authLoading) {
+    return (
+      <PageLayout>
+        <main className="quiz-page b2b">
+          <div className="quiz-wrap" style={{ maxWidth: 1100, textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{ fontSize: 14, color: C.gray400 }}>Загрузка...</div>
+          </div>
+        </main>
+      </PageLayout>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <>
+        <ProPaywall
+          heading="Детальный расчёт офиса"
+          sub="Полная смета офисного fit-out с редактированием позиций — PRO-функция для профессионалов."
+          showLogin={!user}
+          onLogin={() => setLoginOpen(true)}
+        />
+        <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+      </>
+    );
+  }
 
   return (
     <PageLayout>

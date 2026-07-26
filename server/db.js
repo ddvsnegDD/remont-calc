@@ -66,7 +66,7 @@ export async function createUser(email, name, phone, { role, organization, posit
      ON CONFLICT (email) DO UPDATE SET
        name = COALESCE(EXCLUDED.name, users.name),
        phone = COALESCE(EXCLUDED.phone, users.phone),
-       role = COALESCE(EXCLUDED.role, users.role),
+       role = CASE WHEN EXCLUDED.role = 'b2b' THEN 'b2b' ELSE users.role END,
        organization = COALESCE(EXCLUDED.organization, users.organization),
        position = COALESCE(EXCLUDED.position, users.position)
      RETURNING *`,

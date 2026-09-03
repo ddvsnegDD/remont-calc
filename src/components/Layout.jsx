@@ -121,6 +121,16 @@ export function Header() {
 
 export function Footer() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Якорь на секцию обратной связи: react-router по хешу не скроллит,
+  // а ScrollToTop при переходе уводит страницу наверх — скроллим вручную.
+  const goToContact = (e) => {
+    e.preventDefault();
+    const scroll = () => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+    if (location.pathname === '/') scroll();
+    else { navigate('/'); setTimeout(scroll, 100); }
+  };
   return (
     <footer style={{ background: "#111113", padding: "56px 0 28px" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
@@ -153,6 +163,11 @@ export function Footer() {
           <div>
             <h4 className="font-golos" style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Контакты</h4>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, lineHeight: 1.8 }}>Поддержка по email<br />ddv1121@yandex.ru</p>
+            <Link to="/#contact" onClick={goToContact}
+              style={{ display: "block", color: "rgba(255,255,255,0.4)", fontSize: 14, textDecoration: "none", marginTop: 10, transition: "color 0.3s cubic-bezier(0.16,1,0.3,1), padding-left 0.3s ease" }}
+              onMouseEnter={e => { e.target.style.color = C.terraLight; e.target.style.paddingLeft = "6px"; }}
+              onMouseLeave={e => { e.target.style.color = "rgba(255,255,255,0.4)"; e.target.style.paddingLeft = "0"; }}
+            >Написать нам</Link>
           </div>
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>

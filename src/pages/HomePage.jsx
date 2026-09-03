@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Shield, FileText, User, Clock, Calculator, Star, ArrowRight, Check, Zap, Eye, Briefcase } from 'lucide-react';
 import PageLayout from '../components/Layout';
 import Btn from '../components/Btn';
 import SectionLabel from '../components/SectionLabel';
 import { useReveal } from '../lib/hooks';
+import { useAuth } from '../lib/auth';
 import { C } from '../lib/theme';
 import { PLANS, formatPrice } from '../data/tariffs';
 
@@ -367,6 +368,142 @@ function ProSection() {
   );
 }
 
+/* --- ContactSection --- */
+const MSG_MAX = 2000;
+const RESEND_WINDOW_MS = 60 * 1000;
+
+function ContactSection() {
+  const [ref, vis] = useReveal();
+  const { user } = useAuth();
+  const [form, setForm] = useState({ name: '', email: '', message: '', agree: false, website: '' });
+  const [error, setError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState('');
+
+  // Предзаполняем из профиля, но поля остаются редактируемыми
+  useEffect(() => {
+    if (!user) return;
+    setForm(p => ({ ...p, name: p.name || user.name || '', email: p.email || user.email || '' }));
+  }, [user]);
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const left = MSG_MAX - form.message.length;
+
+  const submit = async () => {
+    // honeypot: показываем успех, но ничего не отправляем
+    if (form.website.trim()) { setSentTo(form.email.trim()); return; }
+
+    if (form.name.trim().length < 2) { setError('Введите имя (минимум 2 символа)'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) { setError('Введите корректный email'); return; }
+    if (form.message.trim().length < 10) { setError('Сообщение слишком короткое — минимум 10 символов'); return; }
+    if (form.message.length > MSG_MAX) { setError(`Сообщение длиннее ${MSG_MAX} символов`); return; }
+    if (!form.agree) { setError('Необходимо согласие на обработку данных'); return; }
+
+    try {
+      const last = Number(sessionStorage.getItem('rpkm-contact-sent') || 0);
+      if (last && Date.now() - last < RESEND_WINDOW_MS) {
+        setError('Сообщение уже отправлено. Следующее можно отправить через минуту');
+        return;
+      }
+    } catch {}
+
+    setError('');
+    setSending(true);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), message: form.message.trim(), website: '' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.ok) { setError(data.error || 'Не удалось отправить сообщение. Напишите на ddv1121@yandex.ru'); return; }
+      try { sessionStorage.setItem('rpkm-contact-sent', String(Date.now())); } catch {}
+      setSentTo(form.email.trim());
+    } catch {
+      setError('Не удалось отправить сообщение. Напишите на ddv1121@yandex.ru');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const reset = () => { setSentTo(''); setError(''); setForm(p => ({ ...p, message: '', agree: false, website: '' })); };
+
+  const inputStyle = { background: '#fff', marginBottom: 0 };
+
+  return (
+    <section id="contact" style={{ padding: "80px 0", background: C.graphite }}>
+      <div ref={ref} style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+        <div className={`reveal ${vis ? "visible" : ""} contact-grid`}>
+          <div>
+            <SectionLabel light>Связь</SectionLabel>
+            <h2 className="font-golos" style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, color: "#fff", lineHeight: 1.1, marginBottom: 16 }}>
+              Остались вопросы?
+            </h2>
+            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 24, maxWidth: 420 }}>
+              Напишите — отвечу лично. Вопросы по расчёту, подписке, найденные ошибки, предложения по продукту.
+            </p>
+            <a href="mailto:ddv1121@yandex.ru" style={{ fontSize: 15, color: C.terraLight, textDecoration: "none", borderBottom: `1px solid ${C.terraLight}40`, paddingBottom: 2 }}>
+              ddv1121@yandex.ru
+            </a>
+          </div>
+
+          <div className={`glass-card reveal ${vis ? "visible" : ""} reveal-d2`} style={{ padding: 32, borderRadius: 24 }}>
+            {sentTo ? (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(185,92,56,0.15)", color: C.terraLight, display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+                  <Check size={28} strokeWidth={3} />
+                </div>
+                <h3 className="font-golos" style={{ fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Сообщение отправлено</h3>
+                <p style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginBottom: 20 }}>Отвечу на {sentTo}.</p>
+                <button onClick={reset} style={{ background: "none", border: "none", color: C.terraLight, fontSize: 14, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}>
+                  Написать ещё
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="form-field">
+                  <label style={{ color: "rgba(255,255,255,0.7)" }}>Имя</label>
+                  <input className="text-input" style={inputStyle} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Как к вам обращаться" />
+                </div>
+                <div className="form-field">
+                  <label style={{ color: "rgba(255,255,255,0.7)" }}>Email</label>
+                  <input className="text-input" type="email" style={inputStyle} value={form.email} onChange={e => set('email', e.target.value)} placeholder="you@example.com" />
+                </div>
+                <div className="form-field">
+                  <label style={{ color: "rgba(255,255,255,0.7)" }}>Сообщение</label>
+                  <textarea className="textarea-input" rows={5} style={inputStyle} value={form.message}
+                    onChange={e => set('message', e.target.value.slice(0, MSG_MAX))} placeholder="Опишите вопрос" />
+                  <div style={{ fontSize: 12, color: left < 100 ? C.terraLight : "rgba(255,255,255,0.35)", marginTop: 6 }}>
+                    Осталось {left} символов
+                  </div>
+                </div>
+
+                {/* honeypot: настоящий человек этого поля не видит */}
+                <input type="text" name="website" value={form.website} onChange={e => set('website', e.target.value)}
+                  tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ display: "none" }} />
+
+                <label className="checkbox-row" style={{ color: "rgba(255,255,255,0.6)", cursor: "pointer" }}>
+                  <input type="checkbox" checked={form.agree} onChange={e => set('agree', e.target.checked)} />
+                  <span>
+                    Даю <a href="/consent" target="_blank" style={{ color: C.terraLight }}>согласие на обработку персональных данных</a>
+                    {' '}в соответствии с <a href="/privacy" target="_blank" style={{ color: C.terraLight }}>Политикой конфиденциальности</a>.
+                  </span>
+                </label>
+
+                {error && <div className="alert alert-warn" style={{ marginTop: 8 }}>{error}</div>}
+
+                <Btn variant="terra" style={{ width: "100%", marginTop: 12 }} onClick={submit} disabled={sending}>
+                  {sending ? 'Отправляем…' : 'Отправить'}
+                </Btn>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* --- Main Page --- */
 export default function HomePage() {
   return (
@@ -377,6 +514,7 @@ export default function HomePage() {
       <GuaranteesSection />
       <ClubSection />
       <ProSection />
+      <ContactSection />
     </PageLayout>
   );
 }

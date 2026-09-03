@@ -16,7 +16,7 @@ function getProvider() {
     const port = Number(process.env.SMTP_PORT || 587);
     provider = {
       name: 'SMTP Mail.ru',
-      async send(to, subject, html, fromName) {
+      async send(to, subject, html, fromName, replyTo) {
         if (!smtpTransporter) {
           smtpTransporter = nodemailer.createTransport({
             host,
@@ -32,6 +32,7 @@ function getProvider() {
           to,
           subject,
           html,
+          ...(replyTo ? { replyTo } : {}),
         });
         return true;
       },
@@ -48,7 +49,7 @@ function getProvider() {
       || 'https://go1.unisender.ru/ru/transactional/api/v1/email/send.json';
     provider = {
       name: 'UniSender Go',
-      async send(to, subject, html, fromName) {
+      async send(to, subject, html, fromName, replyTo) {
         const fromEmail = process.env.EMAIL_FROM || 'noreply@rpkm.ru';
         const res = await fetch(apiUrl, {
           method: 'POST',
@@ -62,6 +63,7 @@ function getProvider() {
               subject,
               from_email: fromEmail,
               from_name: fromName,
+              ...(replyTo ? { reply_to: replyTo } : {}),
               body: { html },
             },
           }),
@@ -83,7 +85,7 @@ function getProvider() {
   if (brevoKey) {
     provider = {
       name: 'Brevo',
-      async send(to, subject, html, fromName) {
+      async send(to, subject, html, fromName, replyTo) {
         const fromEmail = process.env.EMAIL_FROM || 'noreply@rpkm.ru';
         const res = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
@@ -96,6 +98,7 @@ function getProvider() {
             to: [{ email: to }],
             subject,
             htmlContent: html,
+            ...(replyTo ? { replyTo: { email: replyTo } } : {}),
           }),
         });
         if (!res.ok) {
@@ -115,7 +118,7 @@ function getProvider() {
     let resendClient = null;
     provider = {
       name: 'Resend',
-      async send(to, subject, html, fromName) {
+      async send(to, subject, html, fromName, replyTo) {
         if (!resendClient) {
           const { Resend } = await import('resend');
           resendClient = new Resend(resendKey);
@@ -126,6 +129,7 @@ function getProvider() {
           to,
           subject,
           html,
+          ...(replyTo ? { replyTo } : {}),
         });
         return true;
       },
@@ -141,11 +145,13 @@ function getProvider() {
 // Отправить произвольное письмо (для уведомлений админу и т.д.)
 // Возвращает true, если письмо ушло, иначе false. Не бросает исключений:
 // вызывающий код сам решает, важен ли ему результат отправки.
-export async function sendRawEmail(to, subject, html) {
+// replyTo необязателен: нужен там, где на письмо должны отвечать не нам,
+// а отправителю (форма обратной связи).
+export async function sendRawEmail(to, subject, html, replyTo) {
   const p = getProvider();
   if (!p) { console.log(`📧 [no provider] To: ${to}, Subject: ${subject}`); return false; }
   try {
-    await p.send(to, subject, html, 'РПКМ');
+    await p.send(to, subject, html, 'РПКМ', replyTo);
     console.log(`✉️  Уведомление отправлено на ${to}`);
     return true;
   } catch (err) {

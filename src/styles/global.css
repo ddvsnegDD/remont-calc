@@ -1409,6 +1409,12 @@ section { padding: 80px 0; }
 }
 
 /* === Responsive grids === */
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 60px;
+  align-items: start;
+}
 .mode-choice-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1459,6 +1465,10 @@ section { padding: 80px 0; }
   }
   .pro-grid {
     gap: 16px;
+  }
+  .contact-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
   }
   .mode-choice-grid {
     grid-template-columns: 1fr !important;

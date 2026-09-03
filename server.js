@@ -485,6 +485,62 @@ app.post('/api/calculation', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ==================== CONTACT FORM API ====================
+
+app.post('/api/contact', async (req, res) => {
+  const { name, email, message, website } = req.body || {};
+
+  // honeypot: боты заполняют скрытое поле — отвечаем успехом, письмо не шлём
+  if (typeof website === 'string' && website.trim() !== '') {
+    console.log('→ /api/contact honeypot сработал, письмо не отправлено');
+    return res.json({ ok: true });
+  }
+
+  const badFields = typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100
+    || typeof email !== 'string' || !EMAIL_RE.test(email.trim()) || email.length > 254
+    || typeof message !== 'string' || message.trim().length < 10 || message.trim().length > 2000;
+  if (badFields) {
+    return res.status(400).json({ ok: false, error: 'Проверьте заполнение полей' });
+  }
+
+  if (!rateLimit(`contact:${req.ip}`, 3, 15 * 60 * 1000)) {
+    return res.status(429).json({ ok: false, error: 'Слишком много сообщений. Попробуйте позже.' });
+  }
+
+  const safeName = escapeHtml(name.trim());
+  const safeEmail = escapeHtml(email.trim());
+  // экранируем ДО подстановки <br>, иначе теги из ввода тоже станут разметкой
+  const safeMessage = escapeHtml(message.trim()).replace(/\n/g, '<br>');
+  const sentAt = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+
+  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;padding:24px">
+    <h2 style="color:#B95C38;margin:0 0 16px">✉️ Сообщение с сайта</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tr><td style="padding:8px 0;color:#6b7280;width:100px">Имя:</td><td style="padding:8px 0;font-weight:600">${safeName}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Email:</td><td style="padding:8px 0;font-weight:600">${safeEmail}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Дата:</td><td style="padding:8px 0">${sentAt} (МСК)</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">IP:</td><td style="padding:8px 0">${escapeHtml(req.ip || '—')}</td></tr>
+    </table>
+    <hr style="border:none;border-top:1px solid #e4e4e7;margin:16px 0">
+    <div style="font-size:15px;line-height:1.6;white-space:normal">${safeMessage}</div>
+    <hr style="border:none;border-top:1px solid #e4e4e7;margin:16px 0">
+    <p style="color:#9ca3af;font-size:12px">РПКМ · Форма обратной связи. Ответ уйдёт отправителю — Reply-To подставлен.</p>
+  </div>`;
+
+  const sent = await sendRawEmail(
+    process.env.CONTACT_EMAIL || 'ddv1121@yandex.ru',
+    `РПКМ · Сообщение с сайта от ${name.trim()}`,
+    html,
+    email.trim(),
+  );
+
+  if (!sent) {
+    console.error('contact email failed from:', email.trim());
+    return res.status(502).json({ ok: false, error: 'Не удалось отправить сообщение. Напишите на ddv1121@yandex.ru' });
+  }
+  res.json({ ok: true });
+});
+
 app.use(express.static(DIST));
 
 app.get('/{*splat}', (req, res) => {

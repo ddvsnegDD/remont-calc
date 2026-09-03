@@ -99,6 +99,7 @@ sudo -u deploy -H pm2 restart rpkm
 | `UNISENDER_GO_API_KEY` | API-ключ UniSender Go (отправка кодов) | Да |
 | `UNISENDER_GO_API_URL` | Эндпоинт UniSender Go (для аккаунта на go2: `https://go2.unisender.ru/ru/transactional/api/v1/email/send.json`) | Да (для go2) |
 | `EMAIL_FROM` | Email отправителя (`noreply@ddrpkm.ru`) | Да |
+| `CONTACT_EMAIL` | Куда приходят сообщения из формы обратной связи (по умолчанию `ddv1121@yandex.ru`) | Нет |
 | `YOOMONEY_WALLET` | Номер кошелька ЮMoney | Да |
 | `YOOMONEY_SECRET` | Секрет для вебхуков ЮMoney | Опционально |
 | `SMTP_HOST/PORT/USER/PASS` | SMTP Mail.ru (альтернатива UniSender; приоритетный провайдер, если задан) | Опционально |

@@ -1501,7 +1501,7 @@ section { padding: 80px 0; }
 }
 .bento-grid {
   display: grid;
-  grid-template-columns: 1fr 1.6fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   min-height: 420px;
 }

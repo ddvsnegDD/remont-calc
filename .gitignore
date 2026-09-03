@@ -5,3 +5,12 @@ dist/
 *.log
 .vscode/
 .claude/
+
+# Секреты деплоя
+.deploy.env
+
+# Исходники материалов (не код)
+Офисы_Шаблон/
+*.pptx
+*.docx
+*.xlsx

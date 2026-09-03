@@ -330,7 +330,7 @@ function ProSection() {
   const [ref, vis] = useReveal();
   const navigate = useNavigate();
   const cards = [
-    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "White-label PDF-сметы с логотипом вашей студии, безлимитные расчёты.", cta: "Подключить PRO", to: "/pro", price: `${formatPrice(PLANS.pro_monthly.price)} ₽/мес`, highlights: ["Безлимит расчётов", "White-label PDF", "Экспорт CSV"] },
+    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "White-label PDF-сметы с логотипом вашей студии, безлимитные расчёты.", cta: "Подключить PRO", to: "/pro", price: `${formatPrice(PLANS.pro_monthly.price)} ₽/мес`, highlights: ["Безлимит расчётов", { text: "White-label PDF", soon: true }, "Экспорт CSV"] },
   ];
   return (
     <section id="pro" style={{ padding: "100px 0", position: "relative", overflow: "hidden", background: `url('/images/dark-pro-bg.jpeg') center/cover no-repeat, linear-gradient(135deg, #0F0F11 0%, #1A1A1C 30%, #222225 60%, #1A1A1C 100%)` }}>
@@ -352,7 +352,9 @@ function ProSection() {
                 {c.highlights.map((h, j) => (
                   <div key={j} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0" }}>
                     <Check size={14} style={{ color: C.terra }} />
-                    <span style={{ fontSize: 14, color: "rgba(255,255,255,0.75)" }}>{h}</span>
+                    <span style={{ fontSize: 14, color: "rgba(255,255,255,0.75)" }}>
+                      {typeof h === "string" ? h : <>{h.text}<span style={{ color: "rgba(255,255,255,0.4)" }}> · готовится</span></>}
+                    </span>
                   </div>
                 ))}
               </div>

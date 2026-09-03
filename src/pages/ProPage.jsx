@@ -12,7 +12,7 @@ const BENEFITS = [
   'Безлимит расчётов',
   'Офисный fit-out калькулятор (25+ статей)',
   'Детальная спецификация B2B по тендерным ценам',
-  'White-label PDF (логотип, реквизиты)',
+  { text: 'White-label PDF (логотип, реквизиты)', soon: true },
   'Персональный менеджер',
   'Приоритетная поддержка (24 ч SLA)',
   'Экспорт CSV / Excel',
@@ -135,7 +135,8 @@ export default function ProPage() {
                 <div className="hero-visual-title">Что включено</div>
                 <ul className="benefit-list">
                   {BENEFITS.map((b, i) => (
-                    <li key={i}><span className="benefit-check" style={{ background: '#e8eef7' }}>✓</span><span>{b}</span></li>
+                    <li key={i}><span className="benefit-check" style={{ background: '#e8eef7' }}>✓</span>
+                      <span>{typeof b === 'string' ? b : <>{b.text}<span style={{ color: C.gray400 }}> · готовится</span></>}</span></li>
                   ))}
                 </ul>
               </div>
@@ -171,7 +172,7 @@ export default function ProPage() {
                   <li>Безлимит расчётов</li>
                   <li>Офисный fit-out калькулятор</li>
                   <li>Детальная спецификация B2B</li>
-                  <li>White-label PDF (логотип, реквизиты)</li>
+                  <li>White-label PDF (логотип, реквизиты)<span style={{ color: C.gray400 }}> · готовится</span></li>
                   <li>Приоритетная поддержка (24 ч SLA)</li>
                   <li>Экспорт в CSV / Excel</li>
                 </ul>

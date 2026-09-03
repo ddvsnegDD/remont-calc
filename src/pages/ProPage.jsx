@@ -201,7 +201,7 @@ export default function ProPage() {
                   <Btn variant="terra" style={{ marginTop: 8 }} onClick={() => navigate('/b2b-office')}>Открыть калькулятор →</Btn>
                 </div>
                 <div className="club-card">
-                  <h3>White-label PDF</h3>
+                  <h3>White-label PDF<span style={{ color: C.gray400, fontWeight: 400 }}> · готовится</span></h3>
                   <p>Загрузите логотип — все PDF будут с вашим брендом.</p>
                   <Btn variant="outline" onClick={() => setNotice('White-label PDF — скоро')}>Настроить →</Btn>
                 </div>

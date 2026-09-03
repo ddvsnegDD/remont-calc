@@ -254,7 +254,7 @@ export default function B2BOfficePage() {
             </div>
 
             <div className="alert alert-warn" style={{ marginTop: 16 }}>
-              <strong>Расчёт носит предварительный характер.</strong> Точная стоимость определяется после выезда инженера.
+              <strong>Расчёт носит предварительный характер:</strong> итоговая стоимость зависит от конкретных материалов, объёмов по факту и условий подрядчика.
             </div>
 
             <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit}>Расшифровка укрупнённого расчёта</Btn>

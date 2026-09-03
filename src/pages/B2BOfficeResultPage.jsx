@@ -16,14 +16,6 @@ export default function B2BOfficeResultPage() {
   const [calc, setCalc] = useState(null);
   const [openGroups, setOpenGroups] = useState(new Set([0, 1]));
   const [loginOpen, setLoginOpen] = useState(false);
-  const [notice, setNotice] = useState(null);
-
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 3000);
-    return () => clearTimeout(t);
-  }, [notice]);
-
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('rpkm-b2b-office-current');
@@ -108,8 +100,8 @@ export default function B2BOfficeResultPage() {
                 {r.totals.perM2Grand.toLocaleString('ru-RU')} ₽/м² · категория <strong>{r.tierLabel}</strong> · площадь {inp.area} м²
               </div>
               <div className="result-disclaimer" style={{ fontWeight: 500 }}>
-                <strong>Расчёт носит предварительный характер.</strong> Точная стоимость определяется после выезда инженера
-                и согласования спецификации оборудования и материалов.
+                <strong>Расчёт носит предварительный характер:</strong> итоговая стоимость зависит
+                от конкретных материалов, объёмов по факту и условий подрядчика.
               </div>
             </div>
 
@@ -222,20 +214,9 @@ export default function B2BOfficeResultPage() {
               <p style={{ margin: '8px 0 0', fontSize: 14 }}>{tierDef.description}</p>
             </div>
 
-            {/* CTA */}
-            <div className="result-cta">
-              <h3>Обсудить проект с РПКМ</h3>
-              <p>Личная встреча с инженером для уточнения требований и составления точной сметы.</p>
-              <Btn variant="dark" onClick={() => setNotice('Запрос встречи — в демо не реализовано. В реальной версии отправляется в CRM')}>Запросить встречу</Btn>
-            </div>
           </div>
         </div>
       </div>
-      {notice && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: C.graphite, color: '#fff', padding: '12px 24px', borderRadius: 10, fontSize: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', maxWidth: 400, textAlign: 'center' }}>
-          {notice}
-        </div>
-      )}
     </PageLayout>
   );
 }

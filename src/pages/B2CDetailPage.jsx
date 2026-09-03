@@ -6,7 +6,6 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { SpecCalc } from '../lib/spec-calculator';
-import { createLead, formatDetailComment } from '../lib/bitrix';
 import { PLANS, formatPrice } from '../data/tariffs';
 
 export default function B2CDetailPage() {
@@ -64,12 +63,6 @@ export default function B2CDetailPage() {
       contact: { name, phone, email },
     };
     try { sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead)); } catch {}
-    // Отправка лида в Битрикс24
-    createLead({
-      name, phone, email,
-      title: `B2C · Детальная смета · ${area} м² · ${result.totals.grand.toLocaleString('ru-RU')} ₽`,
-      comment: formatDetailComment(result),
-    }).catch(() => {});
     navigate('/b2c-result-detail');
   }, [name, phone, email, agree, effectiveMode, tier, effectiveReplan, area, sanitary, windows, rooms, navigate]);
 
@@ -241,7 +234,7 @@ export default function B2CDetailPage() {
             </label>
 
             <div className="alert alert-warn" style={{ marginTop: 16 }}>
-              <strong>Расчёт носит предварительный характер.</strong> Точная стоимость определяется после выезда инженера.
+              <strong>Расчёт носит предварительный характер:</strong> итоговая стоимость зависит от конкретных материалов, объёмов по факту и условий подрядчика.
             </div>
 
             <Btn variant="terra" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit}>Получить детальную смету</Btn>

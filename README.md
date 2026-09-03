@@ -13,7 +13,6 @@
 - **Auth:** Passwordless (email + одноразовый 4-значный код), JWT в httpOnly cookie
 - **Email:** UniSender Go (транзакционный, серверы в РФ). В коде также поддержка SMTP Mail.ru (приоритетный, если заданы `SMTP_*`) и Brevo/Resend как фолбэк
 - **Платежи:** ЮMoney (P2P для MVP)
-- **CRM:** Битрикс24 REST API (контакты + сделки через серверный прокси)
 - **Хостинг:** reg.cloud VPS (Москва, РФ) — Nginx + Let's Encrypt + PM2
 
 ## Функционал
@@ -21,7 +20,6 @@
 ### B2C (для собственников квартир)
 - Квиз 9 шагов -> ориентировочный расчёт (вилка цен)
 - Детальная смета ~50 позиций (gate: подписка или триал)
-- Запись на замер -> лид в Битрикс24 CRM
 
 ### B2B (для профессионалов)
 - Кабинет подрядчика с историей расчётов
@@ -98,7 +96,6 @@ sudo -u deploy -H pm2 restart rpkm
 | `APP_URL` | Публичный URL сайта (`https://ddrpkm.ru`) | Да |
 | `JWT_SECRET` | Секрет для подписи JWT | Да |
 | `ADMIN_PASSWORD` | Пароль админ-панели | Да |
-| `B24_WEBHOOK` | URL вебхука Битрикс24 | Да |
 | `UNISENDER_GO_API_KEY` | API-ключ UniSender Go (отправка кодов) | Да |
 | `UNISENDER_GO_API_URL` | Эндпоинт UniSender Go (для аккаунта на go2: `https://go2.unisender.ru/ru/transactional/api/v1/email/send.json`) | Да (для go2) |
 | `EMAIL_FROM` | Email отправителя (`noreply@ddrpkm.ru`) | Да |
@@ -116,4 +113,4 @@ sudo -u deploy -H pm2 restart rpkm
 
 - Оператор ПДн: Дзыга Дмитрий Владиславович (самозанятый, ИНН 505004685439), запись в реестре Роскомнадзора **77-26-556640**.
 - Данные граждан РФ обрабатываются и хранятся на сервере в РФ (reg.cloud, Москва); трансграничная передача не осуществляется.
-- Обработчики: ЮMoney, UniSender Go, Битрикс24, reg.cloud — все в РФ.
+- Обработчики: ЮMoney, UniSender Go, reg.cloud — все в РФ.

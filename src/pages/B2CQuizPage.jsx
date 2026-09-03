@@ -5,7 +5,6 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
 import { calculateB2C } from '../lib/calculator';
-import { createLead, formatQuickComment, formatDetailComment } from '../lib/bitrix';
 
 const STEPS = [
   { id:'apartment_type', title:'Какой тип квартиры?', hint:'От этого зависит набор работ.', type:'cards',
@@ -31,10 +30,10 @@ const STEPS = [
   { id:'comms', title:'Замена коммуникаций?', type:'options',
     options:[{value:'none',label:'Не нужна',emoji:'✅'},{value:'partial',label:'Частичная',emoji:'🔧'},{value:'full',label:'Полная — электрика + сантехника',emoji:'⚡'},{value:'full_plus',label:'Полная + отопление / вентиляция',emoji:'🔥'}] },
   { id:'design', title:'Есть ли дизайн-проект?', type:'options',
-    options:[{value:'yes',label:'Да, готовый проект на руках',emoji:'📐'},{value:'no',label:'Нет, посчитайте без него',emoji:'🤷'},{value:'need',label:'Нет, но хочу сделать у вас',emoji:'✨'}] },
+    options:[{value:'yes',label:'Да, готовый проект на руках',emoji:'📐'},{value:'no',label:'Нет, посчитайте без него',emoji:'🤷'},{value:'need',label:'Нет, но планирую заказать',emoji:'✨'}] },
   { id:'timing', title:'Когда хотите начать?', type:'options',
     options:[{value:'asap',label:'Срочно — в течение месяца',emoji:'🚀'},{value:'months_3',label:'Через 1–3 месяца',emoji:'📅'},{value:'flexible',label:'Не срочно',emoji:'⏳'}] },
-  { id:'contact', title:'Куда отправить расчёт?', hint:'Контакты нужны для записи на бесплатный замер.', type:'contact' },
+  { id:'contact', title:'Куда отправить расчёт?', hint:'Пришлём расчёт на почту и сохраним его в личном кабинете.', type:'contact' },
 ];
 
 export default function B2CQuizPage() {
@@ -77,12 +76,6 @@ export default function B2CQuizPage() {
           contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
         };
         sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
-        // Отправка лида в Битрикс24 (не блокируем навигацию)
-        createLead({
-          name: contactData.name, phone: contactData.phone, email: contactData.extra,
-          title: `B2C · Быстрый расчёт · ${result.area} м² · ${result.tierLabel}`,
-          comment: formatQuickComment(result),
-        }).catch(() => {});
         navigate('/b2c-result');
       } else {
         // Детальная смета — SpecCalc ~50 позиций
@@ -101,12 +94,6 @@ export default function B2CQuizPage() {
           contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
         };
         sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
-        // Отправка лида в Битрикс24
-        createLead({
-          name: contactData.name, phone: contactData.phone, email: contactData.extra,
-          title: `B2C · Квиз-смета · ${quizArea} м² · ${specResult.totals.grand.toLocaleString('ru-RU')} ₽`,
-          comment: formatDetailComment(specResult),
-        }).catch(() => {});
         navigate('/b2c-result-detail');
       }
     }
@@ -115,10 +102,6 @@ export default function B2CQuizPage() {
   const handleCardClick = (id, value) => {
     setAnswer(id, value);
     if (id === 'design' && value === 'yes') { navigate('/b2c-detail?source=has-project'); return; }
-    if (id === 'design' && value === 'need') {
-      try { sessionStorage.setItem('rpkm-b2c-quiz-answers', JSON.stringify({ ...answers, design: 'need' })); } catch {}
-      navigate('/b2c-book?return=quiz'); return;
-    }
     setTimeout(() => { if (step < total - 1) setStep(step + 1); }, 150);
   };
 

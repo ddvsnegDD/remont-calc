@@ -8,7 +8,6 @@ import B2CQuizPage from './pages/B2CQuizPage';
 import B2CDetailPage from './pages/B2CDetailPage';
 import B2CResultPage from './pages/B2CResultPage';
 import B2CResultDetailPage from './pages/B2CResultDetailPage';
-import B2CBookPage from './pages/B2CBookPage';
 import B2BLoginPage from './pages/B2BLoginPage';
 import B2BCabinetPage from './pages/B2BCabinetPage';
 import B2BProfilePage from './pages/B2BProfilePage';
@@ -48,7 +47,7 @@ export default function App() {
         <Route path="/b2c-detail" element={<B2CDetailPage />} />
         <Route path="/b2c-result" element={<B2CResultPage />} />
         <Route path="/b2c-result-detail" element={<B2CResultDetailPage />} />
-        <Route path="/b2c-book" element={<B2CBookPage />} />
+        <Route path="/b2c-book" element={<Navigate to="/b2c" replace />} />
 
         {/* B2B */}
         <Route path="/b2b-login" element={<B2BLoginPage />} />

@@ -23,8 +23,6 @@ const SITE_URL = process.env.APP_URL // явный публичный URL (VPS):
 let dbReady = false;
 
 // Битрикс24
-const B24_WEBHOOK = process.env.B24_WEBHOOK;
-if (!B24_WEBHOOK) console.warn('⚠️  B24_WEBHOOK не задан — заявки в CRM отправляться не будут');
 
 // Middleware
 app.use(express.json());
@@ -316,70 +314,6 @@ app.delete('/api/admin/users/:id/subscription', requireDB, adminAuth, async (req
   }
 });
 
-// ==================== BITRIX24 API ====================
-
-app.post('/api/lead', async (req, res) => {
-  const { title, name, phone, email, comment, source } = req.body;
-  console.log('→ /api/lead', title);
-
-  if (!B24_WEBHOOK) {
-    return res.status(503).json({ ok: false, error: 'CRM не настроена' });
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    const contactRes = await fetch(`${B24_WEBHOOK}/crm.contact.add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fields: {
-          NAME: name || 'Без имени',
-          PHONE: phone ? [{ VALUE: phone, VALUE_TYPE: 'WORK' }] : [],
-          EMAIL: email ? [{ VALUE: email, VALUE_TYPE: 'WORK' }] : [],
-          SOURCE_ID: source || 'WEB',
-          OPENED: 'Y',
-        }
-      }),
-      signal: controller.signal,
-    });
-    const contactData = await contactRes.json();
-    const contactId = contactData.result;
-    console.log('← Contact created:', contactId);
-
-    const dealRes = await fetch(`${B24_WEBHOOK}/crm.deal.add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fields: {
-          TITLE: title || 'Заявка с сайта РПКМ',
-          CONTACT_ID: contactId || undefined,
-          SOURCE_ID: source || 'WEB',
-          OPENED: 'Y',
-          STAGE_ID: 'NEW',
-          COMMENTS: comment || '',
-        }
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    const dealData = await dealRes.json();
-    console.log('← Deal created:', JSON.stringify(dealData).slice(0, 200));
-
-    if (dealData.result) {
-      res.json({ ok: true, id: dealData.result, contactId });
-    } else {
-      console.error('B24 deal error:', dealData);
-      res.status(400).json({ ok: false, error: dealData.error_description || 'Ошибка Битрикс24' });
-    }
-  } catch (err) {
-    console.error('B24 fetch error:', err.message);
-    res.status(502).json({ ok: false, error: 'Не удалось связаться с Битрикс24' });
-  }
-});
-
 // ==================== CONSULTATION API ====================
 
 app.post('/api/consultation', authMiddleware, async (req, res) => {
@@ -390,68 +324,6 @@ app.post('/api/consultation', authMiddleware, async (req, res) => {
     // Проверяем подписку
     const sub = await getActiveSubscription(user.id);
     if (!sub) return res.status(403).json({ ok: false, error: 'Нет активной подписки' });
-
-    const title = `Консультация инженера — ${user.name || user.email}`;
-    const comment = [
-      `Запись на консультацию инженера`,
-      `Пользователь: ${user.name || '—'}`,
-      `Email: ${user.email}`,
-      `Телефон: ${user.phone || '—'}`,
-      `Подписка: ${sub.plan} (до ${new Date(sub.expires_at).toLocaleDateString('ru-RU')})`,
-      `Дата запроса: ${new Date().toLocaleString('ru-RU')}`,
-    ].join('\n');
-
-    // Отправляем в Битрикс24
-    let dealId = null;
-    if (B24_WEBHOOK) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
-        // Ищем существующий контакт или создаём
-        const contactRes = await fetch(`${B24_WEBHOOK}/crm.contact.add`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fields: {
-              NAME: user.name || 'Без имени',
-              PHONE: user.phone ? [{ VALUE: user.phone, VALUE_TYPE: 'WORK' }] : [],
-              EMAIL: [{ VALUE: user.email, VALUE_TYPE: 'WORK' }],
-              SOURCE_ID: 'WEB',
-              OPENED: 'Y',
-            }
-          }),
-          signal: controller.signal,
-        });
-        const contactData = await contactRes.json();
-        const contactId = contactData.result;
-
-        const dealRes = await fetch(`${B24_WEBHOOK}/crm.deal.add`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fields: {
-              TITLE: title,
-              CONTACT_ID: contactId || undefined,
-              SOURCE_ID: 'WEB',
-              OPENED: 'Y',
-              STAGE_ID: 'NEW',
-              CATEGORY_ID: 0,
-              COMMENTS: comment,
-            }
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        const dealData = await dealRes.json();
-        dealId = dealData.result;
-        console.log(`✅ Консультация → Битрикс24: deal=${dealId}, user=${user.email}`);
-      } catch (err) {
-        console.error('B24 consultation error:', err.message);
-        // Не блокируем — отправим email-уведомление
-      }
-    }
 
     // Email-уведомление админу
     sendRawEmail(
@@ -465,14 +337,13 @@ app.post('/api/consultation', authMiddleware, async (req, res) => {
           <tr><td style="padding:8px 0;color:#6b7280">Телефон:</td><td style="padding:8px 0;font-weight:600">${user.phone || '—'}</td></tr>
           <tr><td style="padding:8px 0;color:#6b7280">Подписка:</td><td style="padding:8px 0">${sub.plan} до ${new Date(sub.expires_at).toLocaleDateString('ru-RU')}</td></tr>
           <tr><td style="padding:8px 0;color:#6b7280">Дата:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU')}</td></tr>
-          ${dealId ? `<tr><td style="padding:8px 0;color:#6b7280">Битрикс24:</td><td style="padding:8px 0">Сделка #${dealId}</td></tr>` : ''}
         </table>
         <hr style="border:none;border-top:1px solid #e4e4e7;margin:16px 0">
         <p style="color:#9ca3af;font-size:12px">РПКМ · Автоматическое уведомление</p>
       </div>`
     ).catch(err => console.error('Consultation notify error:', err.message));
 
-    res.json({ ok: true, dealId });
+    res.json({ ok: true });
   } catch (err) {
     console.error('consultation error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка записи на консультацию' });

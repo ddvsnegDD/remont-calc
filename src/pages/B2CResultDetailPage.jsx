@@ -58,6 +58,11 @@ export default function B2CResultDetailPage() {
               <div style={{ fontSize: 16, color: C.gray500, marginTop: 4 }}>
                 {r.perM2.toLocaleString('ru-RU')} ₽/м² · {r.lines.length} позиций
               </div>
+              {lead.contact?.email && (
+                <div style={{ fontSize: 13, color: C.gray500, marginTop: 8 }}>
+                  Копия расчёта отправлена на {lead.contact.email}
+                </div>
+              )}
               <div className="result-disclaimer" style={{ fontWeight: 500 }}>
                 <strong>Расчёт носит предварительный характер.</strong> Это вилка стоимости на основе
                 средней цены 1 м² и факторов сложности. Итоговая смета зависит от конкретных

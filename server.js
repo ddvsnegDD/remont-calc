@@ -22,14 +22,33 @@ const SITE_URL = process.env.APP_URL // явный публичный URL (VPS):
 // Флаг доступности БД
 let dbReady = false;
 
-// Битрикс24
-
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Middleware: проверка доступности БД для auth-роутов
+// Простой in-memory rate limit: не более max обращений по ключу за windowMs.
+// Переиспользуется публичными эндпоинтами, которые отправляют почту.
+const rateLimitHits = new Map();
+function rateLimit(key, max, windowMs) {
+  const now = Date.now();
+  const hits = (rateLimitHits.get(key) || []).filter(t => now - t < windowMs);
+  if (hits.length >= max) { rateLimitHits.set(key, hits); return false; }
+  hits.push(now);
+  rateLimitHits.set(key, hits);
+  return true;
+}
+
+// Периодическая уборка, чтобы Map не рос бесконечно
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, hits] of rateLimitHits) {
+    const alive = hits.filter(t => now - t < 60 * 60 * 1000);
+    if (alive.length) rateLimitHits.set(key, alive); else rateLimitHits.delete(key);
+  }
+}, 30 * 60 * 1000).unref();
+
 function requireDB(req, res, next) {
   if (!dbReady) return res.status(503).json({ ok: false, error: 'База данных не подключена. Авторизация недоступна.' });
   next();
@@ -351,6 +370,120 @@ app.post('/api/consultation', authMiddleware, async (req, res) => {
 });
 
 // ==================== STATIC + SPA ====================
+
+// ==================== CALCULATION EMAIL API ====================
+
+// Письмо собирается ТОЛЬКО из числовых полей result на сервере.
+// Пользовательский текст в письмо не попадает — иначе эндпоинт превращается
+// в открытый релей для рассылки произвольного содержимого от нашего домена.
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Число из клиентских данных: только конечное число, иначе 0.
+const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+// Название категории берём из своего словаря по ключу, а не из присланной строки:
+// иначе через tierLabel в письмо можно протащить произвольный текст.
+const TIER_LABELS = {
+  cosmetic: 'Косметический', capital: 'Капитальный',
+  euro: 'Евроремонт', euro_top: 'Евроремонт+', premium: 'Премиум', luxury: 'Luxury',
+};
+const tierLabel = key => TIER_LABELS[key] || '—';
+const rub = v => Math.round(num(v)).toLocaleString('ru-RU') + ' ₽';
+
+function calcEmailHtml({ name, kind, result }) {
+  const safeName = escapeHtml(name);
+  const row = (label, value) =>
+    `<tr><td style="padding:8px 0;color:#6b7280">${label}</td><td style="padding:8px 0;font-weight:600;text-align:right">${value}</td></tr>`;
+
+  let body;
+  if (kind === 'quick') {
+    const b = result.breakdown || {};
+    const part = (label, o) => o
+      ? row(`${label} · ${Math.round(num(o.pct) * 100)}%`, `${rub(o.low)} — ${rub(o.high)}`)
+      : '';
+    body = `
+      <p style="font-size:22px;font-weight:800;color:#B95C38;margin:0 0 4px">${rub(result.totalLow)} — ${rub(result.totalHigh)}</p>
+      <p style="color:#6b7280;margin:0 0 20px;font-size:13px">ориентировочная вилка стоимости</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        ${row('Площадь', `${num(result.area)} м²`)}
+        ${row('Категория', tierLabel(result.tier))}
+        ${row('Цена за м²', `${num(result.lowPerM2).toLocaleString('ru-RU')}—${num(result.highPerM2).toLocaleString('ru-RU')} ₽`)}
+        ${row('Сроки', `~${num(result.days)} раб. дней`)}
+      </table>
+      <h3 style="font-size:15px;margin:24px 0 8px">Разбивка стоимости</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        ${part('Работы', b.works)}
+        ${part('Черновые материалы', b.rough)}
+        ${part('Чистовые материалы', b.finish)}
+      </table>`;
+  } else {
+    const t = result.totals || {};
+    const lines = Array.isArray(result.lines) ? result.lines.length : 0;
+    body = `
+      <p style="font-size:22px;font-weight:800;color:#B95C38;margin:0 0 4px">${rub(t.grand)}</p>
+      <p style="color:#6b7280;margin:0 0 20px;font-size:13px">детальная смета, ${lines} позиций</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        ${row('Площадь', `${num(result.inputs && result.inputs.area)} м²`)}
+        ${row('Отделка', result.mode === 'whitebox' ? 'WhiteBox' : 'Полная отделка')}
+        ${row('Цена за м²', `${num(result.perM2).toLocaleString('ru-RU')} ₽`)}
+        ${row(`Работы · ${num(t.worksPct)}%`, rub(t.works))}
+        ${row(`Материалы · ${num(t.matPct)}%`, rub(t.materials))}
+      </table>
+      <p style="font-size:13px;color:#6b7280;margin:20px 0 0">Полная таблица по позициям — на сайте, в вашем расчёте.</p>`;
+  }
+
+  return `<div style="font-family:Arial,sans-serif;max-width:560px;padding:24px">
+    <h2 style="color:#B95C38;margin:0 0 4px">Ваш расчёт стоимости отделки</h2>
+    <p style="color:#6b7280;margin:0 0 24px;font-size:14px">${safeName}, вот результат вашего расчёта на сайте РПКМ.</p>
+    ${body}
+    <hr style="border:none;border-top:1px solid #e4e4e7;margin:24px 0">
+    <p style="font-size:12px;color:#6b7280;line-height:1.6">
+      Расчёт носит предварительный характер: итоговая стоимость зависит от конкретных
+      материалов, объёмов по факту и условий подрядчика.
+    </p>
+    <p style="font-size:13px;margin:16px 0 0"><a href="https://ddrpkm.ru" style="color:#B95C38">ddrpkm.ru</a></p>
+  </div>`;
+}
+
+app.post('/api/calculation', async (req, res) => {
+  const { email, name, kind, result } = req.body || {};
+
+  if (typeof email !== 'string' || !EMAIL_RE.test(email.trim()) || email.length > 254) {
+    return res.status(400).json({ ok: false, error: 'Некорректный email' });
+  }
+  if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
+    return res.status(400).json({ ok: false, error: 'Некорректное имя' });
+  }
+  if (kind !== 'quick' && kind !== 'detail') {
+    return res.status(400).json({ ok: false, error: 'Некорректный тип расчёта' });
+  }
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return res.status(400).json({ ok: false, error: 'Некорректный расчёт' });
+  }
+
+  if (!rateLimit(`calc:${req.ip}`, 5, 15 * 60 * 1000)) {
+    return res.status(429).json({ ok: false, error: 'Слишком много запросов. Попробуйте позже' });
+  }
+
+  const sent = await sendRawEmail(
+    email.trim(),
+    'РПКМ · Ваш расчёт стоимости отделки',
+    calcEmailHtml({ name: name.trim(), kind, result })
+  );
+
+  if (!sent) {
+    console.error('calculation email failed:', email.trim());
+    return res.status(502).json({ ok: false, error: 'Не удалось отправить письмо' });
+  }
+  res.json({ ok: true });
+});
 
 app.use(express.static(DIST));
 

@@ -6,6 +6,16 @@ import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
 import { calculateB2C } from '../lib/calculator';
 
+// Отправка расчёта письмом. Навигацию не блокирует: результат пользователь
+// видит на экране независимо от того, дошло письмо или нет.
+function sendCalculation({ email, name, kind, result }) {
+  fetch('/api/calculation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, name, kind, result }),
+  }).catch(() => {});
+}
+
 const STEPS = [
   { id:'apartment_type', title:'Какой тип квартиры?', hint:'От этого зависит набор работ.', type:'cards',
     options:[{value:'novostroyka',title:'Новостройка',sub:'Только получили ключи'},{value:'vtorichka',title:'Вторичка',sub:'Жилая или после прежних хозяев'}] },
@@ -33,7 +43,7 @@ const STEPS = [
     options:[{value:'yes',label:'Да, готовый проект на руках',emoji:'📐'},{value:'no',label:'Нет, посчитайте без него',emoji:'🤷'},{value:'need',label:'Нет, но планирую заказать',emoji:'✨'}] },
   { id:'timing', title:'Когда хотите начать?', type:'options',
     options:[{value:'asap',label:'Срочно — в течение месяца',emoji:'🚀'},{value:'months_3',label:'Через 1–3 месяца',emoji:'📅'},{value:'flexible',label:'Не срочно',emoji:'⏳'}] },
-  { id:'contact', title:'Куда отправить расчёт?', hint:'Пришлём расчёт на почту и сохраним его в личном кабинете.', type:'contact' },
+  { id:'contact', title:'Куда отправить расчёт?', hint:'Пришлём расчёт на почту — сможете вернуться к нему в любой момент.', type:'contact' },
 ];
 
 export default function B2CQuizPage() {
@@ -45,7 +55,7 @@ export default function B2CQuizPage() {
   const validTiers = ['cosmetic', 'capital', 'euro', 'premium'];
   const initialTier = validTiers.includes(tierFromUrl) ? tierFromUrl : 'capital';
   const [answers, setAnswers] = useState({ area: 60, repair_type: initialTier });
-  const [contactData, setContactData] = useState({ name: '', phone: '', extra: '', agree: false });
+  const [contactData, setContactData] = useState({ name: '', email: '', agree: false });
   const [formError, setFormError] = useState('');
   const navigate = useNavigate();
 
@@ -61,9 +71,7 @@ export default function B2CQuizPage() {
     else {
       // Валидация контактных данных
       if (!contactData.name || contactData.name.trim().length < 2) { setFormError('Введите имя (минимум 2 символа)'); return; }
-      const cleanPhone = contactData.phone.replace(/[^\d+]/g, '');
-      if (!/^\+7\d{10}$/.test(cleanPhone)) { setFormError('Введите телефон в формате +7XXXXXXXXXX'); return; }
-      if (contactData.extra && contactData.extra.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactData.extra.trim())) { setFormError('Введите корректный email'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contactData.email.trim())) { setFormError('Введите корректный email — на него придёт расчёт'); return; }
       if (!contactData.agree) { setFormError('Необходимо согласие на обработку данных'); return; }
       setFormError('');
 
@@ -73,9 +81,10 @@ export default function B2CQuizPage() {
         const lead = {
           id: 'b2c-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c',
           result,
-          contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
+          contact: { name: contactData.name, email: contactData.email.trim() },
         };
         sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
+        sendCalculation({ email: contactData.email.trim(), name: contactData.name.trim(), kind: 'quick', result });
         navigate('/b2c-result');
       } else {
         // Детальная смета — SpecCalc ~50 позиций
@@ -91,9 +100,10 @@ export default function B2CQuizPage() {
         const lead = {
           id: 'b2c-detail-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c-detail',
           result: specResult,
-          contact: { name: contactData.name, phone: contactData.phone, email: contactData.extra },
+          contact: { name: contactData.name, email: contactData.email.trim() },
         };
         sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
+        sendCalculation({ email: contactData.email.trim(), name: contactData.name.trim(), kind: 'detail', result: specResult });
         navigate('/b2c-result-detail');
       }
     }
@@ -208,13 +218,8 @@ export default function B2CQuizPage() {
                     style={{ width: "100%", padding: "12px 14px", border: `1.5px solid ${C.gray200}`, borderRadius: 10, fontSize: 15, outline: "none", fontFamily: "'Inter', sans-serif" }} />
                 </div>
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: C.gray600, marginBottom: 6 }}>Телефон</label>
-                  <input type="tel" value={contactData.phone} onChange={e => setContactData(p => ({ ...p, phone: e.target.value }))} placeholder="+7 (___) ___-__-__"
-                    style={{ width: "100%", padding: "12px 14px", border: `1.5px solid ${C.gray200}`, borderRadius: 10, fontSize: 15, outline: "none", fontFamily: "'Inter', sans-serif" }} />
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: C.gray600, marginBottom: 6 }}>Telegram или email (опционально)</label>
-                  <input type="text" value={contactData.extra} onChange={e => setContactData(p => ({ ...p, extra: e.target.value }))} placeholder="@username или email"
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: C.gray600, marginBottom: 6 }}>Email</label>
+                  <input type="email" value={contactData.email} onChange={e => setContactData(p => ({ ...p, email: e.target.value }))} placeholder="you@example.com"
                     style={{ width: "100%", padding: "12px 14px", border: `1.5px solid ${C.gray200}`, borderRadius: 10, fontSize: 15, outline: "none", fontFamily: "'Inter', sans-serif" }} />
                 </div>
                 <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>

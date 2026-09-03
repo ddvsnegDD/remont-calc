@@ -139,14 +139,18 @@ function getProvider() {
 }
 
 // Отправить произвольное письмо (для уведомлений админу и т.д.)
+// Возвращает true, если письмо ушло, иначе false. Не бросает исключений:
+// вызывающий код сам решает, важен ли ему результат отправки.
 export async function sendRawEmail(to, subject, html) {
   const p = getProvider();
-  if (!p) { console.log(`📧 [no provider] To: ${to}, Subject: ${subject}`); return; }
+  if (!p) { console.log(`📧 [no provider] To: ${to}, Subject: ${subject}`); return false; }
   try {
     await p.send(to, subject, html, 'РПКМ');
     console.log(`✉️  Уведомление отправлено на ${to}`);
+    return true;
   } catch (err) {
     console.error(`sendRawEmail error:`, err.message);
+    return false;
   }
 }
 

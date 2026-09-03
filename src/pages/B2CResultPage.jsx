@@ -52,6 +52,11 @@ export default function B2CResultPage() {
               <div className="result-price">
                 <span className="accent">{formatRub(r.totalLow)}</span> — <span className="accent">{formatRub(r.totalHigh)}</span>
               </div>
+              {lead.contact?.email && (
+                <div style={{ fontSize: 13, color: C.gray500, marginTop: 8 }}>
+                  Копия расчёта отправлена на {lead.contact.email}
+                </div>
+              )}
               <div className="result-disclaimer">
                 <strong>Расчёт носит предварительный характер.</strong> Это вилка стоимости на основе
                 средней цены 1 м² и факторов сложности. Итоговая смета зависит от конкретных

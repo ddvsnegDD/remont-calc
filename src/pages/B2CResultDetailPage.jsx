@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
+import { generateB2CDetailReportHTML, openReportWindow } from '../lib/estimateReport';
 
 function formatRub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 
@@ -68,6 +69,10 @@ export default function B2CResultDetailPage() {
                 средней цены 1 м² и факторов сложности. Итоговая смета зависит от конкретных
                 материалов и подрядчика.
               </div>
+            </div>
+
+            <div style={{ textAlign: 'center', margin: '-8px 0 20px' }}>
+              <Btn variant="outline" style={{ padding: '10px 20px', fontSize: 13 }} onClick={() => openReportWindow(generateB2CDetailReportHTML(lead))}>🖨️ Печать сметы</Btn>
             </div>
 
             {/* Meta */}

@@ -4,6 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { formatRub, formatDays } from '../lib/calculator';
+import { generateB2CSummaryReportHTML, openReportWindow } from '../lib/estimateReport';
 
 export default function B2CResultPage() {
   const navigate = useNavigate();
@@ -62,6 +63,10 @@ export default function B2CResultPage() {
                 средней цены 1 м² и факторов сложности. Итоговая смета зависит от конкретных
                 материалов и подрядчика.
               </div>
+            </div>
+
+            <div style={{ textAlign: 'center', margin: '-8px 0 20px' }}>
+              <Btn variant="outline" style={{ padding: '10px 20px', fontSize: 13 }} onClick={() => openReportWindow(generateB2CSummaryReportHTML(lead))}>🖨️ Печать сметы</Btn>
             </div>
 
             {/* Bar */}

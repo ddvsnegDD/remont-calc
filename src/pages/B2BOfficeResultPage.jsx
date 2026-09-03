@@ -7,6 +7,7 @@ import { OFFICE_TIERS } from '../lib/office-calculator';
 import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
+import { generateB2BOfficeReportHTML, openReportWindow } from '../lib/estimateReport';
 
 function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 
@@ -89,7 +90,10 @@ export default function B2BOfficeResultPage() {
                 <h2 style={{ marginBottom: 6 }}>{calc.projectName}</h2>
                 <div style={{ fontSize: 13, color: C.gray500 }}>Расчёт от {new Date(calc.timestamp).toLocaleString('ru-RU')}</div>
               </div>
-              <Btn variant="outline" onClick={() => navigate('/b2b-office')}>Пересчитать</Btn>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Btn variant="outline" onClick={() => openReportWindow(generateB2BOfficeReportHTML(calc))}>🖨️ Печать сметы</Btn>
+                <Btn variant="outline" onClick={() => navigate('/b2b-office')}>Пересчитать</Btn>
+              </div>
             </div>
 
             {/* Hero */}

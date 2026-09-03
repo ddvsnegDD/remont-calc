@@ -8,6 +8,7 @@ import { SpecCalc } from '../lib/spec-calculator';
 import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
+import { generateB2BReportHTML, openReportWindow } from '../lib/estimateReport';
 
 export default function B2BResultPage() {
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ export default function B2BResultPage() {
                 <h2 style={{ marginBottom: 0 }}>{calc.projectName}</h2>
                 <div style={{ fontSize: 13, color: C.gray500, marginTop: 6 }}>Расчёт от {new Date(calc.timestamp).toLocaleString('ru-RU')}</div>
               </div>
-              <Btn variant="outline" onClick={() => setNotice('PDF-экспорт доступен в реальной версии')}>📄 Скачать PDF</Btn>
+              <Btn variant="outline" onClick={() => openReportWindow(generateB2BReportHTML({ projectName: calc.projectName, timestamp: calc.timestamp, r, specResult, showSpec: hasPro }))}>🖨️ Печать / PDF</Btn>
             </div>
 
             <div style={{ fontSize: 11, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Метод 1 · вилка по квизу</div>

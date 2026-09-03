@@ -42,7 +42,6 @@ function computeKPI(byDay) {
     subscriptions: Math.round(3 + Math.random() * 8),
     subscriptionsCancelled: Math.round(Math.random() * 3),
     churnPct: Math.round(10 + Math.random() * 15),
-    partners: Math.round(2 + Math.random() * 5),
     retentionWins: Math.round(Math.random() * 4),
   };
 }
@@ -200,7 +199,6 @@ export default function DashboardPage() {
             <div className="kpi-tile"><div className="kpi-label">Конверсия в запись</div><div className="kpi-value">{kpi.bookingConversion}%</div><div className="kpi-sub">из лидов</div></div>
             <div className="kpi-tile"><div className="kpi-label">Подписки</div><div className="kpi-value">{kpi.subscriptions}</div><div className="kpi-sub">Club + PRO</div></div>
             <div className="kpi-tile"><div className="kpi-label">Churn</div><div className="kpi-value" style={{ color: churnColor }}>{kpi.churnPct}%</div><div className="kpi-sub">{kpi.subscriptionsCancelled} отмен</div></div>
-            <div className="kpi-tile"><div className="kpi-label">Партнёры</div><div className="kpi-value">{kpi.partners}</div><div className="kpi-sub">регистраций</div></div>
             <div className="kpi-tile"><div className="kpi-label">Дожим сработал</div><div className="kpi-value">{kpi.retentionWins}</div><div className="kpi-sub">офферов принято</div></div>
           </div>
 

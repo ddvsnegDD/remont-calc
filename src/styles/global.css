@@ -176,21 +176,6 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(0.95); }
     margin-bottom: 16px;
 }
 
-.price-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px;
-    border-radius: var(--radius-sm);
-    background: var(--gray-50);
-    margin-bottom: 10px;
-    border-left: 3px solid var(--terra);
-}
-
-.price-card-label { font-weight: 600; color: var(--gray-900); }
-.price-card-sub { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
-.price-card-value { font-weight: 700; color: var(--terra); white-space: nowrap; }
-
 @media (max-width: 900px) {
     .hero { padding: 48px 0 40px; }
     .hero-grid { grid-template-columns: 1fr; gap: 40px; }
@@ -807,62 +792,6 @@ section { padding: 80px 0; }
 
 .success-screen h2 { margin-bottom: 8px; }
 .success-screen p { margin-bottom: 24px; color: var(--gray-700); }
-
-/* === PARTNER CABINET === */
-.ref-link-box {
-    background: var(--gray-50);
-    border-radius: var(--radius-sm);
-    padding: 14px;
-    margin: 16px 0 24px;
-}
-
-.ref-link-box input {
-    flex: 1;
-    padding: 12px 14px;
-    border: 1.5px solid var(--gray-300);
-    border-radius: var(--radius-sm);
-    font-family: 'Menlo', 'Monaco', monospace;
-    font-size: 13px;
-    color: var(--gray-900);
-    background: white;
-    outline: none;
-    min-width: 0;
-}
-
-.ref-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    margin-top: 8px;
-}
-
-.ref-stat {
-    background: var(--gray-50);
-    padding: 16px;
-    border-radius: var(--radius-sm);
-}
-
-.ref-stat-label {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--gray-500);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 6px;
-}
-
-.ref-stat-value {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--gray-900);
-    letter-spacing: -0.02em;
-}
-
-.ref-stat-sub {
-    font-size: 12px;
-    color: var(--gray-500);
-    margin-top: 4px;
-}
 
 /* === CLUB / PRO BENEFITS === */
 .benefit-list {
@@ -1560,12 +1489,6 @@ section { padding: 80px 0; }
 }
 
 /* === Responsive grids === */
-.partner-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 60px;
-  align-items: center;
-}
 .mode-choice-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1590,9 +1513,9 @@ section { padding: 80px 0; }
 }
 .pro-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 24px;
-  max-width: 900px;
+  max-width: 480px;
   margin: 0 auto;
 }
 
@@ -1615,12 +1538,7 @@ section { padding: 80px 0; }
     gap: 24px;
   }
   .pro-grid {
-    grid-template-columns: 1fr;
     gap: 16px;
-  }
-  .partner-grid {
-    grid-template-columns: 1fr !important;
-    gap: 32px !important;
   }
   .mode-choice-grid {
     grid-template-columns: 1fr !important;
@@ -1883,43 +1801,6 @@ section { padding: 80px 0; }
   animation: scaleIn 0.4s cubic-bezier(0.16,1,0.3,1);
 }
 
-/* --- Preview card (lower-left floating) --- */
-.premium-preview-card {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.9);
-  border-radius: 16px;
-  padding: 14px 20px;
-  max-width: 360px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03);
-  margin-top: 36px;
-}
-.premium-preview-card img {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-.premium-preview-card .preview-text {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  line-height: 1.45;
-}
-.premium-preview-card .preview-stat {
-  font-size: 12px;
-  color: #B95C38;
-  font-weight: 700;
-  margin-top: 4px;
-}
-
 /* --- Trust bar (bottom of hero) --- */
 .premium-trust-bar {
   position: relative;
@@ -1967,7 +1848,6 @@ section { padding: 80px 0; }
   .premium-calc-card { padding: 28px; }
   .premium-trust-bar { gap: 24px; flex-wrap: wrap; padding: 20px 20px; }
   .premium-trust-item { font-size: 13px; }
-  .premium-preview-card { margin: 24px auto 0; }
 }
 @media (max-width: 600px) {
   .premium-calc-card { padding: 22px; border-radius: 18px; }

@@ -52,7 +52,6 @@ export function Header() {
     { label: "Калькулятор", to: "/#hero" },
     { label: "Категории", to: "/#pricing" },
     { label: "Программы", to: "/club" },
-    { label: "Партнёрам", to: "/partner-b2b" },
   ];
 
   return (
@@ -144,7 +143,7 @@ export function Footer() {
           </div>
           <div>
             <h4 className="font-golos" style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Программы</h4>
-            {[{l:"Партнёрка B2C", to:"/partner-b2c"}, {l:"Партнёрка B2B", to:"/partner-b2b"}, {l:"Клуб владельцев", to:"/club"}, {l:"PRO-кабинет", to:"/pro"}].map(({l, to}, i) => (
+            {[{l:"Клуб владельцев", to:"/club"}, {l:"PRO-кабинет", to:"/pro"}].map(({l, to}, i) => (
               <Link key={i} to={to} style={{ display: "block", color: "rgba(255,255,255,0.4)", fontSize: 14, textDecoration: "none", marginBottom: 10, transition: "color 0.3s cubic-bezier(0.16,1,0.3,1), padding-left 0.3s ease" }}
                 onMouseEnter={e => { e.target.style.color = C.terraLight; e.target.style.paddingLeft = "6px"; }}
                 onMouseLeave={e => { e.target.style.color = "rgba(255,255,255,0.4)"; e.target.style.paddingLeft = "0"; }}
@@ -153,7 +152,7 @@ export function Footer() {
           </div>
           <div>
             <h4 className="font-golos" style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Контакты</h4>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, lineHeight: 1.8 }}>Москва и МО<br />будни 10:00–19:00 МСК</p>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, lineHeight: 1.8 }}>Поддержка по email<br />ddv1121@yandex.ru</p>
           </div>
         </div>
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>

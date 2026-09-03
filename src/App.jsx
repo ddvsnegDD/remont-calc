@@ -20,8 +20,6 @@ import { lazy, Suspense } from 'react';
 const B2BOfficeDetailPage = lazy(() => import('./pages/B2BOfficeDetailPage'));
 import ClubPage from './pages/ClubPage';
 import ProPage from './pages/ProPage';
-import PartnerB2BPage from './pages/PartnerB2BPage';
-import PartnerB2CPage from './pages/PartnerB2CPage';
 import DashboardPage from './pages/DashboardPage';
 import PrivacyPage from './pages/PrivacyPage';
 import OfferPage from './pages/OfferPage';
@@ -65,8 +63,8 @@ export default function App() {
         {/* Standalone */}
         <Route path="/club" element={<ClubPage />} />
         <Route path="/pro" element={<ProPage />} />
-        <Route path="/partner-b2b" element={<PartnerB2BPage />} />
-        <Route path="/partner-b2c" element={<PartnerB2CPage />} />
+        <Route path="/partner-b2b" element={<Navigate to="/" replace />} />
+        <Route path="/partner-b2c" element={<Navigate to="/" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/offer" element={<OfferPage />} />

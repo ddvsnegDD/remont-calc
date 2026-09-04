@@ -336,7 +336,7 @@ function ProSection() {
   const [ref, vis] = useReveal();
   const navigate = useNavigate();
   const cards = [
-    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "White-label PDF-сметы с логотипом вашей студии, безлимитные расчёты.", cta: "Подключить PRO", to: "/pro", price: `${formatPrice(PLANS.pro_monthly.price)} ₽/мес`, highlights: ["Безлимит расчётов", { text: "White-label PDF", soon: true }, "Экспорт CSV"] },
+    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "Безлимитные расчёты, офисный fit-out и детальная спецификация B2B. White-label PDF готовится.", cta: "Подключить PRO", to: "/pro", price: `${formatPrice(PLANS.pro_monthly.price)} ₽/мес`, highlights: ["Безлимит расчётов", { text: "White-label PDF", soon: true }, "Экспорт CSV"] },
   ];
   return (
     <section id="pro" style={{ padding: "100px 0", position: "relative", overflow: "hidden", background: `url('/images/dark-pro-bg.jpeg') center/cover no-repeat, linear-gradient(135deg, #0F0F11 0%, #1A1A1C 30%, #222225 60%, #1A1A1C 100%)` }}>

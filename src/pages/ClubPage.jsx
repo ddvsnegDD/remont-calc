@@ -281,7 +281,7 @@ export default function ClubPage() {
             <div className="section-head">
               <span className="section-label">Тарифы</span>
               <h2>Простые и прозрачные цены</h2>
-              <p>Отмена в любой момент. Доступ до конца оплаченного периода.</p>
+              <p>Отмена в любой момент. Доступ прекращается сразу, оплату за неиспользованные дни возвращаем по запросу.</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, maxWidth: 600, margin: '0 auto' }}>
               {/* Monthly */}

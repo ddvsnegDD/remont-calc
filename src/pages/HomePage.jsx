@@ -4,6 +4,7 @@ import { ChevronDown, Shield, FileText, User, Clock, Calculator, Star, ArrowRigh
 import PageLayout from '../components/Layout';
 import Btn from '../components/Btn';
 import SectionLabel from '../components/SectionLabel';
+import { TenderPricesVisual, BreakdownVisual, FactorsVisual, InstantResultVisual } from '../components/BasisVisuals';
 import { useReveal } from '../lib/hooks';
 import { useAuth } from '../lib/auth';
 import { C } from '../lib/theme';
@@ -231,10 +232,10 @@ function GuaranteesSection() {
   const [ref, vis] = useReveal();
   const [openIdx, setOpenIdx] = useState(0);
   const items = [
-    { icon: <FileText size={22} />, title: "Реальные тендерные цены", body: "В основе — расценки из тендерных смет на объекты жилой недвижимости, включая элитную, и на отделку офисов." },
-    { icon: <Eye size={22} />, title: "Прозрачная детализация", body: "Каждая позиция расписана отдельно: работа, черновые материалы, чистовые материалы." },
-    { icon: <Calculator size={22} />, title: "Учёт факторов сложности", body: "Тип дома, перепланировка, замена коммуникаций, площадь — каждый фактор влияет на итог через отдельный коэффициент." },
-    { icon: <Shield size={22} />, title: "Расчёт, а не заявка", body: "Результат вы получаете сразу на экране. Никто не перезвонит, чтобы «уточнить детали»." },
+    { icon: <FileText size={22} />, visual: <TenderPricesVisual />, title: "Реальные тендерные цены", body: "В основе — расценки из тендерных смет на объекты жилой недвижимости, включая элитную, и на отделку офисов." },
+    { icon: <Eye size={22} />, visual: <BreakdownVisual />, title: "Прозрачная детализация", body: "Каждая позиция расписана отдельно: работа, черновые материалы, чистовые материалы." },
+    { icon: <Calculator size={22} />, visual: <FactorsVisual />, title: "Учёт факторов сложности", body: "Тип дома, перепланировка, замена коммуникаций, площадь — каждый фактор влияет на итог через отдельный коэффициент." },
+    { icon: <Shield size={22} />, visual: <InstantResultVisual />, title: "Расчёт, а не заявка", body: "Результат вы получаете сразу на экране. Никто не перезвонит, чтобы «уточнить детали»." },
   ];
   return (
     <section id="basis" style={{ padding: "80px 0", background: C.offWhite }}>
@@ -259,6 +260,10 @@ function GuaranteesSection() {
             ))}
           </div>
           <div className={`reveal ${vis ? "visible" : ""} reveal-d2 guarantee-card-visual`} style={{ borderRadius: 20, height: 400, overflow: "hidden", position: "relative", background: C.graphite }}>
+            <div key={`visual-${openIdx}`} style={{ position: "absolute", inset: 0, zIndex: 0, animation: "scaleIn 0.45s cubic-bezier(0.16,1,0.3,1)" }}>
+              {items[Math.max(0, openIdx)]?.visual}
+            </div>
+            <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(180deg, rgba(26,26,28,0) 36%, rgba(26,26,28,0.85) 47%, #1A1A1C 58%)" }} />
             <div key={openIdx} style={{ position: "relative", zIndex: 2, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "32px 36px", animation: "scaleIn 0.35s cubic-bezier(0.16,1,0.3,1)" }}>
               <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", display: "grid", placeItems: "center", marginBottom: 16, color: "#fff" }}>
                 {items[Math.max(0, openIdx)]?.icon || <Shield size={24} />}

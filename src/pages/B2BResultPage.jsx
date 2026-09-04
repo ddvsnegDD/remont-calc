@@ -17,13 +17,6 @@ export default function B2BResultPage() {
   const [specMode, setSpecMode] = useState('full');
   const [specTier, setSpecTier] = useState('capital');
   const [loginOpen, setLoginOpen] = useState(false);
-  const [notice, setNotice] = useState(null);
-
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 3000);
-    return () => clearTimeout(t);
-  }, [notice]);
 
   useEffect(() => {
     try {
@@ -222,11 +215,6 @@ export default function B2BResultPage() {
           </div>
         </div>
       </div>
-      {notice && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: C.graphite, color: '#fff', padding: '12px 24px', borderRadius: 10, fontSize: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', maxWidth: 400, textAlign: 'center' }}>
-          {notice}
-        </div>
-      )}
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </PageLayout>
   );

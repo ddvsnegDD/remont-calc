@@ -13,6 +13,18 @@ const PORT = process.env.PORT || 3000;
 const DIST = resolve('dist');
 const JWT_SECRET = process.env.JWT_SECRET || 'rpkm-dev-secret-change-in-prod';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'rpkm-admin-2026';
+
+if (process.env.NODE_ENV === 'production') {
+  const bad = [];
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'rpkm-dev-secret-change-in-prod') bad.push('JWT_SECRET не задан или равен дефолту');
+  else if (process.env.JWT_SECRET.length < 32) bad.push('JWT_SECRET короче 32 символов');
+  if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === 'rpkm-admin-2026') bad.push('ADMIN_PASSWORD не задан или равен дефолту');
+  if (bad.length) {
+    console.error('FATAL: небезопасная конфигурация окружения:\n  ' + bad.join('\n  '));
+    process.exit(1);
+  }
+}
+
 const SITE_URL = process.env.APP_URL // явный публичный URL (VPS): https://ddrpkm.ru
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
   || `http://localhost:${PORT}`;
@@ -80,7 +92,7 @@ app.get('/api/health', async (req, res) => {
     }
   } catch (err) {
     status.dbLive = false;
-    status.dbError = err.message;
+    console.error('health: DB error:', err.message);
   }
   res.json(status);
 });
@@ -476,6 +488,8 @@ app.post('/api/contact', async (req, res) => {
 });
 
 app.use(express.static(DIST));
+
+app.use('/api', (req, res) => res.status(404).json({ ok: false, error: 'Не найдено' }));
 
 app.get('/{*splat}', (req, res) => {
   res.sendFile(join(DIST, 'index.html'));

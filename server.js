@@ -16,6 +16,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'rpkm-admin-2026';
 const SITE_URL = process.env.APP_URL // явный публичный URL (VPS): https://ddrpkm.ru
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
   || `http://localhost:${PORT}`;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 // Флаг доступности БД
 let dbReady = false;
@@ -89,12 +90,17 @@ app.get('/api/health', async (req, res) => {
 // Отправить код на email
 app.post('/api/auth/send-code', requireDB, async (req, res) => {
   const { email } = req.body;
-  if (!email || !email.includes('@')) return res.status(400).json({ ok: false, error: 'Введите email' });
-  const code = String(Math.floor(1000 + Math.random() * 9000)); // 4 digits
+  const mail = String(email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(mail)) return res.status(400).json({ ok: false, error: 'Введите email' });
+  if (!rateLimit(`send:${mail}`, 3, 10 * 60 * 1000))
+    return res.status(429).json({ ok: false, error: 'Слишком много запросов кода. Попробуйте через 10 минут.' });
+  if (!rateLimit(`send-ip:${req.ip}`, 10, 10 * 60 * 1000))
+    return res.status(429).json({ ok: false, error: 'Слишком много запросов. Попробуйте позже.' });
+  const code = String(crypto.randomInt(100000, 1000000)); // 6 цифр, CSPRNG
   try {
-    await saveAuthCode(email, code);
+    await saveAuthCode(mail, code);
     // Отправляем email в фоне — не блокируем ответ
-    sendAuthCode(email, code).catch(err => console.error('Email bg error:', err.message));
+    sendAuthCode(mail, code).catch(err => console.error('Email bg error:', err.message));
     res.json({ ok: true });
   } catch (err) {
     console.error('send-code error:', err);
@@ -105,11 +111,16 @@ app.post('/api/auth/send-code', requireDB, async (req, res) => {
 // Проверить код, войти/зарегистрироваться
 app.post('/api/auth/verify', requireDB, async (req, res) => {
   const { email, code, name, phone, role, organization, position } = req.body;
-  if (!email || !code) return res.status(400).json({ ok: false, error: 'Введите email и код' });
+  const mail = String(email || '').trim().toLowerCase();
+  if (!mail || !code) return res.status(400).json({ ok: false, error: 'Введите email и код' });
+  if (!rateLimit(`verify-ip:${req.ip}`, 20, 10 * 60 * 1000))
+    return res.status(429).json({ ok: false, error: 'Слишком много попыток. Попробуйте позже.' });
+  if (!rateLimit(`verify:${mail}`, 5, 10 * 60 * 1000))
+    return res.status(429).json({ ok: false, error: 'Слишком много попыток. Запросите новый код через 10 минут.' });
   try {
-    const valid = await verifyAuthCode(email, code);
+    const valid = await verifyAuthCode(mail, code);
     if (!valid) return res.status(400).json({ ok: false, error: 'Неверный или просроченный код' });
-    const user = await createUser(email, name, phone, { role, organization, position });
+    const user = await createUser(mail, name, phone, { role, organization, position });
     const sub = await getActiveSubscription(user.id);
     const token = signToken(user);
     res.cookie('rpkm_token', token, {
@@ -301,8 +312,6 @@ app.post('/api/consultation', authMiddleware, async (req, res) => {
 // Письмо собирается ТОЛЬКО из числовых полей result на сервере.
 // Пользовательский текст в письмо не попадает — иначе эндпоинт превращается
 // в открытый релей для рассылки произвольного содержимого от нашего домена.
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function escapeHtml(str) {
   return String(str)

@@ -55,7 +55,7 @@ export default function LoginChoicePage() {
 
   const handleVerify = async (e) => {
     e.preventDefault();
-    if (!code || code.length < 4) { setError('Введите 4-значный код'); return; }
+    if (!code || code.length < 6) { setError('Введите 6-значный код'); return; }
     setError('');
     setLoading(true);
     try {
@@ -173,17 +173,17 @@ export default function LoginChoicePage() {
               <div style={{ fontSize: 40, marginBottom: 12, textAlign: 'center' }}>✉️</div>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: C.graphite, textAlign: 'center', marginBottom: 8 }}>Введите код</h2>
               <p style={{ fontSize: 14, color: C.gray500, textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>
-                Отправили 4-значный код на <strong>{email}</strong>
+                Отправили 6-значный код на <strong>{email}</strong>
               </p>
               <form onSubmit={handleVerify}>
                 <input
                   ref={codeRef}
                   type="text"
                   inputMode="numeric"
-                  maxLength={4}
+                  maxLength={6}
                   value={code}
-                  onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="• • • •"
+                  onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="• • • • • •"
                   style={{ ...inputStyle, padding: '16px', fontSize: 28, fontWeight: 700, textAlign: 'center', letterSpacing: 12 }}
                   onFocus={e => e.target.style.borderColor = C.terra}
                   onBlur={e => e.target.style.borderColor = C.gray200}

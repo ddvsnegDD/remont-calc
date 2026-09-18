@@ -34,6 +34,7 @@ export async function initDB() {
         used BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE auth_codes ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0;
       CREATE TABLE IF NOT EXISTS subscriptions (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
@@ -85,12 +86,27 @@ export async function saveAuthCode(email, code) {
 }
 
 export async function verifyAuthCode(email, code) {
+  const mail = String(email || '').toLowerCase();
   const { rows } = await pool.query(
-    `SELECT * FROM auth_codes WHERE email = $1 AND code = $2 AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`,
-    [email.toLowerCase(), code]
+    `SELECT * FROM auth_codes
+       WHERE email = $1 AND used = FALSE AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+    [mail]
   );
-  if (!rows[0]) return false;
-  await pool.query('UPDATE auth_codes SET used = TRUE WHERE id = $1', [rows[0].id]);
+  const row = rows[0];
+  if (!row) return false;
+
+  if (String(row.code) !== String(code)) {
+    const attempts = (row.attempts || 0) + 1;
+    if (attempts >= 5) {
+      await pool.query('UPDATE auth_codes SET attempts = $2, used = TRUE WHERE id = $1', [row.id, attempts]);
+    } else {
+      await pool.query('UPDATE auth_codes SET attempts = $2 WHERE id = $1', [row.id, attempts]);
+    }
+    return false;
+  }
+
+  await pool.query('UPDATE auth_codes SET used = TRUE WHERE id = $1', [row.id]);
   return true;
 }
 

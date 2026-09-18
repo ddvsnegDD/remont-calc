@@ -201,10 +201,14 @@ if (process.env.NODE_ENV === 'production') {
 **Предупреждение по деплою.** После этой правки сервер с пустым окружением не поднимется, а PM2 уйдёт в crash-loop и сайт ляжет. Перед деплоем обязательно проверить на VPS, что переменные видны именно процессу `rpkm`:
 
 ```bash
-pm2 env rpkm | grep -E 'JWT_SECRET|ADMIN_PASSWORD|NODE_ENV'
+sudo -iu deploy grep -E '^(JWT_SECRET|ADMIN_PASSWORD)=' /home/deploy/rpkm/.env | sed 's/=.*/=<есть>/'
+sudo -iu deploy grep '^JWT_SECRET=' /home/deploy/rpkm/.env | cut -d= -f2- | tr -d '\r\n' | wc -c
+sudo -iu deploy grep -cE '^(JWT_SECRET=rpkm-dev-secret-change-in-prod|ADMIN_PASSWORD=rpkm-admin-2026)$' /home/deploy/rpkm/.env
 ```
 
-Если вывод пуст, сначала чинить `.env` / `ecosystem.config.cjs`, деплой не запускать.
+Проверять надо именно файл `.env`, а не `pm2 env`: в `ecosystem.config.cjs` стоит `node_args: '--env-file=.env'`, то есть секреты читает сам Node при старте, PM2 их не видит и в своём окружении не показывает. Ожидаемый результат: обе переменные присутствуют, длина `JWT_SECRET` не меньше 32, третья команда возвращает `0`. Если что-то из этого не так, сначала чинить `.env`, деплой не запускать.
+
+Приложение работает под пользователем `deploy`, поэтому `pm2 list` из-под `root` покажет пустую таблицу. Это не значит, что сайт лежит: нужен `sudo -iu deploy pm2 list`.
 
 ### 3.2 404 для несуществующих API (§2.6)
 

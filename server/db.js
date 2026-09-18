@@ -1,5 +1,4 @@
 import pg from 'pg';
-import { daysOf } from '../src/data/tariffs.js';
 
 const dbUrl = process.env.DATABASE_URL || '';
 // Локальная БД на VPS (localhost / unix-socket) не требует SSL; облачная (Railway) — требует.
@@ -119,29 +118,6 @@ export async function createTrialSubscription(userId) {
     [userId, expires]
   );
   return rows[0];
-}
-
-export async function createPendingSubscription(userId, plan, label, amount) {
-  const { rows } = await pool.query(
-    `INSERT INTO subscriptions (user_id, plan, status, payment_label, amount, expires_at) VALUES ($1, $2, 'pending', $3, $4, NOW()) RETURNING *`,
-    [userId, plan, label, amount]
-  );
-  return rows[0];
-}
-
-export async function activateSubscription(label) {
-  // Срок берём из плана pending-подписки (PLANS.days), с фолбэком для legacy-планов
-  const { rows: pending } = await pool.query(
-    `SELECT plan FROM subscriptions WHERE payment_label = $1 AND status = 'pending' LIMIT 1`,
-    [label]
-  );
-  if (!pending[0]) return null;
-  const days = daysOf(pending[0].plan);
-  const { rows } = await pool.query(
-    `UPDATE subscriptions SET status = 'active', started_at = NOW(), expires_at = NOW() + INTERVAL '1 day' * $2 WHERE payment_label = $1 AND status = 'pending' RETURNING *`,
-    [label, days]
-  );
-  return rows[0] || null;
 }
 
 // --- Grant subscription manually (admin) ---

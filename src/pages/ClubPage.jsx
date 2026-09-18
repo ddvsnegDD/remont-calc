@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import LoginModal from '../components/LoginModal';
 import Btn from '../components/Btn';
@@ -28,12 +28,11 @@ const FAQ = [
   { q: 'Могу ли отменить подписку в любой момент?', a: 'Да, отмена одной кнопкой — доступ к клубным материалам прекращается сразу. Оплату за неиспользованные дни оплаченного периода можно вернуть по запросу на ddv1121@yandex.ru: возврат приходит тем же способом, которым была оплата, в течение 10 рабочих дней (раздел 6 оферты).' },
   { q: 'Чек-листы — это файлы или интерактивные?', a: 'Интерактивные веб-приложения с галочками и фотофиксацией нарушений.' },
   { q: 'А если подрядчика я уже выбрал сам?', a: 'Это обычный случай. Сметы, чек-листы и консультации не привязаны к конкретному подрядчику — они универсальные и подходят для любого.' },
-  { q: 'Как происходит оплата?', a: 'Через ЮMoney — банковская карта или кошелёк. Безопасная оплата на сайте ЮMoney.' },
+  { q: 'Как происходит оплата?', a: 'Сейчас подключаем приём платежей через ЮKassa. Пока оплата недоступна, напишите нам — откроем доступ.' },
 ];
 
 export default function ClubPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { user, subscription, hasAccess, refreshSubscription } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(-1);
@@ -42,39 +41,6 @@ export default function ClubPage() {
   const [consultationsLeft, setConsultationsLeft] = useState(3);
 
   const toggleFaq = useCallback((i) => { setOpenFaq(prev => prev === i ? -1 : i); }, []);
-
-  // Handle payment return
-  useEffect(() => {
-    const payment = searchParams.get('payment');
-    const label = searchParams.get('label');
-    if (payment === 'success' && label) {
-      fetch('/api/subscription/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ label }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.ok) {
-            setNotice('Подписка активирована!');
-            refreshSubscription();
-          } else {
-            setNotice('Оплата получена. Подписка активируется в течение нескольких минут.');
-            const interval = setInterval(() => {
-              refreshSubscription().then(d => {
-                if (d?.hasAccess) {
-                  clearInterval(interval);
-                  setNotice('Подписка активирована!');
-                }
-              });
-            }, 5000);
-            setTimeout(() => clearInterval(interval), 120000);
-          }
-        })
-        .catch(() => setNotice('Ожидаем подтверждения оплаты...'));
-    }
-  }, [searchParams, refreshSubscription]);
 
   useEffect(() => {
     if (!notice) return;
@@ -117,27 +83,8 @@ export default function ClubPage() {
     }
   };
 
-  const handlePay = async (plan) => {
-    if (!user) { setLoginOpen(true); return; }
-    setPayLoading(true);
-    try {
-      const res = await fetch('/api/subscription/pay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (data.ok && data.paymentUrl) {
-        window.location.href = data.paymentUrl;
-      } else {
-        setNotice(data.error || 'Ошибка создания платежа');
-      }
-    } catch {
-      setNotice('Ошибка связи с сервером');
-    } finally {
-      setPayLoading(false);
-    }
+  const handlePay = async () => {
+    setNotice('Оплата временно недоступна: подключаем ЮKassa. Напишите на ddv1121@yandex.ru, откроем доступ вручную.');
   };
 
   const handleTrial = async () => {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
@@ -26,7 +26,6 @@ const FAQ = [
 
 export default function ProPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { user, subscription, hasPro, refreshSubscription } = useAuth();
   const [openFaq, setOpenFaq] = useState(-1);
   const [notice, setNotice] = useState(null);
@@ -40,61 +39,9 @@ export default function ProPage() {
     return () => clearTimeout(t);
   }, [notice]);
 
-  // Возврат с ЮMoney: активируем подписку и поллим статус
-  useEffect(() => {
-    const payment = searchParams.get('payment');
-    const label = searchParams.get('label');
-    if (payment === 'success' && label) {
-      fetch('/api/subscription/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ label }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.ok) {
-            setNotice('Подписка PRO активирована!');
-            refreshSubscription();
-          } else {
-            setNotice('Оплата получена. Подписка активируется в течение нескольких минут.');
-            const interval = setInterval(() => {
-              refreshSubscription().then(d => {
-                if (d?.hasPro) {
-                  clearInterval(interval);
-                  setNotice('Подписка PRO активирована!');
-                }
-              });
-            }, 5000);
-            setTimeout(() => clearInterval(interval), 120000);
-          }
-        })
-        .catch(() => setNotice('Ожидаем подтверждения оплаты...'));
-    }
-  }, [searchParams, refreshSubscription]);
-
   const handlePay = useCallback(async () => {
-    if (!user) { navigate('/b2b-login'); return; }
-    setPayLoading(true);
-    try {
-      const res = await fetch('/api/subscription/pay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ plan: 'pro_monthly' }),
-      });
-      const data = await res.json();
-      if (data.ok && data.paymentUrl) {
-        window.location.href = data.paymentUrl;
-      } else {
-        setNotice(data.error || 'Ошибка создания платежа');
-      }
-    } catch {
-      setNotice('Ошибка связи с сервером');
-    } finally {
-      setPayLoading(false);
-    }
-  }, [user, navigate]);
+    setNotice('Оплата временно недоступна: подключаем ЮKassa. Напишите на ddv1121@yandex.ru, откроем доступ вручную.');
+  }, []);
 
   const expiresLabel = subscription?.expiresAt
     ? new Date(subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })

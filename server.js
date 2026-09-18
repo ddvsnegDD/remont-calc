@@ -3,7 +3,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { resolve, join } from 'path';
-import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, createPendingSubscription, activateSubscription, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
+import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
 import { PLANS, tierOf } from './src/data/tariffs.js';
 
@@ -13,8 +13,6 @@ const PORT = process.env.PORT || 3000;
 const DIST = resolve('dist');
 const JWT_SECRET = process.env.JWT_SECRET || 'rpkm-dev-secret-change-in-prod';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'rpkm-admin-2026';
-const YOOMONEY_WALLET = process.env.YOOMONEY_WALLET || '4100183647078';
-const YOOMONEY_SECRET = process.env.YOOMONEY_SECRET || '';
 const SITE_URL = process.env.APP_URL // явный публичный URL (VPS): https://ddrpkm.ru
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
   || `http://localhost:${PORT}`;
@@ -168,67 +166,6 @@ app.get('/api/subscription/status', authMiddleware, async (req, res) => {
   }
 });
 
-// Создать платёж → редирект на ЮMoney
-app.post('/api/subscription/pay', authMiddleware, async (req, res) => {
-  const { plan } = req.body;
-  const planData = PLANS[plan];
-  if (!planData) return res.status(400).json({ ok: false, error: 'Неверный план' });
-
-  try {
-    const user = await findUserByEmail(req.user.email);
-    const label = `sub_${user.id}_${Date.now()}`;
-    await createPendingSubscription(user.id, plan, label, planData.price);
-
-    // Возврат по уровню плана: PRO → /pro, Клуб → /club
-    const returnPath = planData.tier === 'pro' ? '/pro' : '/club';
-    const params = new URLSearchParams({
-      receiver: YOOMONEY_WALLET,
-      'quickpay-form': 'button',
-      paymentType: 'AC',
-      sum: String(planData.price),
-      label,
-      targets: planData.label,
-      successURL: `${SITE_URL}${returnPath}?payment=success&label=${label}`,
-    });
-    const paymentUrl = `https://yoomoney.ru/quickpay/confirm?${params}`;
-    res.json({ ok: true, paymentUrl, label });
-  } catch (err) {
-    console.error('pay error:', err);
-    res.status(500).json({ ok: false, error: 'Ошибка создания платежа' });
-  }
-});
-
-// Вебхук ЮMoney — уведомление об оплате
-app.post('/api/subscription/yoomoney-webhook', async (req, res) => {
-  const { notification_type, operation_id, amount, currency, datetime, sender, codepro, label, sha1_hash } = req.body;
-  console.log('💰 ЮMoney webhook:', { label, amount, operation_id });
-
-  // Верификация подписи (если настроен секрет)
-  if (YOOMONEY_SECRET) {
-    const checkStr = `${notification_type}&${operation_id}&${amount}&${currency}&${datetime}&${sender}&${codepro}&${YOOMONEY_SECRET}&${label}`;
-    const hash = crypto.createHash('sha1').update(checkStr).digest('hex');
-    if (hash !== sha1_hash) {
-      console.error('ЮMoney: неверная подпись');
-      return res.status(400).send('Invalid signature');
-    }
-  }
-
-  if (!label) return res.status(400).send('No label');
-
-  try {
-    const sub = await activateSubscription(label);
-    if (sub) {
-      console.log(`✅ Подписка активирована: user_id=${sub.user_id}, plan=${sub.plan}, до ${sub.expires_at}`);
-    } else {
-      console.warn('⚠️  Подписка не найдена для label:', label);
-    }
-    res.send('OK');
-  } catch (err) {
-    console.error('webhook error:', err);
-    res.status(500).send('Error');
-  }
-});
-
 // Активировать триал (только по кнопке «Попробовать 14 дней»)
 app.post('/api/subscription/trial', authMiddleware, async (req, res) => {
   try {
@@ -257,18 +194,6 @@ app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('cancel error:', err);
-    res.status(500).json({ ok: false, error: 'Ошибка' });
-  }
-});
-
-// Ручная активация (для демо / после возврата с ЮMoney)
-app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
-  const { label } = req.body;
-  if (!label) return res.status(400).json({ ok: false });
-  try {
-    const sub = await activateSubscription(label);
-    res.json({ ok: !!sub, subscription: sub });
-  } catch (err) {
     res.status(500).json({ ok: false, error: 'Ошибка' });
   }
 });

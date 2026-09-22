@@ -68,27 +68,25 @@ function isExpired(status, expiresAt) {
 
 export default function AdminPage() {
   const [password, setPassword] = useState('');
-  const [token, setToken] = useState(() => sessionStorage.getItem('rpkm_admin') || '');
+  const [authed, setAuthed] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const headers = { 'x-admin-token': token };
-
   const fetchData = useCallback(async () => {
-    if (!token) return;
+    if (!authed) return;
     setLoading(true);
     setError('');
     try {
       const [statsRes, usersRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers }),
-        fetch('/api/admin/users', { headers }),
+        fetch('/api/admin/stats', { credentials: 'include' }),
+        fetch('/api/admin/users', { credentials: 'include' }),
       ]);
-      if (statsRes.status === 403 || usersRes.status === 403) {
-        setToken('');
-        sessionStorage.removeItem('rpkm_admin');
-        setError('Неверный пароль');
+      if ([401, 403].includes(statsRes.status) || [401, 403].includes(usersRes.status)) {
+        setAuthed(false);
+        setError('Сессия истекла, войдите заново');
         return;
       }
       const statsData = await statsRes.json();
@@ -100,22 +98,56 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [authed]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleLogin = (e) => {
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/stats', { credentials: 'include' });
+        if (res.status === 200) setAuthed(true);
+      } catch {}
+      setCheckingSession(false);
+    })();
+  }, []);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     if (!password.trim()) return;
-    sessionStorage.setItem('rpkm_admin', password);
-    setToken(password);
     setError('');
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAuthed(true);
+        setPassword('');
+      } else if (res.status === 429) {
+        setError(data.error || 'Слишком много попыток. Попробуйте позже.');
+      } else {
+        setError('Неверный пароль');
+      }
+    } catch (err) {
+      setError('Ошибка сети: ' + err.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' });
+    } catch {}
+    setAuthed(false);
   };
 
   const handleDeleteUser = async (userId, email) => {
     if (!window.confirm(`Удалить пользователя ${email}?\n\nВсе данные (подписки, коды) будут удалены безвозвратно.`)) return;
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE', credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
         setUsers(prev => prev.filter(u => u.id !== userId));
@@ -140,7 +172,8 @@ export default function AdminPage() {
     try {
       const res = await fetch(`/api/admin/users/${userId}/subscription`, {
         method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan, days }),
       });
       const data = await res.json();
@@ -154,7 +187,7 @@ export default function AdminPage() {
   const handleRevokeSub = async (userId, email) => {
     if (!window.confirm(`Отозвать активную подписку у ${email}?`)) return;
     try {
-      const res = await fetch(`/api/admin/users/${userId}/subscription`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/admin/users/${userId}/subscription`, { method: 'DELETE', credentials: 'include' });
       const data = await res.json();
       if (data.ok) fetchData();
       else alert('Ошибка: ' + (data.error || 'не удалось отозвать'));
@@ -163,8 +196,20 @@ export default function AdminPage() {
     }
   };
 
+  if (checkingSession) {
+    return (
+      <PageLayout>
+        <div className="quiz-page">
+          <div className="quiz-wrap" style={{ maxWidth: 400, textAlign: 'center', padding: '60px 0', color: C.gray500 }}>
+            Проверка сессии…
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
   // Login screen
-  if (!token) {
+  if (!authed) {
     return (
       <PageLayout>
         <div className="quiz-page">
@@ -207,7 +252,7 @@ export default function AdminPage() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: `1px solid ${C.gray200}`, background: '#fff', cursor: 'pointer', fontSize: 13, color: C.gray600 }}>
                 <RefreshCw size={14} className={loading ? 'spin' : ''} /> Обновить
               </button>
-              <button onClick={() => { setToken(''); sessionStorage.removeItem('rpkm_admin'); }}
+              <button onClick={handleLogout}
                 style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid ${C.gray200}`, background: '#fff', cursor: 'pointer', fontSize: 13, color: C.gray600 }}>
                 Выйти
               </button>

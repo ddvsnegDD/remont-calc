@@ -208,24 +208,20 @@ export default function B2BOfficeDetailPage() {
               const qO = it.qOrig || 0;
               const mn = it.min || 0;
               const kr = it.krat || 1;
-              if (rt === 'Площадь') {
-                vol = Math.ceil(qO * ratio);
-              } else if (rt === 'Шт' || rt === 'Минимум') {
-                vol = Math.max(mn, Math.ceil(qO * ratio / kr) * kr);
-              } else if (rt === 'Фикс') {
-                vol = Math.ceil(qO);
-              } else if (rt === 'Расценки') {
-                vol = qO;
-              } else if (rt === 'Количество') {
-                vol = Math.ceil(qO * ratio);
-              } else {
-                vol = Math.ceil(qO * ratio);
-              }
               pw = it.pw;
               pm = it.pm;
-              if (rt === 'Расценки') {
+              if (rt === 'Площадь') {
+                vol = Math.round(qO * ratio * 100) / 100;          // непрерывная величина
+              } else if (rt === 'Шт' || rt === 'Минимум' || rt === 'Количество') {
+                vol = Math.max(mn || (qO >= 1 ? 1 : 0), Math.round(qO * ratio / kr) * kr);
+              } else if (rt === 'Фикс') {
+                vol = qO;
+              } else if (rt === 'Расценки') {
+                vol = qO;
                 pw = Math.round(it.pw * ratio * 100) / 100;
                 pm = Math.round(it.pm * ratio * 100) / 100;
+              } else {
+                vol = Math.round(qO * ratio * 100) / 100;
               }
             } else if (activeTab === 'finish') {
               vol = area * it.k * 1.10 * areaMult;

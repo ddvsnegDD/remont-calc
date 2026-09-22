@@ -221,12 +221,47 @@ app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
   }
 });
 
+const ADMIN_TTL_SEC = 2 * 60 * 60; // 2 часа
+
+app.post('/api/admin/login', (req, res) => {
+  if (!rateLimit(`admin-login:${req.ip}`, 10, 5 * 60 * 1000))
+    return res.status(429).json({ ok: false, error: 'Слишком много попыток. Попробуйте позже.' });
+
+  const given = Buffer.from(String(req.body?.password || ''));
+  const real = Buffer.from(ADMIN_PASSWORD);
+  const ok = given.length === real.length && crypto.timingSafeEqual(given, real);
+  if (!ok) return res.status(403).json({ ok: false, error: 'Доступ запрещён' });
+
+  const token = jwt.sign({ adm: true }, JWT_SECRET, { expiresIn: ADMIN_TTL_SEC });
+  res.cookie('rpkm_admin_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/admin',
+    maxAge: ADMIN_TTL_SEC * 1000,
+  });
+  res.json({ ok: true, expiresIn: ADMIN_TTL_SEC });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  res.clearCookie('rpkm_admin_token', { path: '/api/admin' });
+  res.json({ ok: true });
+});
+
 // ==================== ADMIN API ====================
 
 function adminAuth(req, res, next) {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_PASSWORD) return res.status(403).json({ ok: false, error: 'Доступ запрещён' });
-  next();
+  if (!rateLimit(`admin:${req.ip}`, 60, 5 * 60 * 1000))
+    return res.status(429).json({ ok: false, error: 'Слишком много запросов.' });
+  const token = req.cookies?.rpkm_admin_token;
+  if (!token) return res.status(401).json({ ok: false, error: 'Требуется вход' });
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (!payload?.adm) return res.status(403).json({ ok: false, error: 'Доступ запрещён' });
+    next();
+  } catch {
+    return res.status(401).json({ ok: false, error: 'Сессия истекла' });
+  }
 }
 
 app.get('/api/admin/stats', requireDB, adminAuth, async (req, res) => {
@@ -234,7 +269,8 @@ app.get('/api/admin/stats', requireDB, adminAuth, async (req, res) => {
     const stats = await getAdminStats();
     res.json({ ok: true, stats });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    console.error('admin error:', err.message);
+    res.status(500).json({ ok: false, error: 'Ошибка сервера' });
   }
 });
 
@@ -243,7 +279,8 @@ app.get('/api/admin/users', requireDB, adminAuth, async (req, res) => {
     const users = await getAllUsers();
     res.json({ ok: true, users });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    console.error('admin error:', err.message);
+    res.status(500).json({ ok: false, error: 'Ошибка сервера' });
   }
 });
 
@@ -254,7 +291,8 @@ app.delete('/api/admin/users/:id', requireDB, adminAuth, async (req, res) => {
     if (!user) return res.status(404).json({ ok: false, error: 'Пользователь не найден' });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    console.error('admin error:', err.message);
+    res.status(500).json({ ok: false, error: 'Ошибка сервера' });
   }
 });
 
@@ -267,7 +305,8 @@ app.post('/api/admin/users/:id/subscription', requireDB, adminAuth, async (req, 
     const sub = await grantSubscription(Number(req.params.id), plan, days);
     res.json({ ok: true, subscription: sub });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    console.error('admin error:', err.message);
+    res.status(500).json({ ok: false, error: 'Ошибка сервера' });
   }
 });
 
@@ -277,7 +316,8 @@ app.delete('/api/admin/users/:id/subscription', requireDB, adminAuth, async (req
     await cancelSubscription(Number(req.params.id));
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    console.error('admin error:', err.message);
+    res.status(500).json({ ok: false, error: 'Ошибка сервера' });
   }
 });
 

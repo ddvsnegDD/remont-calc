@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { CHECKLISTS } from '../data/checklists';
 import { ArrowLeft, Camera, X, Check, ChevronDown, ChevronUp, Image as ImageIcon, Trash2, FileText, Printer } from 'lucide-react';
 import Btn from '../components/Btn';
+import ProPaywall from '../components/ProPaywall';
 import { openReportWindow } from '../lib/checklistReport';
 
 function getStorageKey(userId, checklistId) {
@@ -166,7 +167,7 @@ function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle,
 export default function ChecklistDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasClub, loading: authLoading } = useAuth();
   const checklist = CHECKLISTS.find(c => c.id === id);
 
   const [state, setState] = useState({ items: {}, meta: {} });
@@ -201,6 +202,18 @@ export default function ChecklistDetailPage() {
     );
   }
 
+  if (authLoading) {
+    return (
+      <PageLayout>
+        <div className="quiz-page">
+          <div className="quiz-wrap" style={{ maxWidth: 680, textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{ fontSize: 14, color: C.gray400 }}>Загрузка...</div>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
   if (!user) {
     return (
       <PageLayout>
@@ -211,6 +224,16 @@ export default function ChecklistDetailPage() {
           </div>
         </div>
       </PageLayout>
+    );
+  }
+
+  if (!hasClub) {
+    return (
+      <ProPaywall
+        target="club"
+        heading="Чек-листы приёмки работ"
+        sub="6 чек-листов, 175 пунктов, фотофиксация нарушений и печать акта — доступны участникам Клуба владельцев."
+      />
     );
   }
 

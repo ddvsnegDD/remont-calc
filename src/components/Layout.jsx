@@ -51,7 +51,7 @@ export function Header() {
   const links = [
     { label: "Калькулятор", to: "/#hero" },
     { label: "Категории", to: "/#pricing" },
-    { label: "Программы", to: "/club" },
+    { label: "Клуб", to: "/club" },
   ];
 
   return (

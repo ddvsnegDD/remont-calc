@@ -1,5 +1,6 @@
 // Detailed estimate calculator — ES module version.
 import { SPEC_GROUPS, SPEC_GROUPS_PREMIUM, SPEC_DATA } from './spec-data';
+import { validatePositiveNumber, validateInteger } from './calculator';
 
 const TIER_MULTIPLIERS = {
   capital: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 } },
@@ -37,10 +38,18 @@ function roundVol(v) { return Math.round(v * 100) / 100; }
 export const SpecCalc = {
   compute(inputs) {
     const { area, sanitary, windows, rooms, mode, replan, tier } = inputs;
-    const A = Math.max(1, parseFloat(area) || 0);
-    const S = Math.max(0, parseInt(sanitary) || 0);
-    const W = Math.max(0, parseInt(windows) || 0);
-    const R = Math.max(0, parseInt(rooms) || 0);
+    const areaCheck = validatePositiveNumber(area, { max: null, name: 'Площадь' });
+    if (!areaCheck.ok) return { ok: false, error: areaCheck.error };
+    const sanitaryCheck = validateInteger(sanitary, { min: 0, max: null, name: 'Санузлы' });
+    if (!sanitaryCheck.ok) return { ok: false, error: sanitaryCheck.error };
+    const windowsCheck = validateInteger(windows, { min: 0, max: null, name: 'Окна' });
+    if (!windowsCheck.ok) return { ok: false, error: windowsCheck.error };
+    const roomsCheck = validateInteger(rooms, { min: 0, max: null, name: 'Комнаты' });
+    if (!roomsCheck.ok) return { ok: false, error: roomsCheck.error };
+    const A = areaCheck.value;
+    const S = sanitaryCheck.value;
+    const W = windowsCheck.value;
+    const R = roomsCheck.value;
     const replanKey = REPLAN_SURCHARGE[replan] ? replan : 'no';
     const isPremium = tier === 'premium';
     const tierKey = isPremium ? 'premium' : (TIER_MULTIPLIERS[tier] ? tier : 'capital');
@@ -143,6 +152,7 @@ export const SpecCalc = {
     }
 
     return {
+      ok: true,
       mode, tier: tierKey, tierLabel: TIER_LABELS[tierKey],
       inputs: { area: A, sanitary: S, windows: W, rooms: R, replan: replanKey, tier: tierKey },
       replanLabel: replanDef ? replanDef.label : null, replanCost,

@@ -6,6 +6,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { SpecCalc } from '../lib/spec-calculator';
+import { validatePositiveNumber, validateInteger } from '../lib/calculator';
 import { PLANS, formatPrice } from '../data/tariffs';
 
 export default function B2CDetailPage() {
@@ -23,6 +24,24 @@ export default function B2CDetailPage() {
   const [rooms, setRooms] = useState(2);
   const [sanitary, setSanitary] = useState(1);
   const [windows, setWindows] = useState(3);
+
+  // Сырой текст числовых полей отдельно от закоммиченных значений — проверка на
+  // потере фокуса, а не на каждое нажатие (см. B2CQuizPage).
+  const [areaRaw, setAreaRaw] = useState('60');
+  const [roomsRaw, setRoomsRaw] = useState('2');
+  const [sanitaryRaw, setSanitaryRaw] = useState('1');
+  const [windowsRaw, setWindowsRaw] = useState('3');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const commitField = useCallback((key, raw, setValue, validator, opts) => {
+    const r = validator(raw, opts);
+    if (r.ok) {
+      setValue(r.value);
+      setFieldErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+    } else {
+      setFieldErrors(prev => ({ ...prev, [key]: r.error }));
+    }
+  }, []);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -42,19 +61,22 @@ export default function B2CDetailPage() {
   const paramCount = effectiveMode === 'whitebox' ? 3 : 4;
 
   const preview = useMemo(() => {
-    if (area < 1) return null;
-    return SpecCalc.compute({ area, sanitary, windows, rooms, mode: effectiveMode, tier, replan: effectiveReplan });
-  }, [area, sanitary, windows, rooms, effectiveMode, tier, effectiveReplan]);
+    if (Object.keys(fieldErrors).length > 0) return null;
+    const r = SpecCalc.compute({ area, sanitary, windows, rooms, mode: effectiveMode, tier, replan: effectiveReplan });
+    return r.ok ? r : null;
+  }, [area, sanitary, windows, rooms, effectiveMode, tier, effectiveReplan, fieldErrors]);
 
   const approvalCost = useMemo(() => 80000 + 500 * area + 15000 * Math.max(0, rooms - 1), [area, rooms]);
 
   const submit = useCallback(() => {
+    if (Object.keys(fieldErrors).length > 0) { alert('Проверьте значения полей — есть некорректные'); return; }
     if (!name || name.length < 2) { alert('Введите имя'); return; }
     if (!phone || phone.replace(/\D/g, '').length < 10) { alert('Введите корректный телефон'); return; }
     if (!agree) { alert('Нужно согласие на обработку данных'); return; }
 
     const inp = { mode: effectiveMode, tier, replan: effectiveReplan, area, sanitary, windows, rooms };
     const result = SpecCalc.compute(inp);
+    if (!result.ok) { alert(result.error); return; }
     const lead = {
       id: 'b2c-detail-' + Date.now(),
       timestamp: new Date().toISOString(),
@@ -64,7 +86,7 @@ export default function B2CDetailPage() {
     };
     try { sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead)); } catch {}
     navigate('/b2c-result-detail');
-  }, [name, phone, email, agree, effectiveMode, tier, effectiveReplan, area, sanitary, windows, rooms, navigate]);
+  }, [name, phone, email, agree, effectiveMode, tier, effectiveReplan, area, sanitary, windows, rooms, navigate, fieldErrors]);
 
   const tierCards = [
     { key: 'capital', label: 'Капитальный', sub: 'Базовая категория, расценки тендера РПКМ.' },
@@ -176,22 +198,38 @@ export default function B2CDetailPage() {
             <div className="field-row" style={{ marginTop: 20 }}>
               <div className="form-field">
                 <label>Площадь, м²</label>
-                <input type="number" min="20" max="500" value={area} onChange={e => setArea(+e.target.value)} />
+                <input type="number" value={areaRaw}
+                  onChange={e => setAreaRaw(e.target.value)}
+                  onBlur={() => commitField('area', areaRaw, setArea, validateNumber, { min: 20, max: 500, name: 'Площадь' })}
+                  style={{ borderColor: fieldErrors.area ? '#dc2626' : undefined }} />
+                {fieldErrors.area && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.area}</div>}
               </div>
               <div className="form-field">
                 <label>Комнат</label>
-                <input type="number" min="1" max="10" value={rooms} onChange={e => setRooms(+e.target.value)} />
+                <input type="number" value={roomsRaw}
+                  onChange={e => setRoomsRaw(e.target.value)}
+                  onBlur={() => commitField('rooms', roomsRaw, setRooms, validateInteger, { min: 1, max: 10, name: 'Комнаты' })}
+                  style={{ borderColor: fieldErrors.rooms ? '#dc2626' : undefined }} />
+                {fieldErrors.rooms && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.rooms}</div>}
               </div>
             </div>
             <div className="field-row">
               <div className="form-field">
                 <label>Санузлов</label>
-                <input type="number" min="1" max="6" value={sanitary} onChange={e => setSanitary(+e.target.value)} />
+                <input type="number" value={sanitaryRaw}
+                  onChange={e => setSanitaryRaw(e.target.value)}
+                  onBlur={() => commitField('sanitary', sanitaryRaw, setSanitary, validateInteger, { min: 1, max: 6, name: 'Санузлы' })}
+                  style={{ borderColor: fieldErrors.sanitary ? '#dc2626' : undefined }} />
+                {fieldErrors.sanitary && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.sanitary}</div>}
               </div>
               {effectiveMode !== 'whitebox' && (
                 <div className="form-field">
                   <label>Замена окон</label>
-                  <input type="number" min="0" max="20" value={windows} onChange={e => setWindows(+e.target.value)} />
+                  <input type="number" value={windowsRaw}
+                    onChange={e => setWindowsRaw(e.target.value)}
+                    onBlur={() => commitField('windows', windowsRaw, setWindows, validateInteger, { min: 0, max: 20, name: 'Окна' })}
+                    style={{ borderColor: fieldErrors.windows ? '#dc2626' : undefined }} />
+                  {fieldErrors.windows && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.windows}</div>}
                 </div>
               )}
             </div>
@@ -215,13 +253,15 @@ export default function B2CDetailPage() {
             )}
 
             {/* Live preview */}
-            {preview && (
+            {preview ? (
               <div className="live-preview">
                 <div className="live-preview-label">Предварительная стоимость по введённым параметрам</div>
                 <div className="live-preview-value">{preview.totals.grand.toLocaleString('ru-RU')} ₽</div>
                 <div className="live-preview-sub">{preview.perM2.toLocaleString('ru-RU')} ₽/м²</div>
               </div>
-            )}
+            ) : Object.keys(fieldErrors).length > 0 ? (
+              <div className="alert alert-warn">Исправьте значения полей выше, чтобы увидеть предварительную стоимость.</div>
+            ) : null}
 
             {/* Contact */}
             <h3 style={{ marginTop: 28, marginBottom: 12 }}>Куда отправить расчёт</h3>

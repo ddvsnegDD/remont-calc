@@ -4,6 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { OfficeCalc, OFFICE_TIERS, OFFICE_BUDGET_RAW, OFFICE_INFLATION_2026 } from '../lib/office-calculator';
+import { validatePositiveNumber, validateInteger } from '../lib/calculator';
 import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
@@ -21,6 +22,23 @@ export default function B2BOfficePage() {
   const [area, setArea] = useState(500);
   const [workplaces, setWorkplaces] = useState(40);
   const [meetingRooms, setMeetingRooms] = useState(6);
+
+  // Сырой текст числовых полей отдельно от закоммиченных значений — валидация на
+  // потере фокуса, не на каждое нажатие (см. B2CQuizPage).
+  const [areaRaw, setAreaRaw] = useState('500');
+  const [workplacesRaw, setWorkplacesRaw] = useState('40');
+  const [meetingRoomsRaw, setMeetingRoomsRaw] = useState('6');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const commitField = useCallback((key, raw, setValue, validator, opts) => {
+    const r = validator(raw, opts);
+    if (r.ok) {
+      setValue(r.value);
+      setFieldErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+    } else {
+      setFieldErrors(prev => ({ ...prev, [key]: r.error }));
+    }
+  }, []);
   const [serverRoom, setServerRoom] = useState(false);
   const [furniture, setFurniture] = useState(true);
   const [designProject, setDesignProject] = useState('need');
@@ -81,13 +99,15 @@ export default function B2BOfficePage() {
   }, [tier, area, meetingRooms, workplaces, serverRoom, furniture, urgency, designProject, optionalStates]);
 
   const preview = useMemo(() => {
-    if (!area || area < 50) return null;
-    return OfficeCalc.compute(inputs);
-  }, [inputs]);
+    if (Object.keys(fieldErrors).length > 0) return null;
+    const r = OfficeCalc.compute(inputs);
+    return r.ok ? r : null;
+  }, [inputs, fieldErrors]);
 
   const submit = useCallback(() => {
-    if (!area || area < 50) { alert('Введите площадь от 50 м²'); return; }
+    if (Object.keys(fieldErrors).length > 0) { alert('Проверьте значения полей — есть некорректные'); return; }
     const result = OfficeCalc.compute(inputs);
+    if (!result.ok) { alert(result.error); return; }
     const calc = {
       id: 'office-' + Date.now(),
       timestamp: new Date().toISOString(),
@@ -103,7 +123,7 @@ export default function B2BOfficePage() {
     } catch {}
     sessionStorage.setItem('rpkm-b2b-office-current', JSON.stringify(calc));
     navigate('/b2b-office-result');
-  }, [inputs, projectName, area, navigate]);
+  }, [inputs, projectName, area, navigate, fieldErrors]);
 
   const tierCards = Object.entries(OFFICE_TIERS).map(([key, t]) => ({
     key,
@@ -163,14 +183,28 @@ export default function B2BOfficePage() {
             {/* Params */}
             <div className="field-row" style={{ marginTop: 16 }}>
               <div className="form-field"><label>Полезная площадь, м²</label>
-                <input type="number" min="50" max="50000" value={area} onChange={e => setArea(+e.target.value)} /></div>
+                <input type="number" value={areaRaw}
+                  onChange={e => setAreaRaw(e.target.value)}
+                  onBlur={() => commitField('area', areaRaw, setArea, validatePositiveNumber, { max: null, name: 'Площадь' })}
+                  style={{ borderColor: fieldErrors.area ? '#dc2626' : undefined }} />
+                {fieldErrors.area && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.area}</div>}
+              </div>
               <div className="form-field"><label>Рабочих мест, шт</label>
-                <input type="number" min="0" max="500" value={workplaces} onChange={e => setWorkplaces(+e.target.value)} /></div>
+                <input type="number" value={workplacesRaw}
+                  onChange={e => setWorkplacesRaw(e.target.value)}
+                  onBlur={() => commitField('workplaces', workplacesRaw, setWorkplaces, validateInteger, { min: 0, max: null, name: 'Рабочие места' })}
+                  style={{ borderColor: fieldErrors.workplaces ? '#dc2626' : undefined }} />
+                {fieldErrors.workplaces && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.workplaces}</div>}
+              </div>
             </div>
             <div className="field-row">
               <div className="form-field">
                 <label>Переговорных, шт</label>
-                <input type="number" min="0" max="50" value={meetingRooms} onChange={e => setMeetingRooms(+e.target.value)} />
+                <input type="number" value={meetingRoomsRaw}
+                  onChange={e => setMeetingRoomsRaw(e.target.value)}
+                  onBlur={() => commitField('meetingRooms', meetingRoomsRaw, setMeetingRooms, validateInteger, { min: 0, max: null, name: 'Переговорные' })}
+                  style={{ borderColor: fieldErrors.meetingRooms ? '#dc2626' : undefined }} />
+                {fieldErrors.meetingRooms && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.meetingRooms}</div>}
                 {preview && (
                   <div style={{ fontSize: 12, color: C.gray500, marginTop: 4 }}>
                     Норма для {area} м²: ~{preview.meta.baselineMR} переговорных.
@@ -237,7 +271,7 @@ export default function B2BOfficePage() {
             </div>
 
             {/* Live preview */}
-            {preview && (
+            {preview ? (
               <div className="live-preview" style={{ borderLeftColor: C.terra, background: '#f0f4fa' }}>
                 <div className="live-preview-label">Предварительная стоимость</div>
                 <div className="live-preview-value">{preview.totals.grand.toLocaleString('ru-RU')} ₽</div>
@@ -245,7 +279,9 @@ export default function B2BOfficePage() {
                   <span>{preview.totals.perM2Grand.toLocaleString('ru-RU')} ₽/м²</span>
                 </div>
               </div>
-            )}
+            ) : Object.keys(fieldErrors).length > 0 ? (
+              <div className="alert alert-warn">Исправьте значения полей выше, чтобы увидеть предварительную стоимость.</div>
+            ) : null}
 
             <h3 style={{ marginTop: 28, marginBottom: 12 }}>Название проекта</h3>
             <div className="form-field">

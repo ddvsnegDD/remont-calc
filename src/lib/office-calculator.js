@@ -1,5 +1,6 @@
 // Office fit-out calculator — ES module version.
 import { OFFICE_TIERS, OFFICE_BUDGET_RAW, OFFICE_SECTION_META, OFFICE_INFLATION_2026, OFFICE_SCALE_CONFIG } from './office-data';
+import { validatePositiveNumber, validateInteger } from './calculator';
 
 const OFFICE_MEETING_ROOM_AREA = 13;
 const OFFICE_MEETING_ROOM_RATE = 30000;
@@ -72,11 +73,18 @@ function getScaleMultiplier(area, sectionKey, tier, inflation) {
 // ── Main calculator ────────────────────────────────────────────────────
 export const OfficeCalc = {
   compute(inputs) {
+    const areaCheck = validatePositiveNumber(inputs.area, { max: null, name: 'Площадь' });
+    if (!areaCheck.ok) return { ok: false, error: areaCheck.error };
+    const meetingRoomsCheck = validateInteger(inputs.meetingRooms, { min: 0, max: null, name: 'Переговорные' });
+    if (!meetingRoomsCheck.ok) return { ok: false, error: meetingRoomsCheck.error };
+    const workplacesCheck = validateInteger(inputs.workplaces, { min: 0, max: null, name: 'Рабочие места' });
+    if (!workplacesCheck.ok) return { ok: false, error: workplacesCheck.error };
+
     const tier = inputs.tier && OFFICE_TIERS[inputs.tier] ? inputs.tier : 'business';
     const tierDef = OFFICE_TIERS[tier];
-    const A = Math.max(1, parseFloat(inputs.area) || 0);
-    const meetingRooms = Math.max(0, parseInt(inputs.meetingRooms) || 0);
-    const workplaces = Math.max(0, parseInt(inputs.workplaces) || 0);
+    const A = areaCheck.value;
+    const meetingRooms = meetingRoomsCheck.value;
+    const workplaces = workplacesCheck.value;
     const serverRoom = !!inputs.serverRoom;
     const furniture = inputs.furniture !== false; // default true
     const urgency = inputs.urgency === 'fast' ? 'fast' : 'standard';
@@ -175,6 +183,7 @@ export const OfficeCalc = {
     }
 
     return {
+      ok: true,
       tier, tierLabel: tierDef.label,
       inputs: { area: A, meetingRooms, workplaces, serverRoom, furniture, urgency, designProject, excludeOptional: [...excludeOptional], includeOptional: [...includeOptional] },
       sections, modifiers, scaleApplied,

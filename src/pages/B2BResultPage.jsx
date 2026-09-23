@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
-import { formatRub, formatDays } from '../lib/calculator';
+import { formatRub, formatDays, validatePositiveNumber, validateInteger } from '../lib/calculator';
 import { SpecCalc } from '../lib/spec-calculator';
 import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
@@ -30,20 +30,24 @@ export default function B2BResultPage() {
     } catch {}
   }, []);
 
+  // Значения уже провалидированы на шаге квиза (B2BQuizPage), но answers приходят
+  // из sessionStorage — устаревший или подменённый формат не должен молча
+  // подставлять правдоподобные дефолты и считать деньги на выдуманных числах.
   const specInputs = useMemo(() => {
     if (!calc) return null;
     const a = calc.answers || {};
-    return {
-      area: parseFloat(a.area) || 60,
-      rooms: parseInt(a.rooms) || 3,
-      sanitary: parseInt(a.bathrooms) || 1,
-      windows: parseInt(a.windows) > 0 ? parseInt(a.windows) : 4,
-    };
+    const area = validatePositiveNumber(a.area, { max: null, name: 'Площадь' });
+    const rooms = validateInteger(a.rooms, { min: 0, max: null, name: 'Комнаты' });
+    const sanitary = validateInteger(a.bathrooms, { min: 0, max: null, name: 'Санузлы' });
+    const windows = validateInteger(a.windows, { min: 0, max: null, name: 'Окна' });
+    if (!area.ok || !rooms.ok || !sanitary.ok || !windows.ok) return null;
+    return { area: area.value, rooms: rooms.value, sanitary: sanitary.value, windows: windows.value };
   }, [calc]);
 
   const specResult = useMemo(() => {
     if (!specInputs) return null;
-    return SpecCalc.compute({ ...specInputs, mode: specMode, tier: specTier });
+    const r = SpecCalc.compute({ ...specInputs, mode: specMode, tier: specTier });
+    return r.ok ? r : null;
   }, [specInputs, specMode, specTier]);
 
   if (!calc) {

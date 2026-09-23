@@ -5,7 +5,10 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { generateB2CDetailReportHTML, openReportWindow } from '../lib/estimateReport';
 
-function formatRub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+function formatRub(n) {
+  if (!Number.isFinite(n)) return '—';
+  return Math.round(n).toLocaleString('ru-RU') + ' ₽';
+}
 
 export default function B2CResultDetailPage() {
   const navigate = useNavigate();

@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, FileText, Pencil, X, Plus, Trash2, AlertTria
 import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
+import { validateNumber, validateInteger } from '../lib/calculator';
 
 const dataCache = {};
 function useData(tier) {
@@ -89,6 +90,8 @@ export default function B2BOfficeDetailPage() {
   const [activeTab, setActiveTab] = useState('finish');
   const [variant, setVariant] = useState('min'); // min or max (for finish)
   const [params, setParams] = useState({ S1: 500, S2: 0, S3: 0, S4: 0, S5: 0 });
+  const [paramsRaw, setParamsRaw] = useState({ S1: '500', S2: '0', S3: '0', S4: '0', S5: '0' });
+  const [paramErrors, setParamErrors] = useState({});
   const [openSections, setOpenSections] = useState(new Set([0]));
   const [openGroups, setOpenGroups] = useState(new Set());
   const [editMode, setEditMode] = useState(false);
@@ -99,9 +102,23 @@ export default function B2BOfficeDetailPage() {
   const [deletedItems, setDeletedItems] = useState(new Set());
   const { finishData, visData, loading: dataLoading } = useData(tier);
 
-  const setParam = useCallback((key, val) => {
-    setParams(p => ({ ...p, [key]: Math.max(0, parseFloat(val) || 0) }));
+  const setParamRaw = useCallback((key, val) => {
+    setParamsRaw(p => ({ ...p, [key]: val }));
   }, []);
+
+  // S1–S4 — непрерывные площади (0 = секция не используется, это валидное значение).
+  // S5 — счётное поле (лестничные клетки), должно быть целым. Валидация — на потере
+  // фокуса, не на каждое нажатие.
+  const commitParam = useCallback((key) => {
+    const validator = key === 'S5' ? validateInteger : validateNumber;
+    const r = validator(paramsRaw[key], { min: 0, max: null, name: PARAM_LABELS[key] });
+    if (r.ok) {
+      setParams(p => ({ ...p, [key]: r.value }));
+      setParamErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+    } else {
+      setParamErrors(prev => ({ ...prev, [key]: r.error }));
+    }
+  }, [paramsRaw]);
 
   const toggleSection = useCallback((idx) => {
     setOpenSections(prev => {
@@ -195,6 +212,7 @@ export default function B2BOfficeDetailPage() {
   // Compute results
   const result = useMemo(() => {
     if (!finishData || !visData) return null;
+    if (Object.keys(paramErrors).length > 0) return null;
     const data = activeTab === 'finish' ? finishData : visData;
 
     const BIZ_REF_AREA = 50000;
@@ -299,7 +317,7 @@ export default function B2BOfficeDetailPage() {
     const grandTotal = subtotalTotal + mgmtCost + designCost;
 
     return { sections, surcharges, subtotalTotal, grandWork: subtotalWork, grandMat: subtotalMat, grandTotal };
-  }, [activeTab, variant, params, tier, overrides, customItems, deletedItems, finishData, visData]);
+  }, [activeTab, variant, params, tier, overrides, customItems, deletedItems, finishData, visData, paramErrors]);
 
   // Which params are relevant for current tab
   const relevantParams = useMemo(() => {
@@ -372,12 +390,14 @@ export default function B2BOfficeDetailPage() {
                 <div key={key} className="form-field" style={{ margin: 0 }}>
                   <label style={{ fontSize: 12, color: C.gray500 }}>{PARAM_LABELS[key]}</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <input type="number" min="0" step={key === 'S5' ? 1 : 10}
-                      value={params[key] || ''}
-                      onChange={e => setParam(key, e.target.value)}
-                      style={{ width: '100%' }} />
+                    <input type="number" step={key === 'S5' ? 1 : 10}
+                      value={paramsRaw[key] ?? ''}
+                      onChange={e => setParamRaw(key, e.target.value)}
+                      onBlur={() => commitParam(key)}
+                      style={{ width: '100%', borderColor: paramErrors[key] ? '#dc2626' : undefined }} />
                     <span style={{ fontSize: 13, color: C.gray500, flexShrink: 0 }}>{PARAM_UNITS[key]}</span>
                   </div>
+                  {paramErrors[key] && <div style={{ color: '#dc2626', fontSize: 11, marginTop: 2 }}>{paramErrors[key]}</div>}
                 </div>
               ))}
             </div>
@@ -432,7 +452,9 @@ export default function B2BOfficeDetailPage() {
           {/* Totals bar */}
           {dataLoading || !result ? (
             <div style={{ minHeight: 200, display: 'grid', placeItems: 'center', color: C.gray500, fontSize: 15 }}>
-              Загрузка данных...
+              {!dataLoading && Object.keys(paramErrors).length > 0
+                ? 'Исправьте значения параметров выше, чтобы увидеть смету.'
+                : 'Загрузка данных...'}
             </div>
           ) : (<>
           {params.S1 > 0 && params.S1 < 10000 && (() => {

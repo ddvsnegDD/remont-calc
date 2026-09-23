@@ -9,7 +9,10 @@ import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
 import { generateB2BOfficeReportHTML, openReportWindow } from '../lib/estimateReport';
 
-function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+function fmt(n) {
+  if (!Number.isFinite(n)) return '—';
+  return Math.round(n).toLocaleString('ru-RU') + ' ₽';
+}
 
 export default function B2BOfficeResultPage() {
   const navigate = useNavigate();

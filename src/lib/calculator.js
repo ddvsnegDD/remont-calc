@@ -110,6 +110,28 @@ export const WINDOW_COST_PER_TIER = {
   premium: 170000, luxury: 170000,
 };
 
+export function validateNumber(v, { min, max, name }) {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(',', '.'));
+  if (!Number.isFinite(n)) return { ok: false, error: `${name}: введите число` };
+  if (min != null && n < min) return { ok: false, error: `${name}: не меньше ${min}` };
+  if (max != null && n > max) return { ok: false, error: `${name}: не больше ${max}` };
+  return { ok: true, value: n };
+}
+
+// Непрерывные величины (площадь): ноль и отрицательные значения недопустимы.
+export function validatePositiveNumber(v, { max, name } = {}) {
+  const r = validateNumber(v, { min: 0, max, name });
+  if (r.ok && r.value === 0) return { ok: false, error: `${name}: должна быть больше 0` };
+  return r;
+}
+
+// Счётные поля (санузлы, окна, комнаты, рабочие места, переговорные): целое, не меньше min.
+export function validateInteger(v, { min, max, name } = {}) {
+  const r = validateNumber(v, { min, max, name });
+  if (r.ok && !Number.isInteger(r.value)) return { ok: false, error: `${name}: введите целое число` };
+  return r;
+}
+
 export function getSplit(tier) {
   if (tier === 'cosmetic' || tier === 'capital') return { works: 0.45, rough: 0.20, finish: 0.35 };
   if (tier === 'euro' || tier === 'euro_top') return { works: 0.40, rough: 0.18, finish: 0.42 };
@@ -130,9 +152,12 @@ function tierFromAnswers(answers) {
 }
 
 export function calculateB2C(answers) {
+  const areaCheck = validatePositiveNumber(answers.area, { max: null, name: 'Площадь' });
+  if (!areaCheck.ok) return { ok: false, error: areaCheck.error };
+  const area = areaCheck.value;
+
   const tier = tierFromAnswers(answers);
   const tierDef = TIERS[tier];
-  const area = parseFloat(answers.area) || 60;
 
   const houseMod = (HOUSE_MOD[answers.house_type] || { mod: 1.00 }).mod;
   const commsMod = (COMMS_MOD[answers.comms] || { mod: 1.00 }).mod;
@@ -155,6 +180,7 @@ export function calculateB2C(answers) {
   const split = getSplit(tier);
 
   return {
+    ok: true,
     tier, tierLabel: tierDef.label, area, lowPerM2, highPerM2,
     totalLow, totalHigh, avgTotal: Math.round((totalLow + totalHigh) / 2),
     breakdown: {
@@ -175,6 +201,18 @@ export function calculateB2C(answers) {
 }
 
 export function calculateB2B(answers) {
+  const areaCheck = validatePositiveNumber(answers.area, { max: null, name: 'Площадь' });
+  if (!areaCheck.ok) return { ok: false, error: areaCheck.error };
+  const bathsCheck = validateInteger(answers.bathrooms, { min: 0, max: null, name: 'Санузлы' });
+  if (!bathsCheck.ok) return { ok: false, error: bathsCheck.error };
+  const roomsCheck = validateInteger(answers.rooms, { min: 0, max: null, name: 'Комнаты' });
+  if (!roomsCheck.ok) return { ok: false, error: roomsCheck.error };
+  const windowsCheck = validateInteger(answers.windows, { min: 0, max: null, name: 'Окна' });
+  if (!windowsCheck.ok) return { ok: false, error: windowsCheck.error };
+  const area = areaCheck.value;
+  const baths = bathsCheck.value;
+  const rooms = roomsCheck.value;
+
   let tier = 'premium';
   let luxScore = 0;
   if (answers.wall_finish === 'stone') luxScore++;
@@ -184,7 +222,6 @@ export function calculateB2B(answers) {
   if (luxScore >= 3) tier = 'luxury';
 
   const tierDef = TIERS[tier];
-  const area = parseFloat(answers.area) || 150;
   const houseMod = (HOUSE_MOD[answers.house_type] || { mod: 1.00 }).mod;
   const floorLvl = (FLOOR_LEVEL[answers.floor_level] || { mod: 1.00 }).mod;
   const wallMod  = (WALL_FINISH[answers.wall_finish] || { mod: 1.00 }).mod;
@@ -192,8 +229,6 @@ export function calculateB2B(answers) {
   const flrMod   = (FLOOR_FINISH[answers.floor_finish] || { mod: 1.00 }).mod;
   const engMod   = (ENGINEERING[answers.engineering] || { mod: 1.00 }).mod;
   const supMod   = (SUPERVISION[answers.supervision] || { mod: 1.00 }).mod;
-  const baths = parseInt(answers.bathrooms || 1);
-  const rooms = parseInt(answers.rooms || 3);
   const bathMod = 1 + Math.max(0, baths - 1) * 0.025;
   const roomMod = 1 + Math.max(0, rooms - 3) * 0.012;
   const finishMod = (wallMod * 0.4 + ceilMod * 0.25 + flrMod * 0.35);
@@ -204,7 +239,7 @@ export function calculateB2B(answers) {
   const baseLow = lowPerM2 * area;
   const baseHigh = highPerM2 * area;
 
-  const windowsCount = Math.max(0, parseInt(answers.windows || 0));
+  const windowsCount = windowsCheck.value;
   const windowUnitCost = WINDOW_COST_PER_TIER[tier] || WINDOW_COST_PER_TIER.euro;
   const windowsLow = Math.round(windowsCount * windowUnitCost * 0.92);
   const windowsHigh = Math.round(windowsCount * windowUnitCost * 1.08);
@@ -223,6 +258,7 @@ export function calculateB2B(answers) {
   }
 
   return {
+    ok: true,
     tier, tierLabel: tierDef.label, area, lowPerM2, highPerM2,
     totalLow, totalHigh, avgTotal: Math.round((totalLow + totalHigh) / 2),
     breakdown, days: estimateDays(area, tier),
@@ -241,6 +277,7 @@ export function calculateB2B(answers) {
 }
 
 export function formatRub(n) {
+  if (!Number.isFinite(n)) return '—';
   if (n >= 1_000_000) {
     const m = n / 1_000_000;
     return m.toFixed(m >= 10 ? 1 : 2).replace('.', ',') + ' млн ₽';
@@ -248,7 +285,10 @@ export function formatRub(n) {
   return n.toLocaleString('ru-RU') + ' ₽';
 }
 
-export function formatRubFull(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+export function formatRubFull(n) {
+  if (!Number.isFinite(n)) return '—';
+  return Math.round(n).toLocaleString('ru-RU') + ' ₽';
+}
 
 export function formatDays(days) {
   const months = Math.round(days / 22 * 10) / 10;

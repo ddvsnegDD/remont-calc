@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
-import { calculateB2B } from '../lib/calculator';
+import { calculateB2B, validateNumber, validateInteger } from '../lib/calculator';
 
 const STEPS = [
   { id: 'project_name', title: 'Название проекта', hint: 'Для удобства поиска в истории расчётов.', type: 'text', placeholder: 'Внутреннее название проекта' },
@@ -75,6 +75,9 @@ export default function B2BQuizPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ area: 150, rooms: 3, bathrooms: 2, windows: 4 });
+  const [rawText, setRawText] = useState('150');
+  const [fieldError, setFieldError] = useState('');
+  const [calcError, setCalcError] = useState('');
 
   const current = STEPS[step];
   const total = STEPS.length;
@@ -84,24 +87,47 @@ export default function B2BQuizPage() {
     setAnswers(prev => ({ ...prev, [key]: val }));
   }, []);
 
+  // Числовые шаги (area/number) показываются по одному — общего сырого текста хватает,
+  // он сбрасывается при переходе на новый шаг. Валидация — на потере фокуса/при переходе далее.
+  useEffect(() => {
+    if (current.type === 'area' || current.type === 'number') {
+      setRawText(String(answers[current.id] ?? ''));
+    }
+    setFieldError('');
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const commitField = useCallback(() => {
+    if (current.type !== 'area' && current.type !== 'number') return true;
+    const validator = current.type === 'number' ? validateInteger : validateNumber;
+    const r = validator(rawText, { min: current.min, max: current.max, name: current.title });
+    if (r.ok) { setAnswer(current.id, r.value); setFieldError(''); return true; }
+    setFieldError(r.error);
+    return false;
+  }, [current, rawText, setAnswer]);
+
   const validate = useCallback(() => {
     const v = answers[current.id];
     if (current.type === 'options' || current.type === 'cards') return !!v;
-    if (current.type === 'area' || current.type === 'number') return v && v >= current.min && v <= current.max;
     if (current.type === 'text') return v && v.length >= 2;
     return true;
   }, [answers, current]);
 
   const next = useCallback(() => {
-    if (!validate()) { alert(current.type === 'text' ? 'Введите название проекта' : 'Заполните поле'); return; }
+    if (current.type === 'area' || current.type === 'number') {
+      if (!commitField()) return;
+    } else if (!validate()) {
+      alert(current.type === 'text' ? 'Введите название проекта' : 'Заполните поле');
+      return;
+    }
     if (step < total - 1) { setStep(s => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     else finish();
-  }, [validate, step, total, current]);
+  }, [validate, commitField, step, total, current]);
 
   const back = useCallback(() => { if (step > 0) setStep(s => s - 1); }, [step]);
 
   const finish = useCallback(() => {
     const result = calculateB2B(answers);
+    if (!result.ok) { setCalcError(result.error); return; }
     const calc = {
       id: 'calc-' + Date.now(),
       timestamp: new Date().toISOString(),
@@ -170,26 +196,30 @@ export default function B2BQuizPage() {
               {current.type === 'area' && (
                 <>
                   <div className="area-input">
-                    <input type="number" value={answers[current.id] || current.defaultValue}
-                      min={current.min} max={current.max}
-                      onChange={e => setAnswer(current.id, Math.max(current.min, Math.min(current.max, +e.target.value || current.defaultValue)))} />
+                    <input type="number" value={rawText}
+                      onChange={e => { setRawText(e.target.value); if (fieldError) setFieldError(''); }}
+                      onBlur={commitField}
+                      style={{ borderColor: fieldError ? '#dc2626' : undefined }} />
                     <div className="area-input-suffix">м²</div>
                   </div>
                   <input type="range" className="area-slider" min={current.min} max={current.max} step="5"
                     value={answers[current.id] || current.defaultValue}
-                    onChange={e => setAnswer(current.id, +e.target.value)} />
+                    onChange={e => { setAnswer(current.id, +e.target.value); setRawText(e.target.value); setFieldError(''); }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: C.gray500, fontSize: 13, marginTop: 6 }}>
                     <span>{current.min} м²</span><span>{current.max} м²</span>
                   </div>
+                  {fieldError && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{fieldError}</div>}
                 </>
               )}
 
               {current.type === 'number' && (
                 <div className="area-input">
-                  <input type="number" value={answers[current.id] || current.defaultValue}
-                    min={current.min} max={current.max}
-                    onChange={e => setAnswer(current.id, Math.max(current.min, Math.min(current.max, +e.target.value || current.defaultValue)))} />
+                  <input type="number" value={rawText}
+                    onChange={e => { setRawText(e.target.value); if (fieldError) setFieldError(''); }}
+                    onBlur={commitField}
+                    style={{ borderColor: fieldError ? '#dc2626' : undefined }} />
                   <div className="area-input-suffix">шт</div>
+                  {fieldError && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{fieldError}</div>}
                 </div>
               )}
 
@@ -200,6 +230,8 @@ export default function B2BQuizPage() {
               )}
             </div>
           </div>
+
+          {calcError && <div style={{ color: '#dc2626', fontSize: 14, marginTop: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca' }}>{calcError}</div>}
 
           <div className="quiz-nav">
             <Btn variant="outline" onClick={back} style={{ visibility: step === 0 ? 'hidden' : 'visible' }}>← Назад</Btn>

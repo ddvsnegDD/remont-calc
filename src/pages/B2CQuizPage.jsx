@@ -4,7 +4,7 @@ import PageLayout from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
-import { calculateB2C } from '../lib/calculator';
+import { calculateB2C, validateNumber } from '../lib/calculator';
 
 // Отправка расчёта письмом. Навигацию не блокирует: результат пользователь
 // видит на экране независимо от того, дошло письмо или нет.
@@ -57,6 +57,9 @@ export default function B2CQuizPage() {
   const [answers, setAnswers] = useState({ area: 60, repair_type: initialTier });
   const [contactData, setContactData] = useState({ name: '', email: '', agree: false });
   const [formError, setFormError] = useState('');
+  const [areaRaw, setAreaRaw] = useState('60');
+  const [areaError, setAreaError] = useState('');
+  const [calcError, setCalcError] = useState('');
   const navigate = useNavigate();
 
   const visibleSteps = STEPS.filter(s => !s.visible || s.visible(answers));
@@ -66,7 +69,18 @@ export default function B2CQuizPage() {
 
   const setAnswer = (key, val) => setAnswers(prev => ({ ...prev, [key]: val }));
 
+  // Площадь: сырой текст живёт отдельно от answers.area, валидация — на потере фокуса,
+  // а не на каждое нажатие (иначе «1» и «15» при наборе «150» мигали бы ошибкой).
+  const commitArea = useCallback(() => {
+    const areaStep = STEPS.find(s => s.type === 'area');
+    const r = validateNumber(areaRaw, { min: areaStep.min, max: areaStep.max, name: 'Площадь' });
+    if (r.ok) { setAnswer('area', r.value); setAreaError(''); return true; }
+    setAreaError(r.error);
+    return false;
+  }, [areaRaw]);
+
   const next = useCallback(() => {
+    if (current.type === 'area' && !commitArea()) return;
     if (step < total - 1) { setFormError(''); setStep(step + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     else {
       // Валидация контактных данных
@@ -74,10 +88,12 @@ export default function B2CQuizPage() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contactData.email.trim())) { setFormError('Введите корректный email — на него придёт расчёт'); return; }
       if (!contactData.agree) { setFormError('Необходимо согласие на обработку данных'); return; }
       setFormError('');
+      setCalcError('');
 
       if (calcMode === 'quick') {
         // Быстрый расчёт — вилка стоимости (от-до)
         const result = calculateB2C(answers);
+        if (!result.ok) { setCalcError(result.error); return; }
         const lead = {
           id: 'b2c-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c',
           result,
@@ -88,7 +104,7 @@ export default function B2CQuizPage() {
         navigate('/b2c-result');
       } else {
         // Детальная смета — SpecCalc ~50 позиций
-        const quizArea = parseFloat(answers.area) || 60;
+        const quizArea = answers.area;
         const tierMap = { cosmetic: 'capital', capital: 'capital', euro: 'euro', premium: 'premium' };
         const quizTier = tierMap[answers.repair_type] || 'capital';
         const quizMode = (quizTier === 'premium') ? 'full' : (answers.finish_type === 'whitebox' ? 'whitebox' : 'full');
@@ -97,6 +113,7 @@ export default function B2CQuizPage() {
         const quizSanitary = quizArea < 60 ? 1 : quizArea < 120 ? 2 : 3;
         const quizWindows = quizArea < 35 ? 2 : quizArea < 55 ? 3 : quizArea < 80 ? 4 : quizArea < 120 ? 6 : 8;
         const specResult = SpecCalc.compute({ area: quizArea, rooms: quizRooms, sanitary: quizSanitary, windows: quizWindows, mode: quizMode, tier: quizTier, replan: quizReplan });
+        if (!specResult.ok) { setCalcError(specResult.error); return; }
         const lead = {
           id: 'b2c-detail-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c-detail',
           result: specResult,
@@ -107,7 +124,7 @@ export default function B2CQuizPage() {
         navigate('/b2c-result-detail');
       }
     }
-  }, [step, total, answers, contactData, calcMode, navigate]);
+  }, [step, total, answers, contactData, calcMode, navigate, current, commitArea]);
 
   const handleCardClick = (id, value) => {
     setAnswer(id, value);
@@ -199,14 +216,18 @@ export default function B2CQuizPage() {
             {current.type === 'area' && (
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                  <input type="number" value={answers.area || current.defaultValue} onChange={e => setAnswer('area', Math.max(current.min, Math.min(current.max, +e.target.value || current.defaultValue)))}
-                    style={{ flex: 1, padding: "14px 16px", border: `1.5px solid ${C.gray200}`, borderRadius: 10, fontSize: 18, fontWeight: 600, color: C.graphiteLight, outline: "none", fontFamily: "'Inter', sans-serif" }} />
+                  <input type="number" value={areaRaw}
+                    onChange={e => { setAreaRaw(e.target.value); if (areaError) setAreaError(''); }}
+                    onBlur={commitArea}
+                    style={{ flex: 1, padding: "14px 16px", border: `1.5px solid ${areaError ? '#dc2626' : C.gray200}`, borderRadius: 10, fontSize: 18, fontWeight: 600, color: C.graphiteLight, outline: "none", fontFamily: "'Inter', sans-serif" }} />
                   <span style={{ fontSize: 16, color: C.gray500, fontWeight: 500 }}>м²</span>
                 </div>
-                <input type="range" min={current.min} max={current.max} value={answers.area || current.defaultValue} onChange={e => setAnswer('area', +e.target.value)} style={{ width: "100%" }} />
+                <input type="range" min={current.min} max={current.max} value={answers.area || current.defaultValue}
+                  onChange={e => { setAnswer('area', +e.target.value); setAreaRaw(e.target.value); setAreaError(''); }} style={{ width: "100%" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.gray500, marginTop: 6 }}>
                   <span>{current.min} м²</span><span>{current.max} м²</span>
                 </div>
+                {areaError && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{areaError}</div>}
               </div>
             )}
 
@@ -226,7 +247,7 @@ export default function B2CQuizPage() {
                   <input type="checkbox" checked={contactData.agree} onChange={e => setContactData(p => ({ ...p, agree: e.target.checked }))} style={{ marginTop: 3 }} />
                   <span style={{ fontSize: 13, color: C.gray500 }}>Даю согласие на обработку персональных данных в соответствии с <a href="/privacy" target="_blank" style={{ color: C.terra }}>Политикой конфиденциальности</a> (152-ФЗ).</span>
                 </label>
-                {formError && <div style={{ color: '#c53030', fontSize: 14, marginTop: 12, padding: '10px 14px', background: '#fff5f5', borderRadius: 8, border: '1px solid #feb2b2' }}>{formError}</div>}
+                {(formError || calcError) && <div style={{ color: '#c53030', fontSize: 14, marginTop: 12, padding: '10px 14px', background: '#fff5f5', borderRadius: 8, border: '1px solid #feb2b2' }}>{formError || calcError}</div>}
               </div>
             )}
           </div>

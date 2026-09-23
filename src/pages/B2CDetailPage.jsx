@@ -89,8 +89,8 @@ export default function B2CDetailPage() {
   }, [name, phone, email, agree, effectiveMode, tier, effectiveReplan, area, sanitary, windows, rooms, navigate, fieldErrors]);
 
   const tierCards = [
-    { key: 'capital', label: 'Капитальный', sub: 'Базовая категория, расценки тендера РПКМ.' },
-    { key: 'euro', label: 'Евроремонт', sub: 'Финиш дороже: работы +30%, материалы и сантехника ×2.' },
+    { key: 'capital', label: 'Капитальный', sub: 'Стены под штукатурку, без утепления. Подготовка поверхностей, финишные материалы и оконечка эконом-сегмента.' },
+    { key: 'euro', label: 'Евроремонт', sub: 'Базовый набор по тендерным расценкам РПКМ: полный цикл, стены обшиваются ГКЛ с утеплением, подвесные потолки.' },
     { key: 'premium', label: 'Премиум', sub: 'Полная смета: итальянские материалы, умный дом, мебель, техника.' },
   ];
   const modeCards = [

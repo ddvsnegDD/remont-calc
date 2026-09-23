@@ -1,6 +1,7 @@
 // Detailed estimate calculator — ES module version.
 import { SPEC_GROUPS, SPEC_GROUPS_PREMIUM, SPEC_DATA } from './spec-data';
 import { validatePositiveNumber, validateInteger } from './calculator';
+import { REPLAN_SURCHARGE } from '../data/replan';
 
 const TIER_MULTIPLIERS = {
   capital: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 } },
@@ -16,11 +17,10 @@ export const TIER_LABELS = {
   premium: 'Премиум',
 };
 
-const REPLAN_SURCHARGE = {
-  no:    { label: 'Не требуется',                          fixed: 0,      pct: 0,    perM2: 0,   perRoom: 0 },
-  light: { label: 'Лёгкая (без затрагивания несущих)',     fixed: 80000,  pct: 0,    perM2: 0,   perRoom: 0 },
-  full:  { label: 'Полная (со согласованием в МЖИ)',       fixed: 80000,  pct: 0.05, perM2: 500, perRoom: 15000 },
-};
+// Надбавка за перепланировку считается от суммы, включающей премиальный резерв.
+// Это осознанное решение владельца от 18.09.2026, а не недосмотр.
+// Двойной счёт (5% от 5%) на премиуме 60 м² составляет ~100 000 ₽ и принят.
+const RESERVE_BEFORE_REPLAN = true;
 
 function evalVolume(expr, ctx) {
   if (typeof expr !== 'string') return parseFloat(expr) || 0;

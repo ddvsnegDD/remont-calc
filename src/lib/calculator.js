@@ -1,5 +1,6 @@
 // Pricing engine for РПКМ renovation calculator — ES module version
 // Base prices per м² calibrated to Moscow Q1 2026 market analysis
+import { REPLAN_SURCHARGE } from '../data/replan';
 
 export const TIERS = {
   cosmetic:    { label: 'Косметический',       baseLow:  20000, baseHigh:  30000 },
@@ -38,12 +39,6 @@ export const COMMS_MOD = {
   partial:   { label: 'Частичная (электрика ИЛИ сантех)',  mod: 1.05 },
   full:      { label: 'Полная (электрика + сантех)',       mod: 1.10 },
   full_plus: { label: 'Полная + отопление/вентиляция',     mod: 1.16 },
-};
-
-export const REPLAN_MOD = {
-  no:    { label: 'Не требуется',                     mod: 1.00 },
-  light: { label: 'Лёгкая (без затрагивания несущих)', mod: 1.03 },
-  full:  { label: 'Полная (со согласованием в МЖИ)',   mod: 1.16 },
 };
 
 export const DESIGN_MOD = {
@@ -161,7 +156,6 @@ export function calculateB2C(answers) {
 
   const houseMod = (HOUSE_MOD[answers.house_type] || { mod: 1.00 }).mod;
   const commsMod = (COMMS_MOD[answers.comms] || { mod: 1.00 }).mod;
-  const replanMod = (REPLAN_MOD[answers.replan] || { mod: 1.00 }).mod;
   const designMod = (DESIGN_MOD[answers.design] || { mod: 1.00 }).mod;
   const timingMod = (TIMING_MOD[answers.timing] || { mod: 1.00 }).mod;
   const finishMod = answers.apartment_type === 'novostroyka' && answers.finish_type
@@ -172,11 +166,19 @@ export function calculateB2C(answers) {
   else if (area < 50) densityMod = 1.12;
   else if (area < 65) densityMod = 1.05;
 
-  const totalMod = houseMod * commsMod * replanMod * designMod * timingMod * finishMod * densityMod;
+  const totalMod = houseMod * commsMod * designMod * timingMod * finishMod * densityMod;
   const lowPerM2 = Math.round(tierDef.baseLow * totalMod);
   const highPerM2 = Math.round(tierDef.baseHigh * totalMod);
-  const totalLow = lowPerM2 * area;
-  const totalHigh = highPerM2 * area;
+
+  // Перепланировка — та же модель, что в детальной смете (fixed + perM2×площадь +
+  // perRoom×(комнат−1) + pct от суммы), а не множитель на весь итог. Квиз не собирает
+  // число комнат — оцениваем по площади той же эвристикой, что уже используется в
+  // B2CQuizPage.jsx при передаче в SpecCalc.compute (якорь `quizRooms`).
+  const replanDef = REPLAN_SURCHARGE[answers.replan] || REPLAN_SURCHARGE.no;
+  const estRooms = area < 35 ? 1 : area < 55 ? 2 : area < 80 ? 3 : area < 120 ? 4 : 5;
+  const replanFixed = replanDef.fixed + replanDef.perM2 * area + replanDef.perRoom * Math.max(0, estRooms - 1);
+  const totalLow = lowPerM2 * area + Math.round(replanFixed + lowPerM2 * area * replanDef.pct);
+  const totalHigh = highPerM2 * area + Math.round(replanFixed + highPerM2 * area * replanDef.pct);
   const split = getSplit(tier);
 
   return {
@@ -193,7 +195,7 @@ export function calculateB2C(answers) {
       'Тип дома': HOUSE_MOD[answers.house_type]?.label,
       'Отделка': answers.apartment_type === 'novostroyka' ? FINISH_MOD[answers.finish_type]?.label : null,
       'Коммуникации': COMMS_MOD[answers.comms]?.label,
-      'Перепланировка': REPLAN_MOD[answers.replan]?.label,
+      'Перепланировка': REPLAN_SURCHARGE[answers.replan]?.label,
       'Дизайн-проект': DESIGN_MOD[answers.design]?.label,
       'Сроки': TIMING_MOD[answers.timing]?.label,
     }).filter(([, v]) => !!v)),

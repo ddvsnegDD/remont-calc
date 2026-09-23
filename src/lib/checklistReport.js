@@ -92,13 +92,14 @@ export function generateReportHTML(checklistId, state) {
       </p>`;
 
     allPhotos.forEach((p, i) => {
+      const safePhoto = typeof p.photo === 'string' && p.photo.startsWith('data:image/') ? p.photo : '';
       photosSection += `
       <div style="margin-bottom:16px; ${i > 0 && i % 3 === 0 ? 'page-break-before:always;' : ''}">
         <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">
           <strong>${esc(p.group)}</strong> — п.${p.num}
         </div>
         <div style="font-size:11px; color:#374151; margin-bottom:6px;">${esc(p.item)}</div>
-        <img src="${p.photo}" style="max-width:100%; max-height:300px; border:1px solid #d1d5db; border-radius:4px;" />
+        ${safePhoto ? `<img src="${safePhoto}" style="max-width:100%; max-height:300px; border:1px solid #d1d5db; border-radius:4px;" />` : ''}
       </div>`;
     });
   }

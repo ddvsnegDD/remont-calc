@@ -149,7 +149,7 @@ export function generateB2CDetailReportHTML(lead) {
     });
     groupsHtml += `
       <h3 style="font-size:13px; margin:18px 0 8px; display:flex; justify-content:space-between;">
-        <span>${g.icon || ''} ${esc(g.title)}</span>
+        <span>${esc(g.icon || '')} ${esc(g.title)}</span>
         <span>${formatRubFull(g.total)}</span>
       </h3>
       <table style="margin-bottom:8px;">
@@ -220,7 +220,7 @@ export function generateB2BReportHTML({ projectName, timestamp, r, specResult, s
     let specRows = '';
     specResult.groups.forEach(g => {
       specRows += `
-        <tr><td colspan="6" style="background:#f0f4f8; padding:6px 10px; font-weight:700; font-size:12px; border:1px solid #d1d5db;">${g.icon || ''} ${esc(g.title)} — ${formatRubFull(g.total)}</td></tr>`;
+        <tr><td colspan="6" style="background:#f0f4f8; padding:6px 10px; font-weight:700; font-size:12px; border:1px solid #d1d5db;">${esc(g.icon || '')} ${esc(g.title)} — ${formatRubFull(g.total)}</td></tr>`;
       g.lines.forEach(ln => {
         specRows += `
           <tr>
@@ -304,11 +304,11 @@ export function generateB2BOfficeReportHTML(calc) {
   r.sections.forEach(sec => {
     if (sec.skipped) {
       sectionsHtml += `
-        <tr><td colspan="3" style="border:1px solid #d1d5db; padding:8px 10px; font-size:12px; color:#9ca3af; text-decoration:line-through;">${sec.icon || ''} ${esc(sec.title)} — ${esc(sec.skipReason)}</td></tr>`;
+        <tr><td colspan="3" style="border:1px solid #d1d5db; padding:8px 10px; font-size:12px; color:#9ca3af; text-decoration:line-through;">${esc(sec.icon || '')} ${esc(sec.title)} — ${esc(sec.skipReason)}</td></tr>`;
       return;
     }
     sectionsHtml += `
-      <tr><td colspan="3" style="background:#f0f4f8; padding:6px 10px; font-weight:700; font-size:12px; border:1px solid #d1d5db;">${sec.icon || ''} ${esc(sec.title)} — ${formatRubFull(sec.total)}</td></tr>`;
+      <tr><td colspan="3" style="background:#f0f4f8; padding:6px 10px; font-weight:700; font-size:12px; border:1px solid #d1d5db;">${esc(sec.icon || '')} ${esc(sec.title)} — ${formatRubFull(sec.total)}</td></tr>`;
     sec.lines.forEach(ln => {
       sectionsHtml += `
         <tr${ln.excluded ? ' style="color:#9ca3af; text-decoration:line-through;"' : ''}>

@@ -7,3 +7,12 @@ export const REPLAN_SURCHARGE = {
   light: { label: 'Лёгкая (без затрагивания несущих)',     fixed: 80000,  pct: 0,    perM2: 0,   perRoom: 0 },
   full:  { label: 'Полная (со согласованием в МЖИ)',       fixed: 80000,  pct: 0.05, perM2: 500, perRoom: 15000 },
 };
+
+// Доля от базового объёма перегородок. При «не требуется» перегородки не
+// возводятся вовсе, и позиция выпадает из сметы (SpecCalc пропускает строки
+// с нулевым объёмом).
+export const REPLAN_PARTITION_FACTOR = {
+  no:    0,
+  light: 0.5,
+  full:  1.0,
+};

@@ -1,7 +1,7 @@
 // Detailed estimate calculator — ES module version.
 import { SPEC_GROUPS, SPEC_GROUPS_PREMIUM, SPEC_DATA, TIER_COMPOSITION } from './spec-data';
 import { validatePositiveNumber, validateInteger } from './calculator';
-import { REPLAN_SURCHARGE } from '../data/replan';
+import { REPLAN_SURCHARGE, REPLAN_PARTITION_FACTOR } from '../data/replan';
 
 // capital = full со сменой состава (TIER_COMPOSITION) + понижающие коэффициенты —
 // мягкий вариант, решение Дмитрия от 23.09.2026 (docs/TASK_spec_tiers.md, часть 3.2).
@@ -41,8 +41,8 @@ function evalVolume(expr, ctx) {
   const asNum = parseFloat(expr);
   if (!isNaN(asNum) && String(asNum) === expr.trim()) return asNum;
   try {
-    const fn = new Function('area', 'sanitary', 'windows', 'rooms', 'Math', `"use strict"; return (${expr});`);
-    const v = fn(ctx.area, ctx.sanitary, ctx.windows, ctx.rooms, Math);
+    const fn = new Function('area', 'sanitary', 'windows', 'rooms', 'replanFactor', 'Math', `"use strict"; return (${expr});`);
+    const v = fn(ctx.area, ctx.sanitary, ctx.windows, ctx.rooms, ctx.replanFactor, Math);
     return typeof v === 'number' && isFinite(v) ? v : 0;
   } catch { return 0; }
 }
@@ -84,7 +84,7 @@ export const SpecCalc = {
 
     const specGroups = isPremium ? SPEC_GROUPS_PREMIUM : SPEC_GROUPS;
 
-    const ctx = { area: A, sanitary: S, windows: W, rooms: R };
+    const ctx = { area: A, sanitary: S, windows: W, rooms: R, replanFactor: REPLAN_PARTITION_FACTOR[replanKey] };
     const lines = [];
     for (const it of items) {
       const vol = evalVolume(it.vol, ctx);

@@ -282,6 +282,13 @@ function GuaranteesSection() {
 function ClubSection() {
   const [ref, vis] = useReveal();
   const navigate = useNavigate();
+  const { subscription, hasClub, loading: authLoading } = useAuth();
+  // Пока грузится авторизация — держим текущий (неподписанный) вид, не мигаем
+  // состояниями (та же проблема, что решали в PRO_gate).
+  const subscribed = !authLoading && hasClub;
+  const expiresLabel = subscription?.expiresAt
+    ? new Date(subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
   return (
     <section id="club" style={{ padding: "80px 0", background: "#fff" }}>
       <div ref={ref} style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
@@ -322,8 +329,16 @@ function ClubSection() {
                 </div>
               ))}
             </div>
-            <Btn variant="terra" style={{ width: "100%", padding: 14 }} onClick={() => navigate('/club')}>Попробовать 14 дней бесплатно</Btn>
-            <div style={{ fontSize: 12, color: C.gray400, textAlign: "center", marginTop: 10 }}>Отмена в любой момент · Без автосписания</div>
+            {subscribed && (
+              <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '12px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600, marginBottom: 12 }}>
+                ✓ {subscription?.status === 'trial' ? 'Триал активен' : 'Подписка активна'}
+                {expiresLabel && <span style={{ fontWeight: 400, fontSize: 13 }}>до {expiresLabel}</span>}
+              </div>
+            )}
+            <Btn variant="terra" style={{ width: "100%", padding: 14 }} onClick={() => navigate('/club')}>{subscribed ? 'Перейти в Клуб' : 'Попробовать 14 дней бесплатно'}</Btn>
+            {!subscribed && (
+              <div style={{ fontSize: 12, color: C.gray400, textAlign: "center", marginTop: 10 }}>Отмена в любой момент · Без автосписания</div>
+            )}
           </div>
         </div>
       </div>
@@ -335,8 +350,14 @@ function ClubSection() {
 function ProSection() {
   const [ref, vis] = useReveal();
   const navigate = useNavigate();
+  const { hasPro, subscription, loading: authLoading } = useAuth();
+  // Та же логика, что в ClubSection: не мигать состояниями, пока грузится авторизация.
+  const subscribed = !authLoading && hasPro;
+  const expiresLabel = subscription?.expiresAt
+    ? new Date(subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
   const cards = [
-    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "Безлимитные расчёты, офисный fit-out и детальная спецификация B2B. White-label PDF готовится.", cta: "Подключить PRO", to: "/pro", price: `${formatPrice(PLANS.pro_monthly.price)} ₽/мес`, highlights: ["Безлимит расчётов", { text: "White-label PDF", soon: true }, "Экспорт CSV"] },
+    { icon: <Star size={28} />, title: "PRO-кабинет", desc: "Безлимитные расчёты, офисный fit-out и детальная спецификация B2B. White-label PDF готовится.", cta: subscribed ? "Открыть PRO-кабинет" : "Подключить PRO", to: "/pro", price: `${formatPrice(PLANS.pro_monthly.price)} ₽/мес`, highlights: ["Безлимит расчётов", { text: "White-label PDF", soon: true }, "Экспорт CSV"] },
   ];
   return (
     <section id="pro" style={{ padding: "100px 0", position: "relative", overflow: "hidden", background: `url('/images/dark-pro-bg.jpeg') center/cover no-repeat, linear-gradient(135deg, #0F0F11 0%, #1A1A1C 30%, #222225 60%, #1A1A1C 100%)` }}>
@@ -353,6 +374,11 @@ function ProSection() {
               <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(185,92,56,0.15)", color: C.terra, display: "grid", placeItems: "center", marginBottom: 20 }}>{c.icon}</div>
               <h3 className="font-golos" style={{ fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{c.title}</h3>
               {c.price && <div style={{ fontSize: 14, color: C.terra, fontWeight: 600, marginBottom: 12 }}>{c.price}</div>}
+              {subscribed && (
+                <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '10px 16px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600, fontSize: 13, marginBottom: 12 }}>
+                  ✓ PRO активен{expiresLabel && <span style={{ fontWeight: 400 }}> до {expiresLabel}</span>}
+                </div>
+              )}
               <p style={{ fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.6)", marginBottom: 20 }}>{c.desc}</p>
               <div style={{ marginBottom: 24 }}>
                 {c.highlights.map((h, j) => (

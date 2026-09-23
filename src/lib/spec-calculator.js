@@ -3,12 +3,21 @@ import { SPEC_GROUPS, SPEC_GROUPS_PREMIUM, SPEC_DATA, TIER_COMPOSITION } from '.
 import { validatePositiveNumber, validateInteger } from './calculator';
 import { REPLAN_SURCHARGE } from '../data/replan';
 
-// capital = full со сменой состава (TIER_COMPOSITION) — сейчас на единичных
-// множителях, понижающие коэффициенты — отдельный шаг (часть 3.2, не в этой правке).
+// capital = full со сменой состава (TIER_COMPOSITION) + понижающие коэффициенты —
+// мягкий вариант, решение Дмитрия от 23.09.2026 (docs/TASK_spec_tiers.md, часть 3.2).
 // euro = full как есть, без надбавок — раньше здесь были 1.30/2.00, теперь это
 // то, чем euro и должен быть: базовый набор без переплаты за уровень.
 const TIER_MULTIPLIERS = {
-  capital: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
+  capital: {
+    rough:       { wp: 1.00, mp: 1.00 },
+    prep:        { wp: 0.90, mp: 0.90 },   // 1 слой шпатлёвки вместо 2, без стеклохолста
+    finish:      { wp: 1.00, mp: 0.85 },   // финишный материал дешевле
+    terminal:    { wp: 1.00, mp: 0.80 },   // оконечка эконом-сегмента
+    engineering: { wp: 1.00, mp: 1.00 },
+    sanitary:    { wp: 1.00, mp: 1.00 },
+    doors:       { wp: 1.00, mp: 1.00 },
+    windows:     { wp: 1.00, mp: 1.00 },
+  },
   euro: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
 };
 

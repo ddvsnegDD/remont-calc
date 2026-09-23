@@ -288,3 +288,19 @@ export const SPEC_ITEMS_PREMIUM = [
 ];
 
 export const SPEC_DATA = { full: SPEC_ITEMS_FULL, whitebox: SPEC_ITEMS_WHITEBOX, premium: SPEC_ITEMS_PREMIUM };
+
+// Подмена состава по уровню сметы (только для SPEC_ITEMS_FULL — whitebox не трогаем,
+// см. TASK_spec_tiers.md, раздел «Не трогать»). wp/mp добавляемой позиции взяты ровно
+// из поз. 43 «Штукатурка стен толщиной до 20 мм по сетке» (2347.25 + 138.36 ₽/м²).
+export const TIER_COMPOSITION = {
+  capital: {
+    exclude: [
+      { name: 'Облицовка стен из гипсокартона/фанеры в два слоя по металлическому каркасу', unit: 'м2' },
+      { name: 'Устройство утепления стен', unit: 'м2' },
+    ],
+    add: [
+      { g: '05.05.02.06', sub: '05.05.02.06.02', name: 'Штукатурка стен толщиной до 20 мм по сетке',
+        mat: 'Штукатурная смесь, сетка, маяки', unit: 'м2', vol: 'area*3', wp: 2347.25, mp: 138.36, cls: 'rough' },
+    ],
+  },
+};

@@ -1,17 +1,22 @@
 // Detailed estimate calculator — ES module version.
-import { SPEC_GROUPS, SPEC_GROUPS_PREMIUM, SPEC_DATA } from './spec-data';
+import { SPEC_GROUPS, SPEC_GROUPS_PREMIUM, SPEC_DATA, TIER_COMPOSITION } from './spec-data';
 import { validatePositiveNumber, validateInteger } from './calculator';
 import { REPLAN_SURCHARGE } from '../data/replan';
 
+// capital = full со сменой состава (TIER_COMPOSITION) — сейчас на единичных
+// множителях, понижающие коэффициенты — отдельный шаг (часть 3.2, не в этой правке).
+// euro = full как есть, без надбавок — раньше здесь были 1.30/2.00, теперь это
+// то, чем euro и должен быть: базовый набор без переплаты за уровень.
 const TIER_MULTIPLIERS = {
   capital: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
-  euro: { finish: { wp: 1.30, mp: 2.00 }, sanitary: { wp: 1.00, mp: 2.00 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
+  euro: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
 };
 
 const PREMIUM_DIRECT = { wp: 1.0, mp: 1.0 };
 const PREMIUM_RESERVE_PCT = 0.05;
 
 export const TIER_LABELS = {
+  cosmetic: 'Косметический',
   capital: 'Капитальный',
   euro: 'Евроремонт',
   premium: 'Премиум',
@@ -54,9 +59,20 @@ export const SpecCalc = {
     const isPremium = tier === 'premium';
     const tierKey = isPremium ? 'premium' : (TIER_MULTIPLIERS[tier] ? tier : 'capital');
 
-    const items = isPremium
+    const isFullMode = !isPremium && mode !== 'whitebox';
+    let items = isPremium
       ? SPEC_DATA.premium
       : (mode === 'whitebox') ? SPEC_DATA.whitebox : SPEC_DATA.full;
+
+    // Смена состава по уровню — только для full (whitebox не трогаем, см. «Не трогать»
+    // в TASK_spec_tiers.md). Для уровней без записи в TIER_COMPOSITION набор не меняется.
+    const composition = isFullMode ? TIER_COMPOSITION[tierKey] : null;
+    if (composition) {
+      const excluded = composition.exclude || [];
+      items = items.filter(it => !excluded.some(ex => ex.name === it.name && ex.unit === it.unit));
+      if (composition.add) items = [...items, ...composition.add];
+    }
+
     const specGroups = isPremium ? SPEC_GROUPS_PREMIUM : SPEC_GROUPS;
 
     const ctx = { area: A, sanitary: S, windows: W, rooms: R };

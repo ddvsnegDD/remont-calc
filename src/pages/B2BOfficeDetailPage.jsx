@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
-import { ChevronDown, ChevronRight, FileText, Pencil, X, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Pencil, X, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
@@ -40,6 +40,26 @@ function useData(tier) {
 function fmt(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 function fmtN(n) { return Math.round(n).toLocaleString('ru-RU'); }
 const PIECE_UNITS = new Set(['шт', 'шт.', 'комплект', 'компл.', 'комплекс', 'Комплекс', 'комп', 'упак.', 'уп.', 'бухта']);
+
+// Отклонение удельной цены от эталонной сметы на малых площадях (решение владельца от 22.09.2026)
+const AREA_OVERAGE = {
+  standard: [[1000, 414], [2000, 185], [3000, 110], [5000, 54], [7500, 29], [10000, 16]],
+  business: [[1000, 269], [2000, 126], [3000, 80], [5000, 43], [7500, 25], [10000, 16]],
+};
+const TIER_REF_AREA = { standard: 19225.85, business: 43671.88 };
+
+function overagePercent(area, tier) {
+  const table = AREA_OVERAGE[tier] || AREA_OVERAGE.standard;
+  if (area <= table[0][0]) {
+    const [x1, y1] = table[0], [x2, y2] = table[1];
+    return Math.round(y1 + (y1 - y2) * (x1 - area) / (x2 - x1));
+  }
+  for (let i = 0; i < table.length - 1; i++) {
+    const [x1, y1] = table[i], [x2, y2] = table[i + 1];
+    if (area <= x2) return Math.round(y1 + (y2 - y1) * (area - x1) / (x2 - x1));
+  }
+  return table[table.length - 1][1];
+}
 
 const PARAM_LABELS = {
   S1: 'Площадь надземной части (без КПП)',
@@ -415,6 +435,27 @@ export default function B2BOfficeDetailPage() {
               Загрузка данных...
             </div>
           ) : (<>
+          {params.S1 > 0 && params.S1 < 10000 && (() => {
+            const pct = overagePercent(params.S1, tier);
+            const refArea = Math.round(TIER_REF_AREA[tier] || TIER_REF_AREA.standard);
+            const harsh = params.S1 < 3000;
+            return (
+              <div style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start',
+                background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: 12,
+                padding: '14px 18px', marginBottom: 16, fontSize: 14, color: '#92400e', lineHeight: 1.5,
+              }}>
+                <AlertTriangle size={20} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  Расчёт масштабируется от сметы объекта площадью {refArea.toLocaleString('ru-RU')} м². На вашей площади удельная стоимость завышена примерно на {pct}%
+                  {harsh
+                    ? <>. Для объекта такого размера детальная смета неприменима, цифра носит справочный характер.</>
+                    : <>.</>}
+                  {' '}Для ориентировочной оценки используйте <Link to="/b2b-office" style={{ color: '#92400e', fontWeight: 700, textDecoration: 'underline' }}>предварительный расчёт</Link>.
+                </div>
+              </div>
+            );
+          })()}
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16,
           }}>

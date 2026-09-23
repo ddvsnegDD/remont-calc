@@ -4,8 +4,8 @@ import { validatePositiveNumber, validateInteger } from './calculator';
 import { REPLAN_SURCHARGE } from '../data/replan';
 
 const TIER_MULTIPLIERS = {
-  capital: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 } },
-  euro: { finish: { wp: 1.30, mp: 2.00 }, sanitary: { wp: 1.00, mp: 2.00 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 } },
+  capital: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
+  euro: { finish: { wp: 1.30, mp: 2.00 }, sanitary: { wp: 1.00, mp: 2.00 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
 };
 
 const PREMIUM_DIRECT = { wp: 1.0, mp: 1.0 };

@@ -6,7 +6,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { SpecCalc } from '../lib/spec-calculator';
-import { validatePositiveNumber, validateInteger } from '../lib/calculator';
+import { validateNumber, validatePositiveNumber, validateInteger } from '../lib/calculator';
 import { PLANS, formatPrice } from '../data/tariffs';
 
 export default function B2CDetailPage() {

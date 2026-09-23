@@ -9,13 +9,14 @@ import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
 import { generateB2BReportHTML, openReportWindow } from '../lib/estimateReport';
+import { toSpecTier, SPEC_TIER_FALLBACK } from '../data/specTier';
 
 export default function B2BResultPage() {
   const navigate = useNavigate();
   const { user, hasPro, loading: authLoading } = useAuth();
   const [calc, setCalc] = useState(null);
   const [specMode, setSpecMode] = useState('full');
-  const [specTier, setSpecTier] = useState('capital');
+  const [specTier, setSpecTier] = useState(SPEC_TIER_FALLBACK);
   const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
@@ -24,8 +25,10 @@ export default function B2BResultPage() {
       if (raw) {
         const c = JSON.parse(raw);
         setCalc(c);
-        const tierMap = { cosmetic: 'capital', capital: 'capital', euro: 'euro', euro_top: 'euro', premium: 'premium', luxury: 'premium' };
-        setSpecTier(tierMap[c.result?.tier] || 'capital');
+        // B2B-квиз не собирает repair_type (это поле только у B2C-квиза) — уровень
+        // спецификации по умолчанию берём из уже вычисленного calculateB2B().tier
+        // (всегда 'premium' или 'luxury'), через тот же общий toSpecTier.
+        setSpecTier(toSpecTier(c.result?.tier));
       }
     } catch {}
   }, []);

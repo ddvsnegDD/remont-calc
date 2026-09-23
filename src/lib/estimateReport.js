@@ -236,7 +236,7 @@ export function generateB2BReportHTML({ projectName, timestamp, r, specResult, s
 
     specSection = `
       <div class="page-break"></div>
-      <h2 style="font-size:15px; margin:20px 0 4px;">Детальная спецификация · ${specResult.lines.length} позиций</h2>
+      <h2 style="font-size:15px; margin:20px 0 4px;">Детальная спецификация · ${esc(specResult.tierLabel)} · ${specResult.lines.length} позиций</h2>
       <div style="font-size:13px; color:#6b7280; margin-bottom:10px;">${formatRubFull(specResult.totals.grand)} (${fmtNum(specResult.perM2)} ₽/м²)</div>
       <table>
         <thead><tr>

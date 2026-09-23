@@ -5,6 +5,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { SpecCalc } from '../lib/spec-calculator';
 import { calculateB2C, validateNumber } from '../lib/calculator';
+import { toSpecTier } from '../data/specTier';
 
 // Отправка расчёта письмом. Навигацию не блокирует: результат пользователь
 // видит на экране независимо от того, дошло письмо или нет.
@@ -105,8 +106,7 @@ export default function B2CQuizPage() {
       } else {
         // Детальная смета — SpecCalc ~50 позиций
         const quizArea = answers.area;
-        const tierMap = { cosmetic: 'capital', capital: 'capital', euro: 'euro', premium: 'premium' };
-        const quizTier = tierMap[answers.repair_type] || 'capital';
+        const quizTier = toSpecTier(answers.repair_type);
         const quizMode = (quizTier === 'premium') ? 'full' : (answers.finish_type === 'whitebox' ? 'whitebox' : 'full');
         const quizReplan = answers.replan || 'no';
         const quizRooms = quizArea < 35 ? 1 : quizArea < 55 ? 2 : quizArea < 80 ? 3 : quizArea < 120 ? 4 : 5;

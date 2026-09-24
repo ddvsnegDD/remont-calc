@@ -116,7 +116,7 @@ export default function B2CDetailPage() {
       : (detailLead || quickLead);
     if (!seed) return;
 
-    if (['cosmetic', 'capital', 'euro', 'premium'].includes(seed.tier)) setTier(seed.tier);
+    if (['cosmetic', 'capital', 'euro', 'euro_top', 'premium'].includes(seed.tier)) setTier(seed.tier);
     if (['full', 'whitebox'].includes(seed.mode)) setMode(seed.mode);
     if (['no', 'light', 'full'].includes(seed.replan)) setReplan(seed.replan);
 
@@ -178,6 +178,7 @@ export default function B2CDetailPage() {
     { key: 'cosmetic', sub: 'Обновление без вскрытия: шпатлёвка в один слой, покраска, замена пола и оконечки. Двери, окна, плитка на стенах и инженерия не трогаются.' },
     { key: 'capital', sub: 'Стены под штукатурку, без утепления. Подготовка поверхностей, финишные материалы и оконечка эконом-сегмента.' },
     { key: 'euro', sub: 'Базовый набор по тендерным расценкам РПКМ: полный цикл, стены обшиваются ГКЛ с утеплением, подвесные потолки.' },
+    { key: 'euro_top', sub: 'Тот же состав работ, что в евроремонте — разница в классе материалов и аккуратности монтажа, а не в наборе позиций.' },
     { key: 'premium', sub: 'Полная смета: итальянские материалы, умный дом, мебель, техника.' },
   ];
   const modeCards = [

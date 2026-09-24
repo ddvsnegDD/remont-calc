@@ -21,6 +21,9 @@ const TIER_MULTIPLIERS = {
   euro: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
   // Набор SPEC_ITEMS_COSMETIC уже собран под уровень — множители ему не нужны.
   cosmetic: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
+  // «Бизнес» = тот же набор, что euro (набор позиций не меняется, только класс
+  // материалов), множители выбраны Дмитрием 24.09.2026 (docs/TASK_tier_naming.md, часть 5).
+  euro_top: { finish: { wp: 1.15, mp: 2.4 }, sanitary: { wp: 1.15, mp: 2.4 }, engineering: { wp: 1.15, mp: 2.4 }, rough: { wp: 1.15, mp: 2.4 }, doors: { wp: 1.15, mp: 2.4 }, windows: { wp: 1.15, mp: 2.4 }, prep: { wp: 1.15, mp: 2.4 }, terminal: { wp: 1.15, mp: 2.4 } },
 };
 
 const PREMIUM_DIRECT = { wp: 1.0, mp: 1.0 };
@@ -30,6 +33,7 @@ export const TIER_LABELS = {
   cosmetic: 'Косметический',
   capital: 'Капитальный',
   euro: 'Евроремонт',
+  euro_top: 'Евроремонт+',
   premium: 'Премиум',
 };
 

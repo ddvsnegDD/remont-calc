@@ -7,7 +7,7 @@ export const tierMap = {
   cosmetic: 'cosmetic',
   capital: 'capital',
   euro: 'euro',
-  euro_top: 'euro',
+  euro_top: 'euro_top',
   premium: 'premium',
   luxury: 'premium',
 };

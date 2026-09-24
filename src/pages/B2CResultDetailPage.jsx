@@ -55,7 +55,7 @@ export default function B2CResultDetailPage() {
   // выбирал. На косметическом и премиуме он задан жёстко — см. MODE_LOCKED_TIERS
   // в B2CDetailPage.jsx, часть 7. Список дублируется в estimateReport.js
   // (generateB2CDetailReportHTML) — правка одного места не забывает второе.
-  const MODE_SHOWN_TIERS = ['capital', 'euro'];
+  const MODE_SHOWN_TIERS = ['capital', 'euro', 'euro_top'];
   const modeLabel = r.mode === 'whitebox' ? 'White Box' : 'Полная отделка';
   const heading = MODE_SHOWN_TIERS.includes(r.tier)
     ? `Детальная смета · ${tierTitle(r.tier)} · ${modeLabel}`

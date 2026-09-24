@@ -142,6 +142,7 @@ function tierFromAnswers(answers) {
   if (answers.repair_type === 'cosmetic') return 'cosmetic';
   if (answers.repair_type === 'capital')  return 'capital';
   if (answers.repair_type === 'euro')     return 'euro';
+  if (answers.repair_type === 'euro_top') return 'euro_top';
   if (answers.repair_type === 'premium')  return 'premium';
   return 'capital';
 }

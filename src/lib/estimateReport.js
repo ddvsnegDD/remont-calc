@@ -136,7 +136,7 @@ export function generateB2CDetailReportHTML(lead) {
 
   // Дублирует MODE_SHOWN_TIERS/ROOMS_WINDOWS_IRRELEVANT_TIERS в
   // B2CResultDetailPage.jsx (часть 7/8) — правка одного места не забывает второе.
-  const MODE_SHOWN_TIERS = ['capital', 'euro'];
+  const MODE_SHOWN_TIERS = ['capital', 'euro', 'euro_top'];
   const modeLabel = r.mode === 'whitebox' ? 'White Box' : 'Полная отделка';
   const heading = MODE_SHOWN_TIERS.includes(r.tier) ? `${tierTitle(r.tier)} · ${modeLabel}` : tierTitle(r.tier);
 

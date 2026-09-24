@@ -22,6 +22,8 @@ export const TIER_NAMES = Object.fromEntries(
 // «Комфорт · Евроремонт», но для премиума просто «Премиум».
 export function tierTitle(key) {
   const t = TIER_NAMES[key];
-  if (!t) return '';
+  // Уровень не с витрины (luxury) — отдаём инженерное имя из TIERS, а не пустую
+  // строку. Пустая остаётся только для вовсе неизвестного ключа.
+  if (!t) return TIERS[key]?.label || '';
   return t.marketing === t.engineering ? t.marketing : `${t.marketing} · ${t.engineering}`;
 }

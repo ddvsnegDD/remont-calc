@@ -9,6 +9,7 @@ import { useReveal } from '../lib/hooks';
 import { useAuth } from '../lib/auth';
 import { C } from '../lib/theme';
 import { PLANS, formatPrice } from '../data/tariffs';
+import { TIER_NAMES, tierTitle } from '../data/tierNames';
 
 /* --- CalcWidget (premium glassmorphism) --- */
 function CalcWidget({ area, setArea, houseType, setHouseType, calculate, estimate, fmt }) {
@@ -188,11 +189,14 @@ function BentoSection() {
 function PricingSection() {
   const [ref, vis] = useReveal();
   const navigate = useNavigate();
+  // Название и цена берутся из TIER_NAMES/tierTitle — здесь только витринные
+  // свойства, которых там нет (срок, описание, градиент, картинка, «Популярный»).
   const tiers = [
-    { name: "Эконом", price: "35–55", unit: "тыс ₽/м²", term: "3–4 мес", desc: "Базовый ремонт, бюджетные материалы", gradient: "linear-gradient(180deg, #C4B5A3 0%, #8B7D6B 100%)", tier: "capital" },
-    { name: "Комфорт", price: "60–85", unit: "тыс ₽/м²", term: "4–6 мес", desc: "Современный интерьер, качественные материалы", gradient: "linear-gradient(180deg, #A0896C 0%, #6B5B45 100%)", featured: true, tier: "euro" },
-    { name: "Бизнес", price: "100–150", unit: "тыс ₽/м²", term: "6–9 мес", desc: "Дизайн-проект, сложные инженерные решения", gradient: "linear-gradient(180deg, #7A8B8F 0%, #4A5A5F 100%)", tier: "euro" },
-    { name: "Премиум", price: "200+", unit: "тыс ₽/м²", term: "от 9 мес", desc: "Эксклюзивные материалы, индивидуальный дизайн", gradient: "linear-gradient(180deg, rgba(40,35,30,0.3) 0%, rgba(20,18,15,0.9) 100%)", hasImage: true, tier: "premium" },
+    { term: "3–5 нед", desc: "Косметическое обновление без демонтажа конструкций", gradient: "linear-gradient(180deg, #B8C4C9 0%, #7C8B90 100%)", tier: "cosmetic" },
+    { term: "3–4 мес", desc: "Базовый ремонт, бюджетные материалы", gradient: "linear-gradient(180deg, #C4B5A3 0%, #8B7D6B 100%)", tier: "capital" },
+    { term: "4–6 мес", desc: "Современный интерьер, качественные материалы", gradient: "linear-gradient(180deg, #A0896C 0%, #6B5B45 100%)", featured: true, tier: "euro" },
+    { term: "6–9 мес", desc: "Дизайн-проект, сложные инженерные решения", gradient: "linear-gradient(180deg, #7A8B8F 0%, #4A5A5F 100%)", tier: "euro_top" },
+    { term: "от 9 мес", desc: "Эксклюзивные материалы, индивидуальный дизайн", gradient: "linear-gradient(180deg, rgba(40,35,30,0.3) 0%, rgba(20,18,15,0.9) 100%)", hasImage: true, tier: "premium" },
   ];
   return (
     <section id="pricing" style={{ padding: "80px 0", background: "#fff" }}>
@@ -203,7 +207,10 @@ function PricingSection() {
           <p style={{ color: C.gray500, marginTop: 8, fontSize: 16 }}>Ориентировочная стоимость за 1 м² и типичная длительность работ. Детальный расчёт — в калькуляторе.</p>
         </div>
         <div className="pricing-grid">
-          {tiers.map((t, i) => (
+          {tiers.map((t, i) => {
+            const names = TIER_NAMES[t.tier];
+            const price = `${Math.round(names.low / 1000)}–${Math.round(names.high / 1000)}`;
+            return (
             <div key={i} className={`reveal ${vis ? "visible" : ""} reveal-d${i + 1}`} style={{ position: "relative", height: 500, borderRadius: 20, overflow: "hidden", cursor: "pointer", transition: "transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.5s ease" }}
               onClick={() => navigate(`/b2c?tier=${t.tier}`)}
               onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 20px 50px rgba(0,0,0,0.2)"; }}
@@ -213,14 +220,15 @@ function PricingSection() {
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to top, rgba(22,22,24,0.95) 0%, transparent 100%)", opacity: 0.8 }} />
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 28 }}>
                 {t.featured && <span style={{ display: "inline-block", padding: "4px 12px", background: C.terra, color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 700, marginBottom: 12 }}>ПОПУЛЯРНЫЙ</span>}
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8 }}>{t.name}</div>
-                <div className="font-golos" style={{ fontSize: 36, fontWeight: 800, color: "#fff" }}>{t.price}<span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.6)", marginLeft: 6 }}>{t.unit}</span></div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8 }}>{tierTitle(t.tier)}</div>
+                <div className="font-golos" style={{ fontSize: 30, fontWeight: 800, color: "#fff", lineHeight: 1.15 }}><span style={{ whiteSpace: "nowrap" }}>{price}</span> <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.6)" }}>тыс ₽/м²</span></div>
                 <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", margin: "10px 0 6px", lineHeight: 1.5 }}>{t.desc}</p>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginBottom: 16 }}><Clock size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />{t.term}</div>
                 <Btn variant="outlineLight" style={{ padding: "10px 20px", fontSize: 13, width: "100%", borderRadius: 10 }}>Выбрать <ArrowRight size={14} /></Btn>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

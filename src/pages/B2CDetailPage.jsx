@@ -56,9 +56,18 @@ export default function B2CDetailPage() {
     }
   }, [user]);
 
-  const effectiveMode = tier === 'premium' ? 'full' : mode;
-  const effectiveReplan = effectiveMode === 'whitebox' ? 'no' : replan;
-  const paramCount = effectiveMode === 'whitebox' ? 3 : 4;
+  // Уровни, у которых набор позиций задан жёстко — режим застройщика на них не влияет.
+  const MODE_LOCKED_TIERS = ['premium', 'cosmetic'];
+  // Уровни, на которых перепланировка невозможна по составу работ.
+  const REPLAN_LOCKED_TIERS = ['cosmetic'];
+  // Уровни, у которых объёмы не зависят от числа комнат и окон.
+  const ROOMS_WINDOWS_IRRELEVANT_TIERS = ['cosmetic'];
+
+  const effectiveMode = MODE_LOCKED_TIERS.includes(tier) ? 'full' : mode;
+  const effectiveReplan = (effectiveMode === 'whitebox' || REPLAN_LOCKED_TIERS.includes(tier)) ? 'no' : replan;
+  const showRoomsField = !ROOMS_WINDOWS_IRRELEVANT_TIERS.includes(tier);
+  const showWindowsField = effectiveMode !== 'whitebox' && !ROOMS_WINDOWS_IRRELEVANT_TIERS.includes(tier);
+  const paramCount = 2 + (showRoomsField ? 1 : 0) + (showWindowsField ? 1 : 0);
 
   const preview = useMemo(() => {
     if (Object.keys(fieldErrors).length > 0) return null;
@@ -164,7 +173,7 @@ export default function B2CDetailPage() {
           </div>
 
           <div className="quiz-card">
-            <h2>Введите {paramCount} параметра — получите смету по 50 позициям</h2>
+            <h2>Введите {paramCount} параметра — получите смету{preview ? ` по ${preview.lines.length} позициям` : ''}</h2>
             <div className="quiz-hint">Расчёт по реальным расценкам, согласованным с подрядными организациями в результате тендеров.</div>
 
             {/* Tier */}
@@ -180,8 +189,8 @@ export default function B2CDetailPage() {
               </div>
             </div>
 
-            {/* Mode — скрыт для Премиум (всегда полный цикл) */}
-            {tier !== 'premium' && (
+            {/* Mode — скрыт для Премиум и Косметического — у них набор позиций не зависит от отделки застройщика */}
+            {!MODE_LOCKED_TIERS.includes(tier) && (
               <div className="form-field">
                 <label>Тип отделки от застройщика</label>
                 <div className="options-grid">
@@ -205,14 +214,16 @@ export default function B2CDetailPage() {
                   style={{ borderColor: fieldErrors.area ? '#dc2626' : undefined }} />
                 {fieldErrors.area && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.area}</div>}
               </div>
-              <div className="form-field">
-                <label>Комнат</label>
-                <input type="number" value={roomsRaw}
-                  onChange={e => setRoomsRaw(e.target.value)}
-                  onBlur={() => commitField('rooms', roomsRaw, setRooms, validateInteger, { min: 1, max: 10, name: 'Комнаты' })}
-                  style={{ borderColor: fieldErrors.rooms ? '#dc2626' : undefined }} />
-                {fieldErrors.rooms && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.rooms}</div>}
-              </div>
+              {showRoomsField && (
+                <div className="form-field">
+                  <label>Комнат</label>
+                  <input type="number" value={roomsRaw}
+                    onChange={e => setRoomsRaw(e.target.value)}
+                    onBlur={() => commitField('rooms', roomsRaw, setRooms, validateInteger, { min: 1, max: 10, name: 'Комнаты' })}
+                    style={{ borderColor: fieldErrors.rooms ? '#dc2626' : undefined }} />
+                  {fieldErrors.rooms && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.rooms}</div>}
+                </div>
+              )}
             </div>
             <div className="field-row">
               <div className="form-field">
@@ -223,7 +234,7 @@ export default function B2CDetailPage() {
                   style={{ borderColor: fieldErrors.sanitary ? '#dc2626' : undefined }} />
                 {fieldErrors.sanitary && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>{fieldErrors.sanitary}</div>}
               </div>
-              {effectiveMode !== 'whitebox' && (
+              {showWindowsField && (
                 <div className="form-field">
                   <label>Замена окон</label>
                   <input type="number" value={windowsRaw}
@@ -236,7 +247,7 @@ export default function B2CDetailPage() {
             </div>
 
             {/* Replan */}
-            {effectiveMode !== 'whitebox' && (
+            {effectiveMode !== 'whitebox' && !REPLAN_LOCKED_TIERS.includes(tier) && (
               <div className="form-field" style={{ marginTop: 8 }}>
                 <label>Перепланировка</label>
                 <div className="options">

@@ -112,7 +112,10 @@ export default function B2CResultPage() {
             <div className="result-cta">
               <h3>Нужна детальная смета?</h3>
               <p>Расчёт по ~50 позициям с разбивкой на работы и материалы — в подписке Клуба владельцев.</p>
-              <Btn variant="terra" size="lg" onClick={() => navigate('/b2c-detail')}>Открыть детальную смету</Btn>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Btn variant="terra" size="lg" onClick={() => navigate('/b2c-detail')}>Открыть детальную смету</Btn>
+                <Btn variant="outline" size="lg" onClick={() => navigate('/b2c?mode=quick')}>Посчитать заново</Btn>
+              </div>
             </div>
           </div>
         </div>

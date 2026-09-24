@@ -47,9 +47,9 @@ const STEPS = [
 ];
 
 export default function B2CQuizPage() {
-  const [showMode, setShowMode] = useState(true);
-  const [step, setStep] = useState(0);
   const [searchParams] = useSearchParams();
+  const [showMode, setShowMode] = useState(searchParams.get('mode') !== 'quick');
+  const [step, setStep] = useState(0);
   const tierFromUrl = searchParams.get('tier');
   const validTiers = ['cosmetic', 'capital', 'euro', 'euro_top', 'premium'];
   const tierFromUrlValid = validTiers.includes(tierFromUrl);

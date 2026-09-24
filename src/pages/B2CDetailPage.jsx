@@ -224,7 +224,14 @@ export default function B2CDetailPage() {
               </div>
               <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px dashed ${C.gray200}` }}>
                 <p style={{ color: C.gray500, fontSize: 14, marginBottom: 12 }}>Хотите узнать примерный бюджет прямо сейчас?</p>
-                <Btn variant="outline" onClick={() => navigate('/b2c')}>Быстрый расчёт — бесплатно</Btn>
+                <Btn variant="outline" onClick={() => {
+                  let hasQuick = false;
+                  try {
+                    const raw = sessionStorage.getItem('rpkm-last-b2c');
+                    hasQuick = !!(raw && JSON.parse(raw)?.result);
+                  } catch { hasQuick = false; }
+                  navigate(hasQuick ? '/b2c-result' : `/b2c?mode=quick&tier=${tier}`);
+                }}>Быстрый расчёт — бесплатно</Btn>
               </div>
             </div>
           </div>

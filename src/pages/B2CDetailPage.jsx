@@ -8,6 +8,52 @@ import { useAuth } from '../lib/auth';
 import { SpecCalc } from '../lib/spec-calculator';
 import { validateNumber, validatePositiveNumber, validateInteger } from '../lib/calculator';
 import { PLANS, formatPrice } from '../data/tariffs';
+import { toSpecTier } from '../data/specTier';
+
+// Источник свежих данных для сида формы: детальный ручной расчёт (все семь полей)
+// или быстрая вилка квиза (только tier/area/mode/replan). Timestamp отсутствует
+// или не разбирается — лид считается самым старым, а не бросает исключение.
+function parseTimestamp(raw) {
+  const t = raw ? Date.parse(raw) : NaN;
+  return Number.isNaN(t) ? -Infinity : t;
+}
+
+function readDetailLead() {
+  try {
+    const raw = sessionStorage.getItem('rpkm-last-b2c-detail');
+    if (!raw) return null;
+    const lead = JSON.parse(raw);
+    const result = lead && lead.result;
+    const inputs = result && result.inputs;
+    if (!inputs) return null;
+    return {
+      timestamp: parseTimestamp(lead.timestamp),
+      tier: inputs.tier, mode: result.mode, replan: inputs.replan,
+      area: inputs.area, sanitary: inputs.sanitary, windows: inputs.windows, rooms: inputs.rooms,
+    };
+  } catch { return null; }
+}
+
+function readQuickLead() {
+  try {
+    const raw = sessionStorage.getItem('rpkm-last-b2c');
+    if (!raw) return null;
+    const lead = JSON.parse(raw);
+    const result = lead && lead.result;
+    if (!result) return null;
+    return {
+      timestamp: parseTimestamp(lead.timestamp),
+      // result.tier уже один из четырёх, но гоняем через toSpecTier: он же покрывает
+      // euro_top и luxury, если они когда-нибудь станут достижимы через квиз.
+      tier: toSpecTier(result.tier),
+      mode: lead.answers?.finish_type === 'whitebox' ? 'whitebox' : 'full',
+      replan: lead.answers?.replan,
+      area: result.area,
+      // rooms/sanitary/windows намеренно не выводятся из площади — часть 9 ТЗ,
+      // это та же молчаливая подстановка, которую убирал calc_input_hardening.
+    };
+  } catch { return null; }
+}
 
 export default function B2CDetailPage() {
   const navigate = useNavigate();
@@ -58,33 +104,32 @@ export default function B2CDetailPage() {
 
   // Засеять форму из последнего расчёта (квиз или сама эта страница), один раз
   // при монтировании — дальше пользователь хозяин формы, повторно не перезаписываем.
-  // Каждое значение идёт через тот же валидатор и те же границы, что в commitField:
-  // в sessionStorage может лежать расчёт со значением вне текущих границ.
+  // Источников два — берём тот, чей timestamp новее (часть 9 ТЗ). Каждое значение
+  // идёт через тот же валидатор и те же границы, что в commitField: в sessionStorage
+  // может лежать расчёт со значением вне текущих границ.
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('rpkm-last-b2c-detail');
-      if (!raw) return;
-      const lead = JSON.parse(raw);
-      const result = lead && lead.result;
-      const inputs = result && result.inputs;
-      if (!inputs) return;
+    const detailLead = readDetailLead();
+    const quickLead = readQuickLead();
+    const seed = detailLead && quickLead
+      ? (quickLead.timestamp > detailLead.timestamp ? quickLead : detailLead)
+      : (detailLead || quickLead);
+    if (!seed) return;
 
-      if (['cosmetic', 'capital', 'euro', 'premium'].includes(inputs.tier)) setTier(inputs.tier);
-      if (['full', 'whitebox'].includes(result.mode)) setMode(result.mode);
-      if (['no', 'light', 'full'].includes(inputs.replan)) setReplan(inputs.replan);
+    if (['cosmetic', 'capital', 'euro', 'premium'].includes(seed.tier)) setTier(seed.tier);
+    if (['full', 'whitebox'].includes(seed.mode)) setMode(seed.mode);
+    if (['no', 'light', 'full'].includes(seed.replan)) setReplan(seed.replan);
 
-      const areaCheck = validateNumber(inputs.area, { min: 20, max: 500, name: 'Площадь' });
-      if (areaCheck.ok) { setArea(areaCheck.value); setAreaRaw(String(areaCheck.value)); }
+    const areaCheck = validateNumber(seed.area, { min: 20, max: 500, name: 'Площадь' });
+    if (areaCheck.ok) { setArea(areaCheck.value); setAreaRaw(String(areaCheck.value)); }
 
-      const sanitaryCheck = validateInteger(inputs.sanitary, { min: 1, max: 6, name: 'Санузлы' });
-      if (sanitaryCheck.ok) { setSanitary(sanitaryCheck.value); setSanitaryRaw(String(sanitaryCheck.value)); }
+    const sanitaryCheck = validateInteger(seed.sanitary, { min: 1, max: 6, name: 'Санузлы' });
+    if (sanitaryCheck.ok) { setSanitary(sanitaryCheck.value); setSanitaryRaw(String(sanitaryCheck.value)); }
 
-      const windowsCheck = validateInteger(inputs.windows, { min: 0, max: 20, name: 'Окна' });
-      if (windowsCheck.ok) { setWindows(windowsCheck.value); setWindowsRaw(String(windowsCheck.value)); }
+    const windowsCheck = validateInteger(seed.windows, { min: 0, max: 20, name: 'Окна' });
+    if (windowsCheck.ok) { setWindows(windowsCheck.value); setWindowsRaw(String(windowsCheck.value)); }
 
-      const roomsCheck = validateInteger(inputs.rooms, { min: 1, max: 10, name: 'Комнаты' });
-      if (roomsCheck.ok) { setRooms(roomsCheck.value); setRoomsRaw(String(roomsCheck.value)); }
-    } catch {}
+    const roomsCheck = validateInteger(seed.rooms, { min: 1, max: 10, name: 'Комнаты' });
+    if (roomsCheck.ok) { setRooms(roomsCheck.value); setRoomsRaw(String(roomsCheck.value)); }
   }, []);
 
   // Уровни, у которых набор позиций задан жёстко — режим застройщика на них не влияет.

@@ -3,9 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import PageLayout from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
-import { SpecCalc } from '../lib/spec-calculator';
 import { calculateB2C, validateNumber } from '../lib/calculator';
-import { toSpecTier } from '../data/specTier';
 
 // Отправка расчёта письмом. Навигацию не блокирует: результат пользователь
 // видит на экране независимо от того, дошло письмо или нет.
@@ -49,7 +47,6 @@ const STEPS = [
 
 export default function B2CQuizPage() {
   const [showMode, setShowMode] = useState(true);
-  const [calcMode, setCalcMode] = useState('quick'); // 'quick' | 'detail'
   const [step, setStep] = useState(0);
   const [searchParams] = useSearchParams();
   const tierFromUrl = searchParams.get('tier');
@@ -91,40 +88,20 @@ export default function B2CQuizPage() {
       setFormError('');
       setCalcError('');
 
-      if (calcMode === 'quick') {
-        // Быстрый расчёт — вилка стоимости (от-до)
-        const result = calculateB2C(answers);
-        if (!result.ok) { setCalcError(result.error); return; }
-        const lead = {
-          id: 'b2c-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c',
-          result,
-          contact: { name: contactData.name, email: contactData.email.trim() },
-        };
-        sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
-        sendCalculation({ email: contactData.email.trim(), name: contactData.name.trim(), kind: 'quick', result });
-        navigate('/b2c-result');
-      } else {
-        // Детальная смета — SpecCalc ~50 позиций
-        const quizArea = answers.area;
-        const quizTier = toSpecTier(answers.repair_type);
-        const quizMode = (quizTier === 'premium') ? 'full' : (answers.finish_type === 'whitebox' ? 'whitebox' : 'full');
-        const quizReplan = answers.replan || 'no';
-        const quizRooms = quizArea < 35 ? 1 : quizArea < 55 ? 2 : quizArea < 80 ? 3 : quizArea < 120 ? 4 : 5;
-        const quizSanitary = quizArea < 60 ? 1 : quizArea < 120 ? 2 : 3;
-        const quizWindows = quizArea < 35 ? 2 : quizArea < 55 ? 3 : quizArea < 80 ? 4 : quizArea < 120 ? 6 : 8;
-        const specResult = SpecCalc.compute({ area: quizArea, rooms: quizRooms, sanitary: quizSanitary, windows: quizWindows, mode: quizMode, tier: quizTier, replan: quizReplan });
-        if (!specResult.ok) { setCalcError(specResult.error); return; }
-        const lead = {
-          id: 'b2c-detail-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c-detail',
-          result: specResult,
-          contact: { name: contactData.name, email: contactData.email.trim() },
-        };
-        sessionStorage.setItem('rpkm-last-b2c-detail', JSON.stringify(lead));
-        sendCalculation({ email: contactData.email.trim(), name: contactData.name.trim(), kind: 'detail', result: specResult });
-        navigate('/b2c-result-detail');
-      }
+      // Быстрый расчёт — вилка стоимости (от-до)
+      const result = calculateB2C(answers);
+      if (!result.ok) { setCalcError(result.error); return; }
+      const lead = {
+        id: 'b2c-' + Date.now(), timestamp: new Date().toISOString(), kind: 'b2c',
+        result,
+        answers,                       // нужны детальной форме: отделка и перепланировка
+        contact: { name: contactData.name, email: contactData.email.trim() },
+      };
+      sessionStorage.setItem('rpkm-last-b2c', JSON.stringify(lead));
+      sendCalculation({ email: contactData.email.trim(), name: contactData.name.trim(), kind: 'quick', result });
+      navigate('/b2c-result');
     }
-  }, [step, total, answers, contactData, calcMode, navigate, current, commitArea]);
+  }, [step, total, answers, contactData, navigate, current, commitArea]);
 
   const handleCardClick = (id, value) => {
     setAnswer(id, value);

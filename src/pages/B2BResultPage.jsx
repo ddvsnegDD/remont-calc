@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
 import { generateB2BReportHTML, openReportWindow } from '../lib/estimateReport';
+import { positions } from '../lib/plural';
 import { toSpecTier, SPEC_TIER_FALLBACK } from '../data/specTier';
 
 export default function B2BResultPage() {
@@ -154,7 +155,7 @@ export default function B2BResultPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
                   <div>
                     <div style={{ fontSize: 11, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Метод 2 · по тендерным расценкам</div>
-                    <h3 style={{ margin: '4px 0' }}>Детальная спецификация · {specResult.lines.length} позиций</h3>
+                    <h3 style={{ margin: '4px 0' }}>Детальная спецификация · {positions(specResult.lines.length)}</h3>
                     <div style={{ fontSize: 13, color: C.gray500 }}>
                       <strong>{specResult.totals.grand.toLocaleString('ru-RU')} ₽</strong> ({specResult.perM2.toLocaleString('ru-RU')} ₽/м²)
                     </div>

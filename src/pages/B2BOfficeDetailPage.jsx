@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
 import { validateNumber, validateInteger } from '../lib/calculator';
+import { positions } from '../lib/plural';
 
 const dataCache = {};
 function useData(tier) {
@@ -518,7 +519,7 @@ export default function B2BOfficeDetailPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: C.graphite }}>{section.title.replace(/РАЗДЕЛ \w+ — /, '')}</div>
                       <div style={{ fontSize: 12, color: C.gray500 }}>
-                        {section.param} = {params[section.param] || 0} {PARAM_UNITS[section.param]} · {section.groups.reduce((s, g) => s + g.items.length, 0)} позиций
+                        {section.param} = {params[section.param] || 0} {PARAM_UNITS[section.param]} · {positions(section.groups.reduce((s, g) => s + g.items.length, 0))}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>

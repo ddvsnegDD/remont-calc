@@ -1,5 +1,6 @@
 // Генерация печатных HTML-отчётов сметы (печать / сохранение в PDF)
 import { formatRubFull, formatDays } from './calculator';
+import { positions } from './plural';
 
 function esc(str) {
   if (str === null || str === undefined) return '';
@@ -175,7 +176,7 @@ export function generateB2CDetailReportHTML(lead) {
 
   const body = `
     <div style="text-align:center; margin:20px 0 28px; padding:20px; background:#f8f5f2; border-radius:8px;">
-      <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:1px;">${esc(heading)} · ${r.lines.length} позиций</div>
+      <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:1px;">${esc(heading)} · ${positions(r.lines.length)}</div>
       <div style="font-size:28px; font-weight:800; color:#B95C38; margin-top:6px;">${formatRubFull(r.totals.grand)}</div>
       <div style="font-size:13px; color:#6b7280; margin-top:4px;">${fmtNum(r.perM2)} ₽/м²</div>
     </div>
@@ -244,7 +245,7 @@ export function generateB2BReportHTML({ projectName, timestamp, r, specResult, s
 
     specSection = `
       <div class="page-break"></div>
-      <h2 style="font-size:15px; margin:20px 0 4px;">Детальная спецификация · ${esc(specResult.tierLabel)} · ${specResult.lines.length} позиций</h2>
+      <h2 style="font-size:15px; margin:20px 0 4px;">Детальная спецификация · ${esc(specResult.tierLabel)} · ${positions(specResult.lines.length)}</h2>
       <div style="font-size:13px; color:#6b7280; margin-bottom:10px;">${formatRubFull(specResult.totals.grand)} (${fmtNum(specResult.perM2)} ₽/м²)</div>
       <table>
         <thead><tr>

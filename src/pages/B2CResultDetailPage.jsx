@@ -4,6 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { generateB2CDetailReportHTML, openReportWindow } from '../lib/estimateReport';
+import { positions } from '../lib/plural';
 
 function formatRub(n) {
   if (!Number.isFinite(n)) return '—';
@@ -73,7 +74,7 @@ export default function B2CResultDetailPage() {
               <div className="result-label">{heading}</div>
               <div className="result-price"><span className="accent">{formatRub(r.totals.grand)}</span></div>
               <div style={{ fontSize: 16, color: C.gray500, marginTop: 4 }}>
-                {r.perM2.toLocaleString('ru-RU')} ₽/м² · {r.lines.length} позиций
+                {r.perM2.toLocaleString('ru-RU')} ₽/м² · {positions(r.lines.length)}
               </div>
               {lead.contact?.email && (
                 <div style={{ fontSize: 13, color: C.gray500, marginTop: 8 }}>
@@ -118,7 +119,7 @@ export default function B2CResultDetailPage() {
                       <div className="spec-group-icon">{g.icon}</div>
                       <div className="spec-group-title">
                         <div className="spec-group-name">{g.title}</div>
-                        <div className="spec-group-meta">{g.lines.length} позиций · {grandShare}% от сметы</div>
+                        <div className="spec-group-meta">{positions(g.lines.length)} · {grandShare}% от сметы</div>
                       </div>
                       <div className="spec-group-amount">{formatRub(g.total)}</div>
                       <div className="spec-group-chevron">▾</div>

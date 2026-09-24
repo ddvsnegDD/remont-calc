@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
 import { generateB2BOfficeReportHTML, openReportWindow } from '../lib/estimateReport';
+import { positions } from '../lib/plural';
 
 function fmt(n) {
   if (!Number.isFinite(n)) return '—';
@@ -151,7 +152,7 @@ export default function B2BOfficeResultPage() {
                       <div className="spec-group-icon">{sec.icon}</div>
                       <div className="spec-group-title">
                         <div className="spec-group-name">{sec.title}</div>
-                        <div className="spec-group-meta">{sec.lines.length} позиций · {pct}% от основного бюджета</div>
+                        <div className="spec-group-meta">{positions(sec.lines.length)} · {pct}% от основного бюджета</div>
                       </div>
                       <div className="spec-group-amount">{fmt(sec.total)}</div>
                       <div className="spec-group-chevron">▾</div>

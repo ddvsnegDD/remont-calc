@@ -152,7 +152,7 @@ export function Footer() {
             ))}
           </div>
           <div>
-            <h4 className="font-golos" style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Программы</h4>
+            <h4 className="font-golos" style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Клуб</h4>
             {[{l:"Клуб владельцев", to:"/club"}, {l:"PRO-кабинет", to:"/pro"}].map(({l, to}, i) => (
               <Link key={i} to={to} style={{ display: "block", color: "rgba(255,255,255,0.4)", fontSize: 14, textDecoration: "none", marginBottom: 10, transition: "color 0.3s cubic-bezier(0.16,1,0.3,1), padding-left 0.3s ease" }}
                 onMouseEnter={e => { e.target.style.color = C.terraLight; e.target.style.paddingLeft = "6px"; }}

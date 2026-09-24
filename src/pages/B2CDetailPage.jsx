@@ -61,6 +61,7 @@ export default function B2CDetailPage() {
   const [searchParams] = useSearchParams();
   const source = searchParams.get('source');
   const { user, hasAccess, loading: authLoading } = useAuth();
+  const isProUser = user?.role === 'b2b';
   const [loginOpen, setLoginOpen] = useState(false);
 
   // Form state
@@ -216,10 +217,10 @@ export default function B2CDetailPage() {
                 Доступен участникам <strong>Клуба владельцев</strong> и <strong>Профи</strong>.
               </p>
               <div style={{ display: 'inline-block', background: C.terraBg, color: C.terra, fontWeight: 600, fontSize: 14, padding: '6px 16px', borderRadius: 8, margin: '8px 0 24px' }}>
-                Подписка — {formatPrice(PLANS.club_monthly.price)} ₽/мес · 14 дней бесплатно
+                {isProUser ? `PRO — ${formatPrice(PLANS.pro_monthly.price)} ₽/мес` : `Подписка — ${formatPrice(PLANS.club_monthly.price)} ₽/мес · 14 дней бесплатно`}
               </div>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <Btn variant="terra" size="lg" onClick={() => navigate('/club')}>Попробовать 14 дней бесплатно</Btn>
+                <Btn variant="terra" size="lg" onClick={() => navigate(isProUser ? '/pro' : '/club')}>{isProUser ? 'Перейти к PRO' : 'Попробовать 14 дней бесплатно'}</Btn>
                 <Btn variant="outline" size="lg" onClick={() => navigate('/b2b-login')}>Войти как Профи</Btn>
               </div>
               <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px dashed ${C.gray200}` }}>

@@ -12,6 +12,7 @@ function subTier(sub) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [subscription, setSubscription] = useState(null);
+  const [trialUsed, setTrialUsed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Check session on mount
@@ -22,6 +23,7 @@ export function AuthProvider({ children }) {
         if (data?.ok) {
           setUser(data.user);
           setSubscription(data.subscription);
+          setTrialUsed(!!data.trialUsed);
         }
       })
       .catch(() => {})
@@ -93,13 +95,17 @@ export function AuthProvider({ children }) {
     return null;
   }, []);
 
+  // Успешное создание триала клиенту уже известно из ответа /api/subscription/trial —
+  // не гоняем лишний запрос на сервер, чтобы узнать то, что уже знаем.
+  const markTrialUsed = useCallback(() => setTrialUsed(true), []);
+
   const tier = subTier(subscription);
   const hasClub = tier === 'club' || tier === 'pro';
   const hasPro = tier === 'pro';
   const hasAccess = hasClub; // алиас для обратной совместимости
 
   return (
-    <AuthContext.Provider value={{ user, subscription, loading, tier, hasClub, hasPro, hasAccess, sendCode, verify, logout, refreshSubscription }}>
+    <AuthContext.Provider value={{ user, subscription, trialUsed, loading, tier, hasClub, hasPro, hasAccess, sendCode, verify, logout, refreshSubscription, markTrialUsed }}>
       {children}
     </AuthContext.Provider>
   );

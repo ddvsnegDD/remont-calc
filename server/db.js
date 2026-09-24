@@ -141,6 +141,16 @@ export async function createTrialSubscription(userId, plan, days) {
   return { created: true, subscription: rows[0] };
 }
 
+// Был ли когда-либо триал на аккаунте — тот же запрос, что и внутри
+// createTrialSubscription, нужен отдельно для /api/auth/me (часть 3 TASK_trial_b2b.md).
+export async function hasUsedTrial(userId) {
+  const { rows } = await pool.query(
+    `SELECT id FROM subscriptions WHERE user_id = $1 AND status = 'trial' LIMIT 1`,
+    [userId]
+  );
+  return rows.length > 0;
+}
+
 // --- Grant subscription manually (admin) ---
 export async function grantSubscription(userId, plan = 'yearly', days = 365) {
   // завершаем текущие активные/триал/pending, чтобы не было дублей

@@ -33,7 +33,8 @@ const FAQ = [
 
 export default function ClubPage() {
   const navigate = useNavigate();
-  const { user, subscription, hasAccess, refreshSubscription } = useAuth();
+  const { user, subscription, hasAccess, trialUsed, refreshSubscription, markTrialUsed } = useAuth();
+  const isProUser = user?.role === 'b2b';
   const [loginOpen, setLoginOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(-1);
   const [notice, setNotice] = useState(null);
@@ -96,10 +97,11 @@ export default function ClubPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setNotice('Триал на 14 дней активирован!');
+        setNotice(data.plan === 'pro_trial' ? 'PRO на 7 дней активирован!' : 'Триал на 14 дней активирован!');
+        markTrialUsed();
         refreshSubscription();
       } else {
-        setNotice(data.error || 'Триал уже был использован');
+        setNotice(data.error || 'Ошибка активации триала');
       }
     } catch {
       setNotice('Ошибка активации триала');
@@ -149,9 +151,11 @@ export default function ClubPage() {
                       ✓ {subscription?.status === 'trial' ? 'Триал активен' : 'Подписка активна'}
                       {expiresLabel && <span style={{ fontWeight: 400, fontSize: 13 }}>до {expiresLabel}</span>}
                     </div>
+                  ) : isProUser && trialUsed ? (
+                    <Btn variant="terra" size="lg" onClick={() => navigate('/pro')}>Оформить PRO — {formatPrice(PLANS.pro_monthly.price)} ₽/мес</Btn>
                   ) : (
                     <>
-                      <Btn variant="terra" size="lg" onClick={handleTrial}>Попробовать 14 дней бесплатно</Btn>
+                      <Btn variant="terra" size="lg" onClick={handleTrial}>{isProUser ? 'Попробовать PRO 7 дней бесплатно' : 'Попробовать 14 дней бесплатно'}</Btn>
                       <Btn variant="outline" size="lg" onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}>Тарифы</Btn>
                     </>
                   )}
@@ -186,9 +190,19 @@ export default function ClubPage() {
                     <div className="hero-visual-title">Ваш аккаунт</div>
                     <div style={{ padding: '20px 0' }}>
                       <div style={{ fontSize: 14, color: C.gray500, marginBottom: 8 }}>Нет активной подписки</div>
-                      <p style={{ fontSize: 13, color: C.gray400, lineHeight: 1.5 }}>Активируйте триал или оформите подписку, чтобы получить доступ к детальным сметам и чек-листам.</p>
+                      <p style={{ fontSize: 13, color: C.gray400, lineHeight: 1.5 }}>
+                        {isProUser
+                          ? (trialUsed
+                              ? 'Пробный доступ уже был использован. Оформите PRO, чтобы получить офисный калькулятор и детальную спецификацию B2B.'
+                              : 'Попробуйте PRO бесплатно 7 дней — офисный калькулятор и детальная спецификация B2B.')
+                          : 'Активируйте триал или оформите подписку, чтобы получить доступ к детальным сметам и чек-листам.'}
+                      </p>
                     </div>
-                    <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={handleTrial}>Попробовать 14 дней бесплатно</Btn>
+                    {isProUser && trialUsed ? (
+                      <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={() => navigate('/pro')}>Оформить PRO — {formatPrice(PLANS.pro_monthly.price)} ₽/мес</Btn>
+                    ) : (
+                      <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={handleTrial}>{isProUser ? 'Попробовать PRO 7 дней бесплатно' : 'Попробовать 14 дней бесплатно'}</Btn>
+                    )}
                   </>
                 ) : (
                   <>

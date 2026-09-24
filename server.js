@@ -3,7 +3,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { resolve, join } from 'path';
-import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
+import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, hasUsedTrial, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
 import { PLANS, tierOf, daysOf } from './src/data/tariffs.js';
 
@@ -154,10 +154,12 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     const user = await findUserByEmail(req.user.email);
     if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
     const sub = await getActiveSubscription(user.id);
+    const trialUsed = await hasUsedTrial(user.id);
     res.json({
       ok: true,
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization },
       subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null,
+      trialUsed,
     });
   } catch (err) {
     console.error('me error:', err);

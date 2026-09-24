@@ -56,6 +56,37 @@ export default function B2CDetailPage() {
     }
   }, [user]);
 
+  // Засеять форму из последнего расчёта (квиз или сама эта страница), один раз
+  // при монтировании — дальше пользователь хозяин формы, повторно не перезаписываем.
+  // Каждое значение идёт через тот же валидатор и те же границы, что в commitField:
+  // в sessionStorage может лежать расчёт со значением вне текущих границ.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('rpkm-last-b2c-detail');
+      if (!raw) return;
+      const lead = JSON.parse(raw);
+      const result = lead && lead.result;
+      const inputs = result && result.inputs;
+      if (!inputs) return;
+
+      if (['cosmetic', 'capital', 'euro', 'premium'].includes(inputs.tier)) setTier(inputs.tier);
+      if (['full', 'whitebox'].includes(result.mode)) setMode(result.mode);
+      if (['no', 'light', 'full'].includes(inputs.replan)) setReplan(inputs.replan);
+
+      const areaCheck = validateNumber(inputs.area, { min: 20, max: 500, name: 'Площадь' });
+      if (areaCheck.ok) { setArea(areaCheck.value); setAreaRaw(String(areaCheck.value)); }
+
+      const sanitaryCheck = validateInteger(inputs.sanitary, { min: 1, max: 6, name: 'Санузлы' });
+      if (sanitaryCheck.ok) { setSanitary(sanitaryCheck.value); setSanitaryRaw(String(sanitaryCheck.value)); }
+
+      const windowsCheck = validateInteger(inputs.windows, { min: 0, max: 20, name: 'Окна' });
+      if (windowsCheck.ok) { setWindows(windowsCheck.value); setWindowsRaw(String(windowsCheck.value)); }
+
+      const roomsCheck = validateInteger(inputs.rooms, { min: 1, max: 10, name: 'Комнаты' });
+      if (roomsCheck.ok) { setRooms(roomsCheck.value); setRoomsRaw(String(roomsCheck.value)); }
+    } catch {}
+  }, []);
+
   // Уровни, у которых набор позиций задан жёстко — режим застройщика на них не влияет.
   const MODE_LOCKED_TIERS = ['premium', 'cosmetic'];
   // Уровни, на которых перепланировка невозможна по составу работ.

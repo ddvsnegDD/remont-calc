@@ -131,7 +131,15 @@ export function generateB2CSummaryReportHTML(lead) {
 export function generateB2CDetailReportHTML(lead) {
   const r = lead.result;
   const inp = r.inputs;
-  const modeLabel = r.mode === 'whitebox' ? 'WhiteBox' : 'Полная отделка';
+
+  // Дублирует MODE_SHOWN_TIERS/ROOMS_WINDOWS_IRRELEVANT_TIERS в
+  // B2CResultDetailPage.jsx (часть 7/8) — правка одного места не забывает второе.
+  const MODE_SHOWN_TIERS = ['capital', 'euro'];
+  const modeLabel = r.mode === 'whitebox' ? 'White Box' : 'Полная отделка';
+  const heading = MODE_SHOWN_TIERS.includes(r.tier) ? `${r.tierLabel} · ${modeLabel}` : r.tierLabel;
+
+  const ROOMS_WINDOWS_IRRELEVANT_TIERS = ['cosmetic'];
+  const showRoomsWindows = !ROOMS_WINDOWS_IRRELEVANT_TIERS.includes(r.tier);
 
   let groupsHtml = '';
   r.groups.forEach(g => {
@@ -167,7 +175,7 @@ export function generateB2CDetailReportHTML(lead) {
 
   const body = `
     <div style="text-align:center; margin:20px 0 28px; padding:20px; background:#f8f5f2; border-radius:8px;">
-      <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:1px;">${esc(modeLabel)} · ${r.lines.length} позиций</div>
+      <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:1px;">${esc(heading)} · ${r.lines.length} позиций</div>
       <div style="font-size:28px; font-weight:800; color:#B95C38; margin-top:6px;">${formatRubFull(r.totals.grand)}</div>
       <div style="font-size:13px; color:#6b7280; margin-top:4px;">${fmtNum(r.perM2)} ₽/м²</div>
     </div>
@@ -175,9 +183,9 @@ export function generateB2CDetailReportHTML(lead) {
     <table style="margin-bottom:20px;">
       <tr>
         <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Площадь</span><br><strong>${esc(inp.area)} м²</strong></td>
-        <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Комнат</span><br><strong>${esc(inp.rooms)}</strong></td>
+        ${showRoomsWindows ? `<td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Комнат</span><br><strong>${esc(inp.rooms)}</strong></td>` : ''}
         <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Санузлов</span><br><strong>${esc(inp.sanitary)}</strong></td>
-        <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Окон</span><br><strong>${esc(inp.windows)}</strong></td>
+        ${showRoomsWindows ? `<td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Окон</span><br><strong>${esc(inp.windows)}</strong></td>` : ''}
       </tr>
     </table>
 

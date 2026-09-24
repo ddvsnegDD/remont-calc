@@ -48,7 +48,20 @@ export default function B2CResultDetailPage() {
 
   const r = lead.result;
   const inp = r.inputs;
-  const modeLabel = r.mode === 'whitebox' ? 'WhiteBox' : 'Полная отделка';
+
+  // Режим показываем только на уровнях, где он влияет на состав и человек его
+  // выбирал. На косметическом и премиуме он задан жёстко — см. MODE_LOCKED_TIERS
+  // в B2CDetailPage.jsx, часть 7. Список дублируется в estimateReport.js
+  // (generateB2CDetailReportHTML) — правка одного места не забывает второе.
+  const MODE_SHOWN_TIERS = ['capital', 'euro'];
+  const modeLabel = r.mode === 'whitebox' ? 'White Box' : 'Полная отделка';
+  const heading = MODE_SHOWN_TIERS.includes(r.tier)
+    ? `Детальная смета · ${r.tierLabel} · ${modeLabel}`
+    : `Детальная смета · ${r.tierLabel}`;
+
+  // Те же уровни, что ROOMS_WINDOWS_IRRELEVANT_TIERS в B2CDetailPage.jsx (часть 7).
+  const ROOMS_WINDOWS_IRRELEVANT_TIERS = ['cosmetic'];
+  const showRoomsWindows = !ROOMS_WINDOWS_IRRELEVANT_TIERS.includes(r.tier);
 
   return (
     <PageLayout>
@@ -57,7 +70,7 @@ export default function B2CResultDetailPage() {
           <div className="quiz-card">
             {/* Hero */}
             <div className="result-hero">
-              <div className="result-label">Детальная смета · {modeLabel}</div>
+              <div className="result-label">{heading}</div>
               <div className="result-price"><span className="accent">{formatRub(r.totals.grand)}</span></div>
               <div style={{ fontSize: 16, color: C.gray500, marginTop: 4 }}>
                 {r.perM2.toLocaleString('ru-RU')} ₽/м² · {r.lines.length} позиций
@@ -81,9 +94,9 @@ export default function B2CResultDetailPage() {
             {/* Meta */}
             <div className="result-meta" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
               <div><div className="meta-item-label">Площадь</div><div className="meta-item-value">{inp.area} м²</div></div>
-              <div><div className="meta-item-label">Комнат</div><div className="meta-item-value">{inp.rooms}</div></div>
+              {showRoomsWindows && <div><div className="meta-item-label">Комнат</div><div className="meta-item-value">{inp.rooms}</div></div>}
               <div><div className="meta-item-label">Санузлов</div><div className="meta-item-value">{inp.sanitary}</div></div>
-              <div><div className="meta-item-label">Окон</div><div className="meta-item-value">{inp.windows}</div></div>
+              {showRoomsWindows && <div><div className="meta-item-label">Окон</div><div className="meta-item-value">{inp.windows}</div></div>}
             </div>
 
             {/* Bar */}

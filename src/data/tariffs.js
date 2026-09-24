@@ -5,6 +5,7 @@ export const PLANS = {
   club_monthly: { id: 'club_monthly', tier: 'club', price: 99,   days: 30,  label: 'Клуб РПКМ · 1 месяц' },
   club_yearly:  { id: 'club_yearly',  tier: 'club', price: 990,  days: 365, label: 'Клуб РПКМ · 1 год' },
   pro_monthly:  { id: 'pro_monthly',  tier: 'pro',  price: 2900, days: 30,  label: 'РПКМ PRO · 1 месяц' },
+  pro_trial:    { id: 'pro_trial',    tier: 'pro',  price: 0,    days: 7,   label: 'РПКМ PRO · пробные 7 дней' },
 };
 
 export const TIER_LABEL = { club: 'Клуб', pro: 'PRO' };

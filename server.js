@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { resolve, join } from 'path';
 import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
-import { PLANS, tierOf } from './src/data/tariffs.js';
+import { PLANS, tierOf, daysOf } from './src/data/tariffs.js';
 
 const app = express();
 app.set('trust proxy', 1); // за Nginx reverse-proxy (VPS): корректный req.ip/req.protocol и secure-кука по HTTPS
@@ -189,14 +189,18 @@ app.get('/api/subscription/status', authMiddleware, async (req, res) => {
   }
 });
 
-// Активировать триал (только по кнопке «Попробовать 14 дней»)
+// Активировать триал — физлицу клубный на 14 дней, профессионалу pro_trial на 7
 app.post('/api/subscription/trial', authMiddleware, async (req, res) => {
   try {
     const user = await findUserByEmail(req.user.email);
-    if (user.role === 'b2b') return res.status(400).json({ ok: false, error: 'Триал только для физических лиц' });
-    const sub = await createTrialSubscription(user.id);
-    if (!sub) return res.json({ ok: false, error: 'Триал уже был использован' });
-    res.json({ ok: true, subscription: { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } });
+    const plan = user.role === 'b2b' ? 'pro_trial' : 'trial';
+    const result = await createTrialSubscription(user.id, plan, daysOf(plan));
+    if (!result.created) {
+      const error = result.reason === 'active' ? 'У вас уже есть активная подписка' : 'Пробный доступ уже был использован';
+      return res.json({ ok: false, error });
+    }
+    const sub = result.subscription;
+    res.json({ ok: true, plan: sub.plan, subscription: { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } });
   } catch (err) {
     console.error('trial error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка' });

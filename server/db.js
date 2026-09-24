@@ -119,21 +119,26 @@ export async function getActiveSubscription(userId) {
   return rows[0] || null;
 }
 
-export async function createTrialSubscription(userId) {
+// План и срок решает вызывающий (server.js, у которого есть src/data/tariffs.js) —
+// эта функция только слой доступа к БД и не импортирует ничего из src/.
+export async function createTrialSubscription(userId, plan, days) {
   const existing = await getActiveSubscription(userId);
-  if (existing) return existing;
-  // Check if user ever had a trial
+  if (existing) return { created: false, reason: 'active', subscription: existing };
+
+  // Пробный доступ даётся один раз на аккаунт, независимо от плана: и клубный,
+  // и профессиональный пишутся со status = 'trial'.
   const { rows: past } = await pool.query(
     `SELECT id FROM subscriptions WHERE user_id = $1 AND status = 'trial' LIMIT 1`,
     [userId]
   );
-  if (past.length > 0) return null; // trial already used
-  const expires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+  if (past.length > 0) return { created: false, reason: 'used' };
+
+  const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
   const { rows } = await pool.query(
-    `INSERT INTO subscriptions (user_id, plan, status, expires_at) VALUES ($1, 'trial', 'trial', $2) RETURNING *`,
-    [userId, expires]
+    `INSERT INTO subscriptions (user_id, plan, status, expires_at) VALUES ($1, $2, 'trial', $3) RETURNING *`,
+    [userId, plan, expires]
   );
-  return rows[0];
+  return { created: true, subscription: rows[0] };
 }
 
 // --- Grant subscription manually (admin) ---

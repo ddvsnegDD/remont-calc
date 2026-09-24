@@ -4,6 +4,7 @@ import PageLayout from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { calculateB2C, validateNumber } from '../lib/calculator';
+import { tierTitle } from '../data/tierNames';
 
 // Отправка расчёта письмом. Навигацию не блокирует: результат пользователь
 // видит на экране независимо от того, дошло письмо или нет.
@@ -50,8 +51,9 @@ export default function B2CQuizPage() {
   const [step, setStep] = useState(0);
   const [searchParams] = useSearchParams();
   const tierFromUrl = searchParams.get('tier');
-  const validTiers = ['cosmetic', 'capital', 'euro', 'premium'];
-  const initialTier = validTiers.includes(tierFromUrl) ? tierFromUrl : 'capital';
+  const validTiers = ['cosmetic', 'capital', 'euro', 'euro_top', 'premium'];
+  const tierFromUrlValid = validTiers.includes(tierFromUrl);
+  const initialTier = tierFromUrlValid ? tierFromUrl : 'capital';
   const [answers, setAnswers] = useState({ area: 60, repair_type: initialTier });
   const [contactData, setContactData] = useState({ name: '', email: '', agree: false });
   const [formError, setFormError] = useState('');
@@ -148,6 +150,17 @@ export default function B2CQuizPage() {
 
   const stepOptions = current?.optionsFor ? current.optionsFor(answers) : current?.options;
 
+  // Плашки уже пройденных шагов — по шагу берётся title (cards) или label (options),
+  // площадь форматируется отдельно. Шаг contact в строку не попадает.
+  const answeredLabel = (s) => {
+    if (s.type === 'area') return `${answers.area} м²`;
+    const opts = s.optionsFor ? s.optionsFor(answers) : s.options;
+    const opt = opts?.find(o => o.value === answers[s.id]);
+    if (!opt) return null;
+    return s.type === 'cards' ? opt.title : opt.label;
+  };
+  const contextChips = visibleSteps.slice(0, step).map(s => answeredLabel(s)).filter(Boolean);
+
   return (
     <PageLayout>
       <div style={{ padding: "100px 0 60px", background: C.offWhite, minHeight: "100vh" }}>
@@ -155,8 +168,16 @@ export default function B2CQuizPage() {
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.gray500, marginBottom: 8 }}>
             <span>Шаг {step + 1} из {total}</span><span>~3 минуты</span>
           </div>
-          <div style={{ height: 4, background: C.gray200, borderRadius: 2, marginBottom: 24 }}>
+          <div style={{ height: 4, background: C.gray200, borderRadius: 2, marginBottom: 16 }}>
             <div style={{ height: "100%", background: C.terra, borderRadius: 2, width: `${progress}%`, transition: "width 0.4s ease" }} />
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 24 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: C.terra, background: C.terraBg, padding: "4px 10px", borderRadius: 20 }}>
+              {tierTitle(answers.repair_type)}{!tierFromUrlValid && ' · по умолчанию'}
+            </span>
+            {contextChips.map((label, i) => (
+              <span key={i} style={{ fontSize: 12, color: C.gray500, background: C.gray100, padding: "4px 10px", borderRadius: 20 }}>{label}</span>
+            ))}
           </div>
           <div style={{ background: "#fff", borderRadius: 20, padding: "28px 24px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", animation: "fadeInUp 0.4s ease" }}>
             <h2 className="font-golos" style={{ fontSize: 22, fontWeight: 700, color: C.graphiteLight, marginBottom: 6 }}>{current.title}</h2>

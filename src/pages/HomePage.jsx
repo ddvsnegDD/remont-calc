@@ -219,10 +219,23 @@ function PricingSection() {
               <div style={{ position: "absolute", inset: 0, background: t.hasImage ? `url('/images/premium-bg.jpeg') center/cover no-repeat, ${t.gradient}` : t.gradient, transition: "transform 0.7s cubic-bezier(0.16,1,0.3,1)" }} />
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to top, rgba(22,22,24,0.95) 0%, transparent 100%)", opacity: 0.8 }} />
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 28 }}>
-                {t.featured && <span style={{ display: "inline-block", padding: "4px 12px", background: C.terra, color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 700, marginBottom: 12 }}>ПОПУЛЯРНЫЙ</span>}
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8 }}>{tierTitle(t.tier)}</div>
-                <div className="font-golos" style={{ fontSize: 30, fontWeight: 800, color: "#fff", lineHeight: 1.15 }}><span style={{ whiteSpace: "nowrap" }}>{price}</span> <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.6)" }}>тыс ₽/м²</span></div>
-                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", margin: "10px 0 6px", lineHeight: 1.5 }}>{t.desc}</p>
+                {/* Высота бейджа зарезервирована всегда — иначе строка цены на карточке
+                    без «Популярный» стоит выше, чем на карточке с ним. */}
+                <div style={{ height: 22, marginBottom: 12 }}>
+                  {t.featured && <span style={{ display: "inline-block", padding: "4px 12px", background: C.terra, color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>ПОПУЛЯРНЫЙ</span>}
+                </div>
+                {/* Название занимает одну строку («Премиум») или две («Старт · Косметический») —
+                    минимальная высота под две строки держит цену на одной высоте на всех карточках. */}
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8, lineHeight: 1.3, minHeight: "2.6em" }}>{tierTitle(t.tier)}</div>
+                {/* Единица измерения всегда на отдельной строке под числом — не только
+                    когда не влезает на трёхзначных ценах: так высота этого блока
+                    одинакова на всех пяти карточках, а не только там, где повезло с длиной числа. */}
+                <div className="font-golos" style={{ fontSize: 30, fontWeight: 800, color: "#fff", lineHeight: 1.15, whiteSpace: "nowrap" }}>{price}</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>тыс ₽/м²</div>
+                {/* Тот же приём для описания — тексты разной длины иначе сдвигают срок
+                    и кнопку под собой, а вместе с ними и цену на следующей карточке.
+                    6em = 4 строки при line-height 1.5 — фактический максимум среди пяти описаний. */}
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", margin: "10px 0 6px", lineHeight: 1.5, minHeight: "6em" }}>{t.desc}</p>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginBottom: 16 }}><Clock size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />{t.term}</div>
                 <Btn variant="outlineLight" style={{ padding: "10px 20px", fontSize: 13, width: "100%", borderRadius: 10 }}>Выбрать <ArrowRight size={14} /></Btn>
               </div>

@@ -43,11 +43,23 @@ export default function ClubPage() {
 
   const toggleFaq = useCallback((i) => { setOpenFaq(prev => prev === i ? -1 : i); }, []);
 
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 5000);
-    return () => clearTimeout(t);
-  }, [notice]);
+  // Ответ на действие с подпиской/консультацией показывается рядом с кнопкой,
+  // а не тостом внизу экрана: тост пропадал через 5 секунд на кнопке, которая
+  // в первом экране, а объяснение — полутора экранами ниже. notice.type решает,
+  // у какой именно кнопки показать ответ (их несколько на странице).
+  const renderNotice = (type) => {
+    if (!notice || notice.type !== type) return null;
+    const isError = notice.kind === 'error';
+    return (
+      <div style={{
+        marginTop: 10, padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+        background: isError ? '#fff5f5' : '#e6f5ec', color: isError ? '#c53030' : '#16794a',
+        border: `1px solid ${isError ? '#feb2b2' : '#b9e4c9'}`,
+      }}>
+        {isError ? '⚠ ' : '✓ '}{notice.text}
+      </div>
+    );
+  };
 
   // Load consultations counter from localStorage
   useEffect(() => {
@@ -59,7 +71,7 @@ export default function ClubPage() {
 
   const handleConsultation = async () => {
     if (consultationsLeft <= 0) {
-      setNotice('Все консультации в этом месяце использованы');
+      setNotice({ type: 'consultation', kind: 'error', text: 'Все консультации в этом месяце использованы' });
       return;
     }
     try {
@@ -75,17 +87,17 @@ export default function ClubPage() {
         const used = parseInt(localStorage.getItem(key) || '0', 10);
         localStorage.setItem(key, String(used + 1));
         setConsultationsLeft(Math.max(0, 2 - used));
-        setNotice('Запись на консультацию отправлена! Инженер свяжется с вами в течение 24 часов.');
+        setNotice({ type: 'consultation', kind: 'success', text: 'Запись на консультацию отправлена! Инженер свяжется с вами в течение 24 часов.' });
       } else {
-        setNotice(data.error || 'Ошибка записи на консультацию');
+        setNotice({ type: 'consultation', kind: 'error', text: data.error || 'Ошибка записи на консультацию' });
       }
     } catch {
-      setNotice('Ошибка связи с сервером');
+      setNotice({ type: 'consultation', kind: 'error', text: 'Ошибка связи с сервером' });
     }
   };
 
   const handlePay = async () => {
-    setNotice('Оплата временно недоступна: подключаем ЮKassa. Напишите на ddv1121@yandex.ru, откроем доступ вручную.');
+    setNotice({ type: 'pay', kind: 'error', text: 'Оплата временно недоступна: подключаем ЮKassa. Напишите на ddv1121@yandex.ru, откроем доступ вручную.' });
   };
 
   const handleTrial = async () => {
@@ -97,14 +109,14 @@ export default function ClubPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setNotice(data.plan === 'pro_trial' ? 'PRO на 7 дней активирован!' : 'Триал на 14 дней активирован!');
+        setNotice({ type: 'trial', kind: 'success', text: data.plan === 'pro_trial' ? 'PRO на 7 дней активирован!' : 'Триал на 14 дней активирован!' });
         markTrialUsed();
         refreshSubscription();
       } else {
-        setNotice(data.error || 'Ошибка активации триала');
+        setNotice({ type: 'trial', kind: 'error', text: data.error || 'Ошибка активации триала' });
       }
     } catch {
-      setNotice('Ошибка активации триала');
+      setNotice({ type: 'trial', kind: 'error', text: 'Ошибка активации триала' });
     }
   };
 
@@ -117,13 +129,13 @@ export default function ClubPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setNotice('Подписка отменена, доступ прекращён. Для возврата за неиспользованные дни напишите на ddv1121@yandex.ru.');
+        setNotice({ type: 'cancel', kind: 'success', text: 'Подписка отменена, доступ прекращён. Для возврата за неиспользованные дни напишите на ddv1121@yandex.ru.' });
         refreshSubscription();
       } else {
-        setNotice(data.error || 'Ошибка отмены');
+        setNotice({ type: 'cancel', kind: 'error', text: data.error || 'Ошибка отмены' });
       }
     } catch {
-      setNotice('Ошибка связи с сервером');
+      setNotice({ type: 'cancel', kind: 'error', text: 'Ошибка связи с сервером' });
     }
   };
 
@@ -159,6 +171,7 @@ export default function ClubPage() {
                       <Btn variant="outline" size="lg" onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}>Тарифы</Btn>
                     </>
                   )}
+                  {renderNotice('trial')}
                 </div>
                 {!hasAccess && !user && <div style={{ fontSize: 13, color: C.gray500, marginTop: 10 }}>Без карты. Триал 14 дней при нажатии кнопки.</div>}
                 <div className="hero-stats" style={{ marginTop: 28 }}>
@@ -203,6 +216,7 @@ export default function ClubPage() {
                     ) : (
                       <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={handleTrial}>{isProUser ? 'Попробовать PRO 7 дней бесплатно' : 'Попробовать 14 дней бесплатно'}</Btn>
                     )}
+                    {renderNotice('trial')}
                   </>
                 ) : (
                   <>
@@ -259,6 +273,7 @@ export default function ClubPage() {
                     ) : (
                       <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_monthly')} disabled={payLoading}>Оплатить</Btn>
                     )}
+                    {renderNotice('pay')}
                   </div>
                 );
               })()}
@@ -276,6 +291,7 @@ export default function ClubPage() {
                     ) : (
                       <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_yearly')} disabled={payLoading}>Оплатить</Btn>
                     )}
+                    {renderNotice('pay')}
                   </div>
                 );
               })()}
@@ -316,6 +332,7 @@ export default function ClubPage() {
                   <p>В этом месяце доступно: <strong>{consultationsLeft} из 3</strong> консультаций.</p>
                   <Btn variant="terra" onClick={handleConsultation} disabled={consultationsLeft <= 0}>Записаться</Btn>
                   <div style={{ fontSize: 12, color: C.gray400, marginTop: 8 }}>Осталось {consultationsLeft} консультаций</div>
+                  {renderNotice('consultation')}
                 </div>
                 <div className="club-card">
                   <h3>Управление подпиской</h3>
@@ -331,6 +348,7 @@ export default function ClubPage() {
                     style={{ marginTop: 12, background: 'none', border: 'none', color: '#dc3545', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
                     Отменить подписку
                   </button>
+                  {renderNotice('cancel')}
                 </div>
               </div>
             </div>
@@ -354,12 +372,6 @@ export default function ClubPage() {
             </div>
           </div>
         </section>
-
-        {notice && (
-          <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: C.graphite, color: '#fff', padding: '12px 24px', borderRadius: 10, fontSize: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', maxWidth: 400, textAlign: 'center' }}>
-            {notice}
-          </div>
-        )}
 
         <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onSuccess={() => refreshSubscription()} />
       </main>

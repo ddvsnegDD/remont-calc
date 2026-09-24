@@ -5,6 +5,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { formatRub, formatDays } from '../lib/calculator';
 import { generateB2CSummaryReportHTML, openReportWindow } from '../lib/estimateReport';
+import { tierTitle } from '../data/tierNames';
 
 export default function B2CResultPage() {
   const navigate = useNavigate();
@@ -98,7 +99,7 @@ export default function B2CResultPage() {
             <h3 style={{ marginTop: 28, marginBottom: 12 }}>Параметры расчёта</h3>
             <div className="result-meta">
               <div><div className="meta-item-label">Площадь</div><div className="meta-item-value">{r.area} м²</div></div>
-              <div><div className="meta-item-label">Категория</div><div className="meta-item-value">{r.tierLabel}</div></div>
+              <div><div className="meta-item-label">Категория</div><div className="meta-item-value">{tierTitle(r.tier)}</div></div>
               <div><div className="meta-item-label">Цена за м²</div><div className="meta-item-value">{r.lowPerM2.toLocaleString('ru-RU')}–{r.highPerM2.toLocaleString('ru-RU')} ₽</div></div>
             </div>
 

@@ -5,6 +5,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { generateB2CDetailReportHTML, openReportWindow } from '../lib/estimateReport';
 import { positions } from '../lib/plural';
+import { tierTitle } from '../data/tierNames';
 
 function formatRub(n) {
   if (!Number.isFinite(n)) return '—';
@@ -57,8 +58,8 @@ export default function B2CResultDetailPage() {
   const MODE_SHOWN_TIERS = ['capital', 'euro'];
   const modeLabel = r.mode === 'whitebox' ? 'White Box' : 'Полная отделка';
   const heading = MODE_SHOWN_TIERS.includes(r.tier)
-    ? `Детальная смета · ${r.tierLabel} · ${modeLabel}`
-    : `Детальная смета · ${r.tierLabel}`;
+    ? `Детальная смета · ${tierTitle(r.tier)} · ${modeLabel}`
+    : `Детальная смета · ${tierTitle(r.tier)}`;
 
   // Те же уровни, что ROOMS_WINDOWS_IRRELEVANT_TIERS в B2CDetailPage.jsx (часть 7).
   const ROOMS_WINDOWS_IRRELEVANT_TIERS = ['cosmetic'];

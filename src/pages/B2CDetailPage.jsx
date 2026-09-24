@@ -9,6 +9,7 @@ import { SpecCalc } from '../lib/spec-calculator';
 import { validateNumber, validatePositiveNumber, validateInteger } from '../lib/calculator';
 import { PLANS, formatPrice } from '../data/tariffs';
 import { toSpecTier } from '../data/specTier';
+import { tierTitle } from '../data/tierNames';
 
 // Источник свежих данных для сида формы: детальный ручной расчёт (все семь полей)
 // или быстрая вилка квиза (только tier/area/mode/replan). Timestamp отсутствует
@@ -174,10 +175,10 @@ export default function B2CDetailPage() {
   }, [name, phone, email, agree, effectiveMode, tier, effectiveReplan, area, sanitary, windows, rooms, navigate, fieldErrors]);
 
   const tierCards = [
-    { key: 'cosmetic', label: 'Косметический', sub: 'Обновление без вскрытия: шпатлёвка в один слой, покраска, замена пола и оконечки. Двери, окна, плитка на стенах и инженерия не трогаются.' },
-    { key: 'capital', label: 'Капитальный', sub: 'Стены под штукатурку, без утепления. Подготовка поверхностей, финишные материалы и оконечка эконом-сегмента.' },
-    { key: 'euro', label: 'Евроремонт', sub: 'Базовый набор по тендерным расценкам РПКМ: полный цикл, стены обшиваются ГКЛ с утеплением, подвесные потолки.' },
-    { key: 'premium', label: 'Премиум', sub: 'Полная смета: итальянские материалы, умный дом, мебель, техника.' },
+    { key: 'cosmetic', sub: 'Обновление без вскрытия: шпатлёвка в один слой, покраска, замена пола и оконечки. Двери, окна, плитка на стенах и инженерия не трогаются.' },
+    { key: 'capital', sub: 'Стены под штукатурку, без утепления. Подготовка поверхностей, финишные материалы и оконечка эконом-сегмента.' },
+    { key: 'euro', sub: 'Базовый набор по тендерным расценкам РПКМ: полный цикл, стены обшиваются ГКЛ с утеплением, подвесные потолки.' },
+    { key: 'premium', sub: 'Полная смета: итальянские материалы, умный дом, мебель, техника.' },
   ];
   const modeCards = [
     { key: 'full', label: 'Без отделки / вторичка', sub: 'Голые стены или старая отделка под снос. Полный цикл работ.' },
@@ -258,7 +259,7 @@ export default function B2CDetailPage() {
               <div className="options-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
                 {tierCards.map(t => (
                   <button key={t.key} type="button" className={`option-card${tier === t.key ? ' selected' : ''}`} onClick={() => setTier(t.key)}>
-                    <div className="option-card-title">{t.label}</div>
+                    <div className="option-card-title">{tierTitle(t.key)}</div>
                     <div className="option-card-sub">{t.sub}</div>
                   </button>
                 ))}

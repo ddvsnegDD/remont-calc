@@ -1,6 +1,7 @@
 // Генерация печатных HTML-отчётов сметы (печать / сохранение в PDF)
 import { formatRubFull, formatDays } from './calculator';
 import { positions } from './plural';
+import { tierTitle } from '../data/tierNames';
 
 function esc(str) {
   if (str === null || str === undefined) return '';
@@ -104,7 +105,7 @@ export function generateB2CSummaryReportHTML(lead) {
     <table style="margin-bottom:20px;">
       <tr>
         <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Площадь</span><br><strong>${esc(r.area)} м²</strong></td>
-        <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Категория</span><br><strong>${esc(r.tierLabel)}</strong></td>
+        <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Категория</span><br><strong>${esc(tierTitle(r.tier))}</strong></td>
         <td style="border:1px solid #d1d5db; padding:8px 12px;"><span style="color:#6b7280;">Цена за м²</span><br><strong>${fmtNum(r.lowPerM2)}–${fmtNum(r.highPerM2)} ₽</strong></td>
       </tr>
     </table>
@@ -137,7 +138,7 @@ export function generateB2CDetailReportHTML(lead) {
   // B2CResultDetailPage.jsx (часть 7/8) — правка одного места не забывает второе.
   const MODE_SHOWN_TIERS = ['capital', 'euro'];
   const modeLabel = r.mode === 'whitebox' ? 'White Box' : 'Полная отделка';
-  const heading = MODE_SHOWN_TIERS.includes(r.tier) ? `${r.tierLabel} · ${modeLabel}` : r.tierLabel;
+  const heading = MODE_SHOWN_TIERS.includes(r.tier) ? `${tierTitle(r.tier)} · ${modeLabel}` : tierTitle(r.tier);
 
   const ROOMS_WINDOWS_IRRELEVANT_TIERS = ['cosmetic'];
   const showRoomsWindows = !ROOMS_WINDOWS_IRRELEVANT_TIERS.includes(r.tier);
@@ -245,7 +246,7 @@ export function generateB2BReportHTML({ projectName, timestamp, r, specResult, s
 
     specSection = `
       <div class="page-break"></div>
-      <h2 style="font-size:15px; margin:20px 0 4px;">Детальная спецификация · ${esc(specResult.tierLabel)} · ${positions(specResult.lines.length)}</h2>
+      <h2 style="font-size:15px; margin:20px 0 4px;">Детальная спецификация · ${esc(tierTitle(specResult.tier))} · ${positions(specResult.lines.length)}</h2>
       <div style="font-size:13px; color:#6b7280; margin-bottom:10px;">${formatRubFull(specResult.totals.grand)} (${fmtNum(specResult.perM2)} ₽/м²)</div>
       <table>
         <thead><tr>

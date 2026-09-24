@@ -119,17 +119,22 @@ export async function getActiveSubscription(userId) {
   return rows[0] || null;
 }
 
+// Пробные планы — по plan, а не по status: status переписывают cancelSubscription
+// и grantSubscription ('cancelled' / 'active'), а факт «триал брали» должен это
+// пережить (часть 4 TASK_trial_b2b.md). db.js не импортирует PLANS из src/ (часть
+// 1.3) — список захардкожен сознательно; новый пробный план дописывается сюда же.
+const TRIAL_PLANS = ['trial', 'pro_trial'];
+
 // План и срок решает вызывающий (server.js, у которого есть src/data/tariffs.js) —
 // эта функция только слой доступа к БД и не импортирует ничего из src/.
 export async function createTrialSubscription(userId, plan, days) {
   const existing = await getActiveSubscription(userId);
   if (existing) return { created: false, reason: 'active', subscription: existing };
 
-  // Пробный доступ даётся один раз на аккаунт, независимо от плана: и клубный,
-  // и профессиональный пишутся со status = 'trial'.
+  // Пробный доступ даётся один раз на аккаунт, независимо от плана.
   const { rows: past } = await pool.query(
-    `SELECT id FROM subscriptions WHERE user_id = $1 AND status = 'trial' LIMIT 1`,
-    [userId]
+    `SELECT id FROM subscriptions WHERE user_id = $1 AND plan = ANY($2::text[]) LIMIT 1`,
+    [userId, TRIAL_PLANS]
   );
   if (past.length > 0) return { created: false, reason: 'used' };
 
@@ -141,12 +146,12 @@ export async function createTrialSubscription(userId, plan, days) {
   return { created: true, subscription: rows[0] };
 }
 
-// Был ли когда-либо триал на аккаунте — тот же запрос, что и внутри
+// Был ли когда-либо триал на аккаунте — тот же признак, что и внутри
 // createTrialSubscription, нужен отдельно для /api/auth/me (часть 3 TASK_trial_b2b.md).
 export async function hasUsedTrial(userId) {
   const { rows } = await pool.query(
-    `SELECT id FROM subscriptions WHERE user_id = $1 AND status = 'trial' LIMIT 1`,
-    [userId]
+    `SELECT id FROM subscriptions WHERE user_id = $1 AND plan = ANY($2::text[]) LIMIT 1`,
+    [userId, TRIAL_PLANS]
   );
   return rows.length > 0;
 }

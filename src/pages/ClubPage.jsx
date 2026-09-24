@@ -216,7 +216,6 @@ export default function ClubPage() {
                     ) : (
                       <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={handleTrial}>{isProUser ? 'Попробовать PRO 7 дней бесплатно' : 'Попробовать 14 дней бесплатно'}</Btn>
                     )}
-                    {renderNotice('trial')}
                   </>
                 ) : (
                   <>
@@ -273,7 +272,6 @@ export default function ClubPage() {
                     ) : (
                       <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_monthly')} disabled={payLoading}>Оплатить</Btn>
                     )}
-                    {renderNotice('pay')}
                   </div>
                 );
               })()}
@@ -291,11 +289,11 @@ export default function ClubPage() {
                     ) : (
                       <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_yearly')} disabled={payLoading}>Оплатить</Btn>
                     )}
-                    {renderNotice('pay')}
                   </div>
                 );
               })()}
             </div>
+            {notice?.type === 'pay' && <div style={{ maxWidth: 600, margin: '0 auto' }}>{renderNotice('pay')}</div>}
             {!user && (
               <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: C.gray500 }}>
                 Для оплаты необходимо <button onClick={() => setLoginOpen(true)} style={{ background: 'none', border: 'none', color: C.terra, fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>войти или зарегистрироваться</button>

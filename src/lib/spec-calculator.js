@@ -19,6 +19,8 @@ const TIER_MULTIPLIERS = {
     windows:     { wp: 1.00, mp: 1.00 },
   },
   euro: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
+  // Набор SPEC_ITEMS_COSMETIC уже собран под уровень — множители ему не нужны.
+  cosmetic: { finish: { wp: 1.0, mp: 1.0 }, sanitary: { wp: 1.0, mp: 1.0 }, engineering: { wp: 1.0, mp: 1.0 }, rough: { wp: 1.0, mp: 1.0 }, doors: { wp: 1.0, mp: 1.0 }, windows: { wp: 1.0, mp: 1.0 }, prep: { wp: 1.0, mp: 1.0 }, terminal: { wp: 1.0, mp: 1.0 } },
 };
 
 const PREMIUM_DIRECT = { wp: 1.0, mp: 1.0 };
@@ -68,9 +70,10 @@ export const SpecCalc = {
     const isPremium = tier === 'premium';
     const tierKey = isPremium ? 'premium' : (TIER_MULTIPLIERS[tier] ? tier : 'capital');
 
-    const isFullMode = !isPremium && mode !== 'whitebox';
+    const isFullMode = !isPremium && tierKey !== 'cosmetic' && mode !== 'whitebox';
     let items = isPremium
       ? SPEC_DATA.premium
+      : (tierKey === 'cosmetic') ? SPEC_DATA.cosmetic
       : (mode === 'whitebox') ? SPEC_DATA.whitebox : SPEC_DATA.full;
 
     // Смена состава по уровню — только для full (whitebox не трогаем, см. «Не трогать»

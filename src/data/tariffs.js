@@ -13,6 +13,7 @@ export const TIER_LABEL = { club: 'Клуб', pro: 'PRO' };
 // Legacy-планы из БД (до разделения тарифов). Не мигрируем — трактуем на лету.
 const LEGACY_TIER = { monthly: 'club', yearly: 'club', trial: 'club' };
 const LEGACY_DAYS = { monthly: 30, yearly: 365, trial: 14 };
+const LEGACY_LABEL = { monthly: 'Клуб · месяц', yearly: 'Клуб · год', trial: 'Триал (14 дней)' };
 
 // Уровень плана: 'club' | 'pro' | null
 export function tierOf(plan) {
@@ -25,6 +26,13 @@ export function tierOf(plan) {
 export function daysOf(plan) {
   if (PLANS[plan]) return PLANS[plan].days;
   return LEGACY_DAYS[plan] || 30;
+}
+
+// Отображаемое название плана: для актуальных — из PLANS[plan].label,
+// для legacy-записей (до разделения тарифов) — из LEGACY_LABEL.
+export function labelOf(plan) {
+  if (PLANS[plan]) return PLANS[plan].label;
+  return LEGACY_LABEL[plan] || 'План';
 }
 
 // «2 900» с разделителем разрядов

@@ -5,7 +5,7 @@ import LoginModal from '../components/LoginModal';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
-import { PLANS, formatPrice } from '../data/tariffs';
+import { PLANS, formatPrice, labelOf } from '../data/tariffs';
 
 const CLUB_M = PLANS.club_monthly.price; // 99
 const CLUB_Y = PLANS.club_yearly.price;  // 990
@@ -192,7 +192,7 @@ export default function ClubPage() {
                         <div style={{ fontSize: 14, color: C.gray500, marginBottom: 12 }}>до {expiresLabel}</div>
                       )}
                       <div style={{ fontSize: 13, color: C.gray500, marginBottom: 6 }}>
-                        План: {subscription?.status === 'trial' ? 'Триал (14 дней)' : (subscription?.plan === 'club_yearly' || subscription?.plan === 'yearly') ? `Клуб · год (${formatPrice(CLUB_Y)} ₽/год)` : `Клуб · месяц (${formatPrice(CLUB_M)} ₽/мес)`}
+                        План: {labelOf(subscription?.plan)}
                       </div>
                     </div>
                     <Btn variant="terra" size="lg" style={{ width: '100%' }} onClick={() => navigate('/b2c-detail')}>Сделать детальную смету</Btn>
@@ -340,7 +340,7 @@ export default function ClubPage() {
                       : `Активна до ${expiresLabel || '—'}`}
                   </p>
                   <div style={{ fontSize: 13, color: C.gray400, marginTop: 8 }}>
-                    План: {subscription?.status === 'trial' ? 'Триал' : (subscription?.plan === 'club_yearly' || subscription?.plan === 'yearly') ? 'Клуб · год' : 'Клуб · месяц'}
+                    План: {labelOf(subscription?.plan)}
                   </div>
                   <button onClick={handleCancel}
                     style={{ marginTop: 12, background: 'none', border: 'none', color: '#dc3545', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>

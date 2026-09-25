@@ -13,7 +13,7 @@ export const TIER_LABEL = { club: 'Клуб', pro: 'PRO' };
 // Legacy-планы из БД (до разделения тарифов). Не мигрируем — трактуем на лету.
 const LEGACY_TIER = { monthly: 'club', yearly: 'club', trial: 'club' };
 const LEGACY_DAYS = { monthly: 30, yearly: 365, trial: 14 };
-const LEGACY_LABEL = { monthly: 'Клуб · месяц', yearly: 'Клуб · год', trial: 'Триал (14 дней)' };
+const LEGACY_LABEL = { monthly: 'Клуб РПКМ · 1 месяц', yearly: 'Клуб РПКМ · 1 год', trial: 'Триал (14 дней)' };
 
 // Уровень плана: 'club' | 'pro' | null
 export function tierOf(plan) {

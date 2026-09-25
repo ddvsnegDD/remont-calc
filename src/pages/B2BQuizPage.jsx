@@ -121,17 +121,6 @@ export default function B2BQuizPage() {
     return true;
   }, [answers, current]);
 
-  const next = useCallback(() => {
-    if (current.type === 'area' || current.type === 'number') {
-      if (!commitField()) return;
-    } else if (!validate()) {
-      alert(current.type === 'text' ? 'Введите название проекта' : 'Заполните поле');
-      return;
-    }
-    if (step < total - 1) { setStep(s => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-    else finish();
-  }, [validate, commitField, step, total, current]);
-
   const back = useCallback(() => { if (step > 0) setStep(s => s - 1); }, [step]);
 
   // Сохраняет расчёт на сервере и переходит к результату. Вызывается либо сразу
@@ -166,17 +155,30 @@ export default function B2BQuizPage() {
   // Результат B2B-квиза показывается только вошедшему (иначе не посчитать лимит) —
   // «Решения по умолчанию» TASK_server_storage.md. Незалогиненный видит окно входа,
   // после входа расчёт сохраняется и показывается сам.
-  const finish = useCallback(() => {
+  // finalAnswers — на случай, если answers-state ещё не успел обновиться
+  // (последний шаг — выбор варианта, см. selectOption).
+  const finish = useCallback((finalAnswers) => {
     if (submitting) return;
     if (!user) { setLoginOpen(true); return; }
-    saveAndShow(answers);
+    saveAndShow(finalAnswers || answers);
   }, [user, answers, saveAndShow, submitting]);
+
+  const next = useCallback(() => {
+    if (current.type === 'area' || current.type === 'number') {
+      if (!commitField()) return;
+    } else if (!validate()) {
+      alert(current.type === 'text' ? 'Введите название проекта' : 'Заполните поле');
+      return;
+    }
+    if (step < total - 1) { setStep(s => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    else finish();
+  }, [validate, commitField, step, total, current, finish]);
 
   const selectOption = useCallback((val) => {
     setAnswer(current.id, val);
     if (step < total - 1) { setStep(s => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-    else finish();
-  }, [current, step, total, setAnswer, finish]);
+    else finish({ ...answers, [current.id]: val });
+  }, [current, step, total, setAnswer, finish, answers]);
 
   if (limitHit) {
     return (

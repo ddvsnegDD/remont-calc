@@ -26,6 +26,7 @@ export default function B2BCabinetPage() {
   const { user, subscription, hasPro, loading: authLoading, logout: authLogout } = useAuth();
   const [calcs, setCalcs] = useState([]);
   const [notice, setNotice] = useState(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!notice) return;
@@ -41,25 +42,25 @@ export default function B2BCabinetPage() {
   }, [user, authLoading, navigate]);
 
   // Часть 4 TASK_server_storage.md: расчёты — с сервера, не из localStorage.
+  const loadCalcs = useCallback(async () => {
+    const res = await listCalcs();
+    if (!res.ok) { setLoadError(true); return; }
+    setLoadError(false);
+    setCalcs(res.calcs.map(r => ({
+      id: r.id,
+      timestamp: r.created_at,
+      projectName: r.project_name,
+      kind: r.kind,
+      answers: r.data?.answers,
+      inputs: r.data?.inputs,
+      result: r.data?.result,
+    })));
+  }, []);
+
   useEffect(() => {
-    if (!user) { setCalcs([]); return; }
-    let cancelled = false;
-    (async () => {
-      const res = await listCalcs();
-      if (!cancelled && res.ok) {
-        setCalcs(res.calcs.map(r => ({
-          id: r.id,
-          timestamp: r.created_at,
-          projectName: r.project_name,
-          kind: r.kind,
-          answers: r.data?.answers,
-          inputs: r.data?.inputs,
-          result: r.data?.result,
-        })));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user]);
+    if (!user) { setCalcs([]); setLoadError(false); return; }
+    loadCalcs();
+  }, [user, loadCalcs]);
 
   const handleLogout = useCallback(async () => {
     await authLogout();
@@ -136,7 +137,14 @@ export default function B2BCabinetPage() {
               <strong>NDA активен.</strong> Все расчёты хранятся конфиденциально и не передаются третьим лицам.
             </div>
 
-            {calcs.length === 0 ? (
+            {loadError ? (
+              <div className="history-empty" style={{ padding: 40, textAlign: 'center' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+                <h3 style={{ marginBottom: 6 }}>Не удалось загрузить расчёты</h3>
+                <p style={{ color: C.gray500, marginBottom: 20 }}>Проверьте соединение и попробуйте ещё раз.</p>
+                <Btn variant="outline" onClick={loadCalcs}>Повторить</Btn>
+              </div>
+            ) : calcs.length === 0 ? (
               <div className="history-empty" style={{ padding: 40, textAlign: 'center' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
                 <h3 style={{ marginBottom: 6 }}>Ещё нет расчётов</h3>

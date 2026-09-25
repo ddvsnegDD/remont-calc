@@ -16,7 +16,7 @@ const ROLE_LABEL = {
 
 export default function B2BProfilePage() {
   const navigate = useNavigate();
-  const { user, loading: authLoading, logout: authLogout, subscription } = useAuth();
+  const { user, loading: authLoading, logout: authLogout, subscription, hasPro } = useAuth();
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function B2BProfilePage() {
                   {subscription?.status === 'active' ? 'PRO план' : subscription?.status === 'trial' ? 'Пробный период' : 'Бесплатный план'}
                 </div>
                 <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>
-                  {subscription?.status === 'active' ? 'Полный доступ' : `${FREE_B2B_CALCS_PER_MONTH} расчёт в месяц · базовый PDF`}
+                  {hasPro ? 'Полный доступ' : `${FREE_B2B_CALCS_PER_MONTH} расчёт в месяц · базовый PDF`}
                 </div>
                 {(!subscription || subscription.status === 'free') && (
                   <Link to="/pro" className="btn-link" style={{ fontSize: 12 }}>
@@ -118,8 +118,8 @@ export default function B2BProfilePage() {
                     {subscription?.status === 'active' ? 'PRO' : subscription?.status === 'trial' ? 'TRIAL' : 'FREE'}
                   </div>
                   <span style={{ fontSize: 14, color: C.gray600 }}>
-                    {subscription?.status === 'active' ? 'Полный доступ ко всем функциям'
-                      : subscription?.status === 'trial' ? 'Пробный доступ к PRO'
+                    {hasPro
+                      ? (subscription?.status === 'trial' ? 'Пробный доступ к PRO' : 'Полный доступ ко всем функциям')
                       : `${FREE_B2B_CALCS_PER_MONTH} расчёт в месяц`}
                   </span>
                 </div>

@@ -47,6 +47,42 @@ export async function initDB() {
         amount INTEGER,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS calculations (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        kind         VARCHAR(20) NOT NULL,      -- 'b2b' | 'office'
+        project_name VARCHAR(255),
+        data         JSONB NOT NULL,            -- answers/inputs + result, как сейчас в объекте calc
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS calculations_user_created ON calculations(user_id, created_at);
+
+      CREATE TABLE IF NOT EXISTS checklists (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        checklist_id VARCHAR(50) NOT NULL,
+        state        JSONB NOT NULL,            -- { items, meta }, в photos вместо base64 id фото
+        updated_at   TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (user_id, checklist_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS checklist_photos (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        checklist_id VARCHAR(50) NOT NULL,
+        item_key     VARCHAR(20) NOT NULL,
+        file_name    VARCHAR(100) NOT NULL,     -- случайное имя, не из запроса
+        size_bytes   INTEGER NOT NULL,
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS checklist_photos_user ON checklist_photos(user_id);
+
+      CREATE TABLE IF NOT EXISTS consultations (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at   TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS consultations_user_created ON consultations(user_id, created_at);
     `);
     console.log('DB tables ready');
   } finally {
@@ -184,11 +220,26 @@ export async function cancelSubscription(userId) {
 }
 
 // --- Delete user ---
+// subscriptions.user_id — без ON DELETE (не трогаем, часть 1 TASK_server_storage.md),
+// поэтому удаляем вручную в транзакции; calculations/checklists/checklist_photos/
+// consultations удалятся сами через ON DELETE CASCADE на их собственных FK.
+// deleteUserFiles(userId) (server/storage.js, часть 2) добавляется после COMMIT
+// отдельным заходом — на момент части 1 этого модуля ещё нет.
 export async function deleteUser(userId) {
-  await pool.query('DELETE FROM subscriptions WHERE user_id = $1', [userId]);
-  await pool.query('DELETE FROM auth_codes WHERE email = (SELECT email FROM users WHERE id = $1)', [userId]);
-  const { rows } = await pool.query('DELETE FROM users WHERE id = $1 RETURNING *', [userId]);
-  return rows[0] || null;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM subscriptions WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM auth_codes WHERE email = (SELECT email FROM users WHERE id = $1)', [userId]);
+    const { rows } = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [userId]);
+    await client.query('COMMIT');
+    return rows[0] || null;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // --- Admin ---

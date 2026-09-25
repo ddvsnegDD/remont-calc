@@ -119,7 +119,11 @@ export default function B2BOfficePage() {
     });
     setSubmitting(false);
     if (!res.ok) {
-      alert(res.error === 'limit' ? 'Достигнут лимит расчётов' : (res.error || 'Не удалось сохранить расчёт'));
+      alert(
+        res.error === 'limit' ? 'Достигнут лимит расчётов'
+        : res.error === 'network' ? 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.'
+        : (res.error || 'Не удалось сохранить расчёт')
+      );
       return;
     }
     const calc = {

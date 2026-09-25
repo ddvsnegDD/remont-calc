@@ -4,25 +4,14 @@ import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { CHECKLISTS } from '../data/checklists';
-import { ArrowLeft, Camera, X, Check, ChevronDown, ChevronUp, Image as ImageIcon, Trash2, FileText, Printer } from 'lucide-react';
+import { MAX_PHOTOS_PER_ITEM } from '../data/tariffs';
+import { ArrowLeft, Camera, X, Check, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import Btn from '../components/Btn';
 import ProPaywall from '../components/ProPaywall';
 import { openReportWindow } from '../lib/checklistReport';
+import { getChecklist, saveChecklist, uploadChecklistPhoto, deleteChecklistPhoto, checklistPhotoUrl } from '../lib/checklistsApi';
 
-function getStorageKey(userId, checklistId) {
-  return `rpkm_checklist_${userId}_${checklistId}`;
-}
-
-function loadState(userId, checklistId) {
-  const raw = localStorage.getItem(getStorageKey(userId, checklistId));
-  if (!raw) return { items: {}, meta: {} };
-  try { return JSON.parse(raw); }
-  catch { return { items: {}, meta: {} }; }
-}
-
-function saveState(userId, checklistId, state) {
-  localStorage.setItem(getStorageKey(userId, checklistId), JSON.stringify(state));
-}
+const SAVE_DEBOUNCE_MS = 800;
 
 // Compress image to max 800px width, JPEG 0.7 quality
 function compressImage(file) {
@@ -46,6 +35,11 @@ function compressImage(file) {
   });
 }
 
+async function dataUrlToBlob(dataUrl) {
+  const res = await fetch(dataUrl);
+  return res.blob();
+}
+
 function PhotoViewer({ src, onClose }) {
   if (!src) return null;
   return (
@@ -60,17 +54,23 @@ function PhotoViewer({ src, onClose }) {
 }
 
 function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle, onAddPhoto, onDeletePhoto, onComment, color }) {
-  const [showPhotos, setShowPhotos] = useState(false);
   const [viewPhoto, setViewPhoto] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
+  const atLimit = photos.length >= MAX_PHOTOS_PER_ITEM;
 
   const handleFile = async (e) => {
     const files = Array.from(e.target.files);
-    for (const file of files) {
-      const compressed = await compressImage(file);
-      onAddPhoto(itemKey, compressed);
-    }
     e.target.value = '';
+    setUploading(true);
+    let count = photos.length;
+    for (const file of files) {
+      if (count >= MAX_PHOTOS_PER_ITEM) break;
+      const compressed = await compressImage(file);
+      const ok = await onAddPhoto(itemKey, compressed);
+      if (ok) count++; else break;
+    }
+    setUploading(false);
   };
 
   return (
@@ -106,11 +106,11 @@ function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle,
             </div>
 
             {/* Photo thumbnails + camera */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: photos.length > 0 || showPhotos ? 10 : 0 }}>
-              {photos.map((p, i) => (
-                <div key={i} style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.gray200}` }}>
-                  <img src={p} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
-                    onClick={() => setViewPhoto(p)} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: photos.length > 0 ? 10 : 0 }}>
+              {photos.map((id, i) => (
+                <div key={id} style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.gray200}` }}>
+                  <img src={checklistPhotoUrl(id)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                    onClick={() => setViewPhoto(checklistPhotoUrl(id))} />
                   <button onClick={() => onDeletePhoto(itemKey, i)}
                     style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 }}>
                     <X size={10} color="#fff" />
@@ -118,27 +118,32 @@ function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle,
                 </div>
               ))}
             </div>
+            {atLimit && (
+              <div style={{ fontSize: 11, color: C.gray400, marginTop: 6 }}>Лимит {MAX_PHOTOS_PER_ITEM} фото на пункт исчерпан</div>
+            )}
           </div>
 
           {/* Photo button */}
-          <button onClick={() => fileRef.current?.click()}
-            style={{
-              width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-              background: photos.length > 0 ? color + '15' : C.gray50,
-              border: `1px solid ${photos.length > 0 ? color + '30' : C.gray200}`,
-              display: 'grid', placeItems: 'center', cursor: 'pointer',
-              position: 'relative',
-            }}>
-            <Camera size={16} color={photos.length > 0 ? color : C.gray400} />
-            {photos.length > 0 && (
-              <span style={{
-                position: 'absolute', top: -4, right: -4,
-                width: 16, height: 16, borderRadius: '50%',
-                background: color, color: '#fff', fontSize: 9, fontWeight: 700,
-                display: 'grid', placeItems: 'center',
-              }}>{photos.length}</span>
-            )}
-          </button>
+          {!atLimit && (
+            <button onClick={() => fileRef.current?.click()} disabled={uploading}
+              style={{
+                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                background: photos.length > 0 ? color + '15' : C.gray50,
+                border: `1px solid ${photos.length > 0 ? color + '30' : C.gray200}`,
+                display: 'grid', placeItems: 'center', cursor: uploading ? 'default' : 'pointer',
+                position: 'relative', opacity: uploading ? 0.6 : 1,
+              }}>
+              <Camera size={16} color={photos.length > 0 ? color : C.gray400} />
+              {photos.length > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -4,
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: color, color: '#fff', fontSize: 9, fontWeight: 700,
+                  display: 'grid', placeItems: 'center',
+                }}>{photos.length}</span>
+              )}
+            </button>
+          )}
           <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
             style={{ display: 'none' }} onChange={handleFile} />
         </div>
@@ -173,21 +178,85 @@ export default function ChecklistDetailPage() {
   const [state, setState] = useState({ items: {}, meta: {} });
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [resultStatus, setResultStatus] = useState('');
+  const [dataLoading, setDataLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  // Load state
-  useEffect(() => {
-    if (!user || !checklist) return;
-    const s = loadState(user.id, id);
+  // stateRef/dirtyRef держат самое свежее состояние синхронно с save() —
+  // debounce и сохранение при уходе со страницы читают их, а не state
+  // (замыкание эффекта размонтирования иначе видело бы устаревшее значение).
+  const stateRef = useRef(state);
+  const dirtyRef = useRef(false);
+  const idRef = useRef(id);
+  const debounceRef = useRef(null);
+
+  // Загрузка чек-листа с сервера. При смене id без размонтирования компонента
+  // (переход между /checklists/:id) — сначала дозаписываем несохранённые правки
+  // предыдущего чек-листа, потом грузим новый.
+  const loadChecklist = useCallback(async (checklistId, onCancelled) => {
+    setDataLoading(true);
+    setLoadError(false);
+    const res = await getChecklist(checklistId);
+    if (onCancelled()) return;
+    setDataLoading(false);
+    if (!res.ok) { setLoadError(true); return; }
+    const s = res.checklist ? res.checklist.state : { items: {}, meta: {} };
     setState(s);
-    if (s.meta?.result) setResultStatus(s.meta.result);
-  }, [user, id, checklist]);
+    stateRef.current = s;
+    setResultStatus(s.meta?.result || '');
+  }, []);
 
-  // Auto-save
+  useEffect(() => {
+    const prevId = idRef.current;
+    if (prevId && prevId !== id) {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      if (dirtyRef.current) {
+        saveChecklist(prevId, stateRef.current);
+        dirtyRef.current = false;
+      }
+    }
+    idRef.current = id;
+    if (!user || !checklist) return;
+    let cancelled = false;
+    loadChecklist(id, () => cancelled);
+    return () => { cancelled = true; };
+  }, [user, id, checklist, loadChecklist]);
+
+  // Сохранение при размонтировании страницы (переход на другой маршрут,
+  // закрытие вкладки) — критерий 12 TASK_server_storage.md: последние правки
+  // не должны потеряться. keepalive переживает уход со страницы.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (dirtyRef.current) {
+        saveChecklist(idRef.current, stateRef.current, { keepalive: true });
+        dirtyRef.current = false;
+      }
+    };
+  }, []);
+
+  const flushNow = useCallback((newState) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const res = await saveChecklist(id, newState);
+      if (!res.ok) {
+        setSaveError(res.error === 'network'
+          ? 'Нет связи с сервером. Изменения не сохранены — проверьте интернет.'
+          : 'Не удалось сохранить изменения.');
+        return;
+      }
+      setSaveError('');
+      if (stateRef.current === newState) dirtyRef.current = false;
+    }, SAVE_DEBOUNCE_MS);
+  }, [id]);
+
+  // Auto-save (с задержкой, чтобы не слать запрос на каждый клик по галочке)
   const save = useCallback((newState) => {
-    if (!user) return;
     setState(newState);
-    saveState(user.id, id, newState);
-  }, [user, id]);
+    stateRef.current = newState;
+    dirtyRef.current = true;
+    flushNow(newState);
+  }, [flushNow]);
 
   if (!checklist) {
     return (
@@ -237,6 +306,32 @@ export default function ChecklistDetailPage() {
     );
   }
 
+  if (dataLoading) {
+    return (
+      <PageLayout>
+        <div className="quiz-page">
+          <div className="quiz-wrap" style={{ maxWidth: 680, textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{ fontSize: 14, color: C.gray400 }}>Загрузка чек-листа...</div>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageLayout>
+        <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <div style={{ textAlign: 'center' }}>
+            <h2>Не удалось загрузить чек-лист</h2>
+            <p style={{ color: C.gray500, margin: '8px 0 20px' }}>Проверьте соединение и попробуйте ещё раз.</p>
+            <Btn variant="terra" onClick={() => loadChecklist(id, () => false)}>Повторить</Btn>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
   const totalItems = checklist.groups.reduce((sum, g) => sum + g.items.length, 0);
   const checkedCount = Object.values(state.items).filter(v => v.checked).length;
   const pct = totalItems > 0 ? Math.round(checkedCount / totalItems * 100) : 0;
@@ -249,20 +344,40 @@ export default function ChecklistDetailPage() {
     save({ ...state, items });
   };
 
-  const addPhoto = (key, dataUrl) => {
-    const items = { ...state.items };
-    if (!items[key]) items[key] = { checked: false, photos: [], comment: '' };
-    items[key] = { ...items[key], photos: [...(items[key].photos || []), dataUrl] };
-    save({ ...state, items });
+  // Возвращает true/false — используется в ChecklistItem, чтобы решить,
+  // продолжать ли загрузку следующего файла из multi-select.
+  const addPhoto = async (key, dataUrl) => {
+    const blob = await dataUrlToBlob(dataUrl);
+    const res = await uploadChecklistPhoto(id, key, blob);
+    if (!res.ok) {
+      setSaveError(
+        res.error === 'limit_item' ? `Достигнут лимит ${MAX_PHOTOS_PER_ITEM} фото на пункт.`
+        : res.error === 'limit_total' ? 'Достигнут общий лимит объёма фото.'
+        : res.error === 'network' ? 'Нет связи с сервером. Фото не загружено.'
+        : 'Не удалось загрузить фото.'
+      );
+      return false;
+    }
+    setSaveError('');
+    const items = { ...stateRef.current.items };
+    const cur = items[key] || { checked: false, photos: [], comment: '' };
+    items[key] = { ...cur, photos: [...(cur.photos || []), res.photo.id] };
+    save({ ...stateRef.current, items });
+    return true;
   };
 
-  const deletePhoto = (key, index) => {
-    const items = { ...state.items };
-    if (!items[key]) return;
-    const photos = [...(items[key].photos || [])];
+  const deletePhoto = async (key, index) => {
+    const cur = stateRef.current.items[key];
+    if (!cur) return;
+    const photoId = cur.photos[index];
+    const photos = [...(cur.photos || [])];
     photos.splice(index, 1);
-    items[key] = { ...items[key], photos };
-    save({ ...state, items });
+    const items = { ...stateRef.current.items, [key]: { ...cur, photos } };
+    save({ ...stateRef.current, items });
+    if (photoId != null) {
+      const res = await deleteChecklistPhoto(photoId);
+      if (!res.ok) setSaveError('Не удалось удалить фото на сервере.');
+    }
   };
 
   const setComment = (key, text) => {
@@ -309,6 +424,12 @@ export default function ChecklistDetailPage() {
               </div>
             </div>
           </div>
+
+          {saveError && (
+            <div style={{ marginBottom: 16, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13 }}>
+              {saveError}
+            </div>
+          )}
 
           {/* Progress bar */}
           <div style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', marginBottom: 16, border: `1px solid ${C.gray100}` }}>

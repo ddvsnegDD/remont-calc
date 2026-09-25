@@ -1,5 +1,6 @@
 // Генерация HTML-отчёта для печати / сохранения в PDF
 import { CHECKLISTS } from '../data/checklists';
+import { fetchPhotoAsDataUrl } from './checklistsApi';
 
 const RESULT_LABELS = {
   accepted: 'Работы приняты без замечаний',
@@ -247,13 +248,37 @@ export function generateReportHTML(checklistId, state) {
 </html>`;
 }
 
-export function openReportWindow(checklistId, state) {
-  const html = generateReportHTML(checklistId, state);
+// state.items[*].photos после части 5 ТЗ хранит id фото на сервере, а не data URL —
+// generateReportHTML принимает только data:image/... (проверка на строке 95 выше).
+// Окно открывается сразу (синхронно, по клику — иначе браузер блокирует popup),
+// заполняется после того, как фото скачаны и переведены в data URL.
+async function withDataUrlPhotos(state) {
+  const items = state.items || {};
+  const newItems = {};
+  for (const [key, item] of Object.entries(items)) {
+    const ids = Array.isArray(item.photos) ? item.photos : [];
+    const photos = (await Promise.all(ids.map(id => fetchPhotoAsDataUrl(id).catch(() => null)))).filter(Boolean);
+    newItems[key] = { ...item, photos };
+  }
+  return { ...state, items: newItems };
+}
+
+export async function openReportWindow(checklistId, state) {
   const w = window.open('', '_blank');
   if (!w) {
     alert('Разрешите всплывающие окна для формирования отчёта');
     return;
   }
-  w.document.write(html);
-  w.document.close();
+  w.document.write('<p style="font-family:-apple-system,Arial,sans-serif;padding:60px;text-align:center;color:#6b7280">Формируем отчёт...</p>');
+  try {
+    const html = generateReportHTML(checklistId, await withDataUrlPhotos(state));
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  } catch (err) {
+    console.error('checklist report error:', err);
+    w.document.open();
+    w.document.write('<p style="font-family:-apple-system,Arial,sans-serif;padding:60px;text-align:center;color:#dc2626">Не удалось загрузить фото для отчёта. Закройте окно и попробуйте ещё раз.</p>');
+    w.document.close();
+  }
 }

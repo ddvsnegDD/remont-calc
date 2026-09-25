@@ -138,6 +138,7 @@ export default function B2BQuizPage() {
     setSubmitting(false);
     if (!res.ok) {
       if (res.error === 'limit') { setLimitHit(true); return; }
+      if (res.error === 'network') { setCalcError('Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.'); return; }
       setCalcError(res.error || 'Не удалось сохранить расчёт');
       return;
     }

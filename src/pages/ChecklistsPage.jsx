@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
@@ -8,23 +8,7 @@ import { ChevronRight, ClipboardCheck, Trash2, FileText } from 'lucide-react';
 import Btn from '../components/Btn';
 import ProPaywall from '../components/ProPaywall';
 import { openReportWindow } from '../lib/checklistReport';
-
-function getStorageKey(userId, checklistId) {
-  return `rpkm_checklist_${userId}_${checklistId}`;
-}
-
-function getProgress(userId, checklistId) {
-  if (!userId) return { checked: 0, total: 0, photos: 0 };
-  const raw = localStorage.getItem(getStorageKey(userId, checklistId));
-  if (!raw) return { checked: 0, total: 0, photos: 0 };
-  try {
-    const data = JSON.parse(raw);
-    const total = Object.keys(data.items || {}).length;
-    const checked = Object.values(data.items || {}).filter(v => v.checked).length;
-    const photos = Object.values(data.items || {}).reduce((sum, v) => sum + (v.photos?.length || 0), 0);
-    return { checked, total: getTotalItems(checklistId), photos };
-  } catch { return { checked: 0, total: 0, photos: 0 }; }
-}
+import { listChecklists, resetChecklist } from '../lib/checklistsApi';
 
 function getTotalItems(checklistId) {
   const cl = CHECKLISTS.find(c => c.id === checklistId);
@@ -32,34 +16,53 @@ function getTotalItems(checklistId) {
   return cl.groups.reduce((sum, g) => sum + g.items.length, 0);
 }
 
+function progressFromState(checklistId, state) {
+  const items = state?.items || {};
+  const checked = Object.values(items).filter(v => v.checked).length;
+  const photos = Object.values(items).reduce((sum, v) => sum + (v.photos?.length || 0), 0);
+  return { checked, total: getTotalItems(checklistId), photos };
+}
+
 export default function ChecklistsPage() {
   const { user, hasClub, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [progresses, setProgresses] = useState({});
+  const [states, setStates] = useState({}); // checklistId -> state, для отчёта без повторного запроса
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
+  const load = useCallback(async () => {
+    const res = await listChecklists();
+    if (!res.ok) { setLoadError(true); return; }
+    setLoadError(false);
     const p = {};
-    CHECKLISTS.forEach(cl => {
-      p[cl.id] = getProgress(user.id, cl.id);
+    const st = {};
+    res.checklists.forEach(row => {
+      p[row.checklistId] = progressFromState(row.checklistId, row.state);
+      st[row.checklistId] = row.state;
     });
     setProgresses(p);
-  }, [user]);
+    setStates(st);
+  }, []);
+
+  useEffect(() => {
+    if (!user) { setProgresses({}); setStates({}); return; }
+    load();
+  }, [user, load]);
 
   const handleReport = (e, checklistId) => {
     e.stopPropagation();
     e.preventDefault();
-    const raw = localStorage.getItem(getStorageKey(user.id, checklistId));
-    const st = raw ? JSON.parse(raw) : { items: {}, meta: {} };
-    openReportWindow(checklistId, st);
+    openReportWindow(checklistId, states[checklistId] || { items: {}, meta: {} });
   };
 
-  const handleReset = (e, checklistId) => {
+  const handleReset = async (e, checklistId) => {
     e.stopPropagation();
     e.preventDefault();
     if (!window.confirm('Сбросить прогресс этого чек-листа? Все отметки и фото будут удалены.')) return;
-    localStorage.removeItem(getStorageKey(user.id, checklistId));
+    const res = await resetChecklist(checklistId);
+    if (!res.ok) { alert('Не удалось сбросить чек-лист. Проверьте соединение и попробуйте ещё раз.'); return; }
     setProgresses(prev => ({ ...prev, [checklistId]: { checked: 0, total: getTotalItems(checklistId), photos: 0 } }));
+    setStates(prev => ({ ...prev, [checklistId]: { items: {}, meta: {} } }));
   };
 
   if (authLoading) {
@@ -114,6 +117,13 @@ export default function ChecklistsPage() {
               6 этапов ремонта. Отмечайте пункты и прикладывайте фото прямо на объекте.
             </p>
           </div>
+
+          {loadError && (
+            <div style={{ marginBottom: 16, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span>Не удалось загрузить прогресс чек-листов.</span>
+              <button onClick={load} style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 600, cursor: 'pointer', fontSize: 13, textDecoration: 'underline' }}>Повторить</button>
+            </div>
+          )}
 
           {/* Checklists cards */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

@@ -132,7 +132,7 @@ function requireValidChecklist(req, res, next) {
 // (itemKey = (gIdx, iIdx) => `${gIdx}_${iIdx}`), и должен указывать на реально
 // существующий пункт именно этого чек-листа.
 function isValidItemKey(checklistDef, itemKey) {
-  const m = /^(\d+)_(\d+)$/.exec(String(itemKey));
+  const m = /^(0|[1-9]\d*)_(0|[1-9]\d*)$/.exec(String(itemKey));
   if (!m) return false;
   const group = checklistDef.groups[Number(m[1])];
   return !!(group && group.items[Number(m[2])] !== undefined);

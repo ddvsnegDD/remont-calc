@@ -5,6 +5,8 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { formatRub } from '../lib/calculator';
 import { useAuth } from '../lib/auth';
+import { listCalcs, deleteCalc } from '../lib/calcsApi';
+import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
 
 const formatSubDate = (d) => {
   if (!d) return null;
@@ -38,26 +40,39 @@ export default function B2BCabinetPage() {
     // Allow both B2B and B2C users to access (B2C might want to switch)
   }, [user, authLoading, navigate]);
 
-  // Load calcs from localStorage (will move to DB in Stage 2)
+  // Часть 4 TASK_server_storage.md: расчёты — с сервера, не из localStorage.
   useEffect(() => {
-    try {
-      const all = JSON.parse(localStorage.getItem('rpkm-b2b-calcs') || '[]');
-      setCalcs(all);
-    } catch {}
-  }, []);
+    if (!user) { setCalcs([]); return; }
+    let cancelled = false;
+    (async () => {
+      const res = await listCalcs();
+      if (!cancelled && res.ok) {
+        setCalcs(res.calcs.map(r => ({
+          id: r.id,
+          timestamp: r.created_at,
+          projectName: r.project_name,
+          kind: r.kind,
+          answers: r.data?.answers,
+          inputs: r.data?.inputs,
+          result: r.data?.result,
+        })));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleLogout = useCallback(async () => {
     await authLogout();
     navigate('/');
   }, [authLogout, navigate]);
 
-  const handleDelete = useCallback((id) => {
+  const handleDelete = useCallback(async (id) => {
     if (!confirm('Удалить этот расчёт?')) return;
-    const updated = calcs.filter(c => c.id !== id);
-    setCalcs(updated);
-    localStorage.setItem('rpkm-b2b-calcs', JSON.stringify(updated));
+    const res = await deleteCalc(id);
+    if (!res.ok) { setNotice('Не удалось удалить расчёт'); return; }
+    setCalcs(prev => prev.filter(c => c.id !== id));
     setNotice('Расчёт удалён');
-  }, [calcs]);
+  }, []);
 
   if (authLoading || !user) return null;
 
@@ -93,7 +108,7 @@ export default function B2BCabinetPage() {
               ) : (
                 <div className="pro-upsell">
                   <div style={{ fontSize: 13, fontWeight: 600, color: C.graphite, marginBottom: 4 }}>Бесплатный план</div>
-                  <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>3 расчёта/мес · базовый PDF</div>
+                  <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>{FREE_B2B_CALCS_PER_MONTH} расчёт в месяц · базовый PDF</div>
                   <Link to="/pro" className="btn-link" style={{ fontSize: 12 }}>
                     <Btn variant="outline" style={{ width: '100%', fontSize: 12, padding: '8px 12px' }}>Перейти на PRO →</Btn>
                   </Link>
@@ -159,7 +174,7 @@ export default function B2BCabinetPage() {
                         <td>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <Btn variant="outline" style={{ padding: '6px 10px', fontSize: 13 }}
-                                 onClick={() => { sessionStorage.setItem('rpkm-b2b-current', JSON.stringify(c)); navigate(link); }}>
+                                 onClick={() => { sessionStorage.setItem(isOffice ? 'rpkm-b2b-office-current' : 'rpkm-b2b-current', JSON.stringify(c)); navigate(link); }}>
                               Открыть →
                             </Btn>
                             <button onClick={() => handleDelete(c.id)}

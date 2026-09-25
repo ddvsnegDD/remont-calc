@@ -4,6 +4,11 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { calculateB2B, validateNumber, validateInteger } from '../lib/calculator';
+import { useAuth } from '../lib/auth';
+import LoginModal from '../components/LoginModal';
+import ProPaywall from '../components/ProPaywall';
+import { createCalc } from '../lib/calcsApi';
+import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
 
 const STEPS = [
   { id: 'project_name', title: 'Название проекта', hint: 'Для удобства поиска в истории расчётов.', type: 'text', placeholder: 'Внутреннее название проекта' },
@@ -73,11 +78,15 @@ const STEPS = [
 
 export default function B2BQuizPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ area: 150, rooms: 3, bathrooms: 2, windows: 4 });
   const [rawText, setRawText] = useState('150');
   const [fieldError, setFieldError] = useState('');
   const [calcError, setCalcError] = useState('');
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [limitHit, setLimitHit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const current = STEPS[step];
   const total = STEPS.length;
@@ -125,30 +134,59 @@ export default function B2BQuizPage() {
 
   const back = useCallback(() => { if (step > 0) setStep(s => s - 1); }, [step]);
 
-  const finish = useCallback(() => {
-    const result = calculateB2B(answers);
+  // Сохраняет расчёт на сервере и переходит к результату. Вызывается либо сразу
+  // (пользователь уже вошёл), либо из onSuccess LoginModal — после входа.
+  const saveAndShow = useCallback(async (finalAnswers) => {
+    const result = calculateB2B(finalAnswers);
     if (!result.ok) { setCalcError(result.error); return; }
+    setSubmitting(true);
+    setCalcError('');
+    const res = await createCalc({
+      kind: 'b2b',
+      projectName: finalAnswers.project_name || 'Без названия',
+      data: { answers: finalAnswers, result },
+    });
+    setSubmitting(false);
+    if (!res.ok) {
+      if (res.error === 'limit') { setLimitHit(true); return; }
+      setCalcError(res.error || 'Не удалось сохранить расчёт');
+      return;
+    }
     const calc = {
-      id: 'calc-' + Date.now(),
-      timestamp: new Date().toISOString(),
-      projectName: answers.project_name || 'Без названия',
-      answers,
+      id: res.calc.id,
+      timestamp: res.calc.created_at,
+      projectName: res.calc.project_name,
+      answers: finalAnswers,
       result,
     };
-    try {
-      const all = JSON.parse(localStorage.getItem('rpkm-b2b-calcs') || '[]');
-      all.push(calc);
-      localStorage.setItem('rpkm-b2b-calcs', JSON.stringify(all));
-    } catch {}
     sessionStorage.setItem('rpkm-b2b-current', JSON.stringify(calc));
     navigate('/b2b-result');
-  }, [answers, navigate]);
+  }, [navigate]);
+
+  // Результат B2B-квиза показывается только вошедшему (иначе не посчитать лимит) —
+  // «Решения по умолчанию» TASK_server_storage.md. Незалогиненный видит окно входа,
+  // после входа расчёт сохраняется и показывается сам.
+  const finish = useCallback(() => {
+    if (submitting) return;
+    if (!user) { setLoginOpen(true); return; }
+    saveAndShow(answers);
+  }, [user, answers, saveAndShow, submitting]);
 
   const selectOption = useCallback((val) => {
     setAnswer(current.id, val);
     if (step < total - 1) { setStep(s => s + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     else finish();
   }, [current, step, total, setAnswer, finish]);
+
+  if (limitHit) {
+    return (
+      <ProPaywall
+        heading="Лимит бесплатного плана использован"
+        sub={`На бесплатном плане доступен ${FREE_B2B_CALCS_PER_MONTH} расчёт в месяц. Оформите PRO для безлимитных расчётов.`}
+        target="pro"
+      />
+    );
+  }
 
   return (
     <PageLayout>
@@ -236,11 +274,14 @@ export default function B2BQuizPage() {
           <div className="quiz-nav">
             <Btn variant="outline" onClick={back} style={{ visibility: step === 0 ? 'hidden' : 'visible' }}>← Назад</Btn>
             {(current.type !== 'options' && current.type !== 'cards') && (
-              <Btn variant="dark" onClick={next}>{step === total - 1 ? 'Сформировать смету' : 'Далее'}</Btn>
+              <Btn variant="dark" onClick={next} disabled={submitting}>
+                {submitting ? 'Сохраняем...' : step === total - 1 ? 'Сформировать смету' : 'Далее'}
+              </Btn>
             )}
           </div>
         </div>
       </main>
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onSuccess={() => saveAndShow(answers)} />
     </PageLayout>
   );
 }

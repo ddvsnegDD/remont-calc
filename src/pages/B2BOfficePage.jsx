@@ -8,6 +8,7 @@ import { validatePositiveNumber, validateInteger } from '../lib/calculator';
 import { useAuth } from '../lib/auth';
 import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
+import { createCalc } from '../lib/calcsApi';
 
 const OFFICE_PAYWALL = {
   heading: 'Калькулятор офисного fit-out',
@@ -45,6 +46,7 @@ export default function B2BOfficePage() {
   const [urgency, setUrgency] = useState('standard');
   const [projectName, setProjectName] = useState('');
   const [optionalStates, setOptionalStates] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
   // Build optional systems list from current tier
   const optionalSystems = useMemo(() => {
@@ -104,26 +106,33 @@ export default function B2BOfficePage() {
     return r.ok ? r : null;
   }, [inputs, fieldErrors]);
 
-  const submit = useCallback(() => {
+  const submit = useCallback(async () => {
+    if (submitting) return;
     if (Object.keys(fieldErrors).length > 0) { alert('Проверьте значения полей — есть некорректные'); return; }
     const result = OfficeCalc.compute(inputs);
     if (!result.ok) { alert(result.error); return; }
-    const calc = {
-      id: 'office-' + Date.now(),
-      timestamp: new Date().toISOString(),
+    setSubmitting(true);
+    const res = await createCalc({
       kind: 'office',
       projectName: projectName || 'Офис без названия',
+      data: { inputs, result },
+    });
+    setSubmitting(false);
+    if (!res.ok) {
+      alert(res.error === 'limit' ? 'Достигнут лимит расчётов' : (res.error || 'Не удалось сохранить расчёт'));
+      return;
+    }
+    const calc = {
+      id: res.calc.id,
+      timestamp: res.calc.created_at,
+      kind: 'office',
+      projectName: res.calc.project_name,
       inputs,
       result,
     };
-    try {
-      const all = JSON.parse(localStorage.getItem('rpkm-b2b-calcs') || '[]');
-      all.push(calc);
-      localStorage.setItem('rpkm-b2b-calcs', JSON.stringify(all));
-    } catch {}
     sessionStorage.setItem('rpkm-b2b-office-current', JSON.stringify(calc));
     navigate('/b2b-office-result');
-  }, [inputs, projectName, area, navigate, fieldErrors]);
+  }, [inputs, projectName, navigate, fieldErrors, submitting]);
 
   const tierCards = Object.entries(OFFICE_TIERS).map(([key, t]) => ({
     key,
@@ -293,7 +302,9 @@ export default function B2BOfficePage() {
               <strong>Расчёт носит предварительный характер:</strong> итоговая стоимость зависит от конкретных материалов, объёмов по факту и условий подрядчика.
             </div>
 
-            <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit}>Расшифровка укрупнённого расчёта</Btn>
+            <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }} onClick={submit} disabled={submitting}>
+              {submitting ? 'Сохраняем...' : 'Расшифровка укрупнённого расчёта'}
+            </Btn>
 
             <div style={{
               marginTop: 24,

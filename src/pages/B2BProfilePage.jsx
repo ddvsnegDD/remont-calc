@@ -4,6 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
+import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
 
 const ROLE_LABEL = {
   designer: 'Дизайнер интерьеров',
@@ -58,7 +59,7 @@ export default function B2BProfilePage() {
                   {subscription?.status === 'active' ? 'PRO план' : subscription?.status === 'trial' ? 'Пробный период' : 'Бесплатный план'}
                 </div>
                 <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>
-                  {subscription?.status === 'active' ? 'Полный доступ' : '3 расчёта/мес · базовый PDF'}
+                  {subscription?.status === 'active' ? 'Полный доступ' : `${FREE_B2B_CALCS_PER_MONTH} расчёт в месяц · базовый PDF`}
                 </div>
                 {(!subscription || subscription.status === 'free') && (
                   <Link to="/pro" className="btn-link" style={{ fontSize: 12 }}>
@@ -119,7 +120,7 @@ export default function B2BProfilePage() {
                   <span style={{ fontSize: 14, color: C.gray600 }}>
                     {subscription?.status === 'active' ? 'Полный доступ ко всем функциям'
                       : subscription?.status === 'trial' ? 'Пробный доступ к PRO'
-                      : '3 расчёта в месяц'}
+                      : `${FREE_B2B_CALCS_PER_MONTH} расчёт в месяц`}
                   </span>
                 </div>
                 {(!subscription || subscription.status === 'free') && (

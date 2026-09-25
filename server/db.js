@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { deleteUserFiles } from './storage.js';
 
 const dbUrl = process.env.DATABASE_URL || '';
 // Локальная БД на VPS (localhost / unix-socket) не требует SSL; облачная (Railway) — требует.
@@ -223,8 +224,6 @@ export async function cancelSubscription(userId) {
 // subscriptions.user_id — без ON DELETE (не трогаем, часть 1 TASK_server_storage.md),
 // поэтому удаляем вручную в транзакции; calculations/checklists/checklist_photos/
 // consultations удалятся сами через ON DELETE CASCADE на их собственных FK.
-// deleteUserFiles(userId) (server/storage.js, часть 2) добавляется после COMMIT
-// отдельным заходом — на момент части 1 этого модуля ещё нет.
 export async function deleteUser(userId) {
   const client = await pool.connect();
   try {
@@ -233,9 +232,17 @@ export async function deleteUser(userId) {
     await client.query('DELETE FROM auth_codes WHERE email = (SELECT email FROM users WHERE id = $1)', [userId]);
     const { rows } = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [userId]);
     await client.query('COMMIT');
+    // Файлы — вне транзакции БД и осознанно после COMMIT: если удаление на диске
+    // упадёт, запись в базе уже не откатываем (лишние файлы лучше, чем ссылка
+    // на удалённого пользователя). Ошибка только логируется.
+    try {
+      await deleteUserFiles(userId);
+    } catch (err) {
+      console.error('deleteUserFiles error:', err);
+    }
     return rows[0] || null;
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     throw err;
   } finally {
     client.release();

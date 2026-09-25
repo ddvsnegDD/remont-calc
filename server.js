@@ -20,6 +20,7 @@ import {
   PLANS, tierOf, daysOf,
   FREE_B2B_CALCS_PER_MONTH, FREE_CONSULTATIONS_PER_MONTH, MAX_PHOTOS_PER_ITEM, MAX_PHOTOS_TOTAL_MB,
 } from './src/data/tariffs.js';
+import { CHECKLISTS } from './src/data/checklists.js';
 
 const app = express();
 app.set('trust proxy', 1); // за Nginx reverse-proxy (VPS): корректный req.ip/req.protocol и secure-кука по HTTPS
@@ -105,6 +106,42 @@ function uploadSinglePhoto(req, res, next) {
     if (err) return res.status(400).json({ ok: false, error: err.message || 'Ошибка загрузки файла' });
     next();
   });
+}
+
+// :id в URL — только целое положительное число, иначе 404 без обращения к БД
+// (часть 3, ревью). Число, не подходящее под этот вид, точно не найдётся —
+// незачем гонять запрос, чтобы узнать то же самое.
+function parsePositiveIntId(raw) {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function findChecklistDef(checklistId) {
+  return CHECKLISTS.find(c => c.id === checklistId) || null;
+}
+
+// checklistId неизвестен нигде под /api/checklists/:checklistId* — 404 (часть 3, ревью).
+function requireValidChecklist(req, res, next) {
+  const def = findChecklistDef(req.params.checklistId);
+  if (!def) return res.status(404).json({ ok: false, error: 'Не найдено' });
+  req.checklistDef = def;
+  next();
+}
+
+// itemKey вида "<индекс группы>_<индекс пункта>", как ChecklistDetailPage.jsx:289
+// (itemKey = (gIdx, iIdx) => `${gIdx}_${iIdx}`), и должен указывать на реально
+// существующий пункт именно этого чек-листа.
+function isValidItemKey(checklistDef, itemKey) {
+  const m = /^(\d+)_(\d+)$/.exec(String(itemKey));
+  if (!m) return false;
+  const group = checklistDef.groups[Number(m[1])];
+  return !!(group && group.items[Number(m[2])] !== undefined);
+}
+
+// Сигнатура JPEG (FF D8 FF) — mimetype из multipart клиент может подделать
+// произвольно, содержимое буфера подделать так же легко нельзя (часть 3, ревью).
+function isJpegSignature(buffer) {
+  return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
 }
 
 // --- JWT helpers ---
@@ -423,9 +460,10 @@ app.post('/api/calcs', requireDB, authMiddleware, async (req, res) => {
 
 app.delete('/api/calcs/:id', requireDB, authMiddleware, async (req, res) => {
   try {
+    const id = parsePositiveIntId(req.params.id);
+    if (id === null) return res.status(404).json({ ok: false, error: 'Не найдено' });
     const user = await findUserByEmail(req.user.email);
     if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
-    const id = Number(req.params.id);
     const deleted = await deleteCalculation(user.id, id);
     if (!deleted) return res.status(404).json({ ok: false, error: 'Не найдено' });
     res.json({ ok: true });
@@ -467,7 +505,7 @@ app.get('/api/checklists', requireDB, authMiddleware, requireChecklistsAccess, a
   }
 });
 
-app.get('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
+app.get('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, requireValidChecklist, async (req, res) => {
   try {
     const row = await getChecklist(req.dbUser.id, req.params.checklistId);
     // Чек-лист ещё не начат — обычное состояние для своего checklistId, не 404.
@@ -479,7 +517,7 @@ app.get('/api/checklists/:checklistId', requireDB, authMiddleware, requireCheckl
   }
 });
 
-app.put('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
+app.put('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, requireValidChecklist, async (req, res) => {
   try {
     const { state } = req.body || {};
     if (!state || typeof state !== 'object' || Array.isArray(state)) {
@@ -505,7 +543,7 @@ app.put('/api/checklists/:checklistId', requireDB, authMiddleware, requireCheckl
 });
 
 // Сброс чек-листа — сейчас на фронте это localStorage.removeItem (ChecklistsPage.jsx:61).
-app.delete('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
+app.delete('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, requireValidChecklist, async (req, res) => {
   try {
     const checklistId = req.params.checklistId;
     const photoRows = await deleteChecklistPhotosByChecklist(req.dbUser.id, checklistId);
@@ -520,12 +558,17 @@ app.delete('/api/checklists/:checklistId', requireDB, authMiddleware, requireChe
   }
 });
 
-app.post('/api/checklists/:checklistId/photos', requireDB, authMiddleware, requireChecklistsAccess, requireStorage, uploadSinglePhoto, async (req, res) => {
+app.post('/api/checklists/:checklistId/photos', requireDB, authMiddleware, requireChecklistsAccess, requireValidChecklist, requireStorage, uploadSinglePhoto, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ ok: false, error: 'Файл не получен' });
     const { itemKey } = req.body || {};
-    if (typeof itemKey !== 'string' || !itemKey) {
-      return res.status(400).json({ ok: false, error: 'Не указан пункт чек-листа' });
+    if (!isValidItemKey(req.checklistDef, itemKey)) {
+      return res.status(400).json({ ok: false, error: 'Некорректный пункт чек-листа' });
+    }
+    // mimetype в multipart клиент может выставить произвольно — сигнатура буфера
+    // подделывается не так тривиально (часть 3, ревью).
+    if (!isJpegSignature(req.file.buffer)) {
+      return res.status(400).json({ ok: false, error: 'Файл не является JPEG' });
     }
 
     const checklistId = req.params.checklistId;
@@ -541,7 +584,15 @@ app.post('/api/checklists/:checklistId/photos', requireDB, authMiddleware, requi
     }
 
     const fileName = await savePhoto(userId, req.file.buffer);
-    const photo = await createChecklistPhoto(userId, checklistId, itemKey, fileName, req.file.size);
+    let photo;
+    try {
+      photo = await createChecklistPhoto(userId, checklistId, itemKey, fileName, req.file.size);
+    } catch (err) {
+      // Файл на диске уже есть, а запись в БД не создалась — не оставляем
+      // осиротевший файл (часть 3, ревью).
+      try { await deletePhoto(userId, fileName); } catch (cleanupErr) { console.error('cleanup deletePhoto error:', cleanupErr); }
+      throw err;
+    }
     res.json({ ok: true, photo: { id: photo.id } });
   } catch (err) {
     console.error('photo upload error:', err);
@@ -551,10 +602,12 @@ app.post('/api/checklists/:checklistId/photos', requireDB, authMiddleware, requi
 
 app.get('/api/checklists/photos/:id', requireDB, authMiddleware, requireChecklistsAccess, requireStorage, async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = parsePositiveIntId(req.params.id);
+    if (id === null) return res.status(404).json({ ok: false, error: 'Не найдено' });
     const photo = await getChecklistPhoto(req.dbUser.id, id);
     if (!photo) return res.status(404).json({ ok: false, error: 'Не найдено' });
     res.set('Cache-Control', 'private');
+    res.set('X-Content-Type-Options', 'nosniff');
     res.sendFile(photoPath(req.dbUser.id, photo.file_name), (err) => {
       if (err && !res.headersSent) res.status(404).json({ ok: false, error: 'Файл не найден' });
     });
@@ -568,7 +621,8 @@ app.get('/api/checklists/photos/:id', requireDB, authMiddleware, requireChecklis
 // сброса чек-листа; кнопку в интерфейсе не добавлять, если её нет (часть 3.2 ТЗ).
 app.delete('/api/checklists/photos/:id', requireDB, authMiddleware, requireChecklistsAccess, requireStorage, async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = parsePositiveIntId(req.params.id);
+    if (id === null) return res.status(404).json({ ok: false, error: 'Не найдено' });
     const photo = await deleteChecklistPhoto(req.dbUser.id, id);
     if (!photo) return res.status(404).json({ ok: false, error: 'Не найдено' });
     try { await deletePhoto(req.dbUser.id, photo.file_name); } catch (err) { console.error('deletePhoto error:', err); }

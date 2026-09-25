@@ -2,10 +2,24 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import multer from 'multer';
 import { resolve, join } from 'path';
-import pool, { initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, createTrialSubscription, hasUsedTrial, cancelSubscription, grantSubscription, deleteUser, getAllUsers, getAdminStats } from './server/db.js';
+import pool, {
+  initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription,
+  createTrialSubscription, hasUsedTrial, cancelSubscription, grantSubscription, deleteUser,
+  getAllUsers, getAdminStats,
+  listCalculations, countB2BCalculationsThisMonth, createCalculation, deleteCalculation,
+  listChecklists, getChecklist, upsertChecklist, deleteChecklist,
+  listChecklistPhotoIds, countChecklistItemPhotos, sumUserPhotoBytes,
+  createChecklistPhoto, getChecklistPhoto, deleteChecklistPhoto, deleteChecklistPhotosByChecklist,
+  countConsultationsThisMonth, createConsultation,
+} from './server/db.js';
+import { savePhoto, photoPath, deletePhoto, isStorageReady } from './server/storage.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
-import { PLANS, tierOf, daysOf } from './src/data/tariffs.js';
+import {
+  PLANS, tierOf, daysOf,
+  FREE_B2B_CALCS_PER_MONTH, FREE_CONSULTATIONS_PER_MONTH, MAX_PHOTOS_PER_ITEM, MAX_PHOTOS_TOTAL_MB,
+} from './src/data/tariffs.js';
 
 const app = express();
 app.set('trust proxy', 1); // за Nginx reverse-proxy (VPS): корректный req.ip/req.protocol и secure-кука по HTTPS
@@ -63,6 +77,34 @@ setInterval(() => {
 function requireDB(req, res, next) {
   if (!dbReady) return res.status(503).json({ ok: false, error: 'База данных не подключена. Авторизация недоступна.' });
   next();
+}
+
+function requireStorage(req, res, next) {
+  if (!isStorageReady()) return res.status(503).json({ ok: false, error: 'Хранилище файлов недоступно' });
+  next();
+}
+
+// Загрузка фото чек-листа: multipart/form-data, одно поле photo, в памяти
+// (не на диск — сохраняем сами через server/storage.js после проверок лимитов).
+// Лимит файла 1 МБ — ниже дефолтного лимита nginx на этот путь, чтобы получить
+// внятный отказ от сервера, а не голый 413 от nginx раньше ответа приложения.
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== 'image/jpeg') return cb(new Error('Принимаются только JPEG-файлы'));
+    cb(null, true);
+  },
+});
+
+// Оборачивает multer, чтобы его ошибки (лимит размера, fileFilter) отвечали
+// тем же {ok:false, error} форматом, что и остальной API, а не падали в
+// стандартный Express-обработчик ошибок, которого в проекте нет.
+function uploadSinglePhoto(req, res, next) {
+  photoUpload.single('photo')(req, res, (err) => {
+    if (err) return res.status(400).json({ ok: false, error: err.message || 'Ошибка загрузки файла' });
+    next();
+  });
 }
 
 // --- JWT helpers ---
@@ -327,19 +369,235 @@ app.delete('/api/admin/users/:id/subscription', requireDB, adminAuth, async (req
   }
 });
 
-// ==================== CONSULTATION API ====================
+// ==================== CALCS API (B2B / office) ====================
+// Часть 3.1 TASK_server_storage.md.
 
-app.post('/api/consultation', authMiddleware, async (req, res) => {
+app.get('/api/calcs', requireDB, authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+    const calcs = await listCalculations(user.id);
+    res.json({ ok: true, calcs });
+  } catch (err) {
+    console.error('calcs list error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+app.post('/api/calcs', requireDB, authMiddleware, async (req, res) => {
   try {
     const user = await findUserByEmail(req.user.email);
     if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
 
-    // Проверяем подписку
+    const { kind, projectName, data } = req.body || {};
+    if (kind !== 'b2b' && kind !== 'office') {
+      return res.status(400).json({ ok: false, error: 'Некорректный тип расчёта' });
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return res.status(400).json({ ok: false, error: 'Некорректные данные расчёта' });
+    }
+
+    const sub = await getActiveSubscription(user.id);
+    const tier = tierOf(sub?.plan);
+
+    // Повторяет гейт страницы B2BOfficePage.jsx:147 на сервере.
+    if (kind === 'office' && tier !== 'pro') {
+      return res.status(403).json({ ok: false, error: 'Офисный калькулятор доступен только на PRO' });
+    }
+    // Бесплатный профи: лимит расчётов в месяц. Снимает только уровень pro
+    // (включая pro_trial) — подписка Клуба этот лимит не снимает.
+    if (kind === 'b2b' && tier !== 'pro') {
+      const used = await countB2BCalculationsThisMonth(user.id);
+      if (used >= FREE_B2B_CALCS_PER_MONTH) {
+        return res.status(403).json({ ok: false, error: 'limit' });
+      }
+    }
+
+    const calc = await createCalculation(user.id, kind, projectName || null, data);
+    res.json({ ok: true, calc });
+  } catch (err) {
+    console.error('calcs create error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+app.delete('/api/calcs/:id', requireDB, authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+    const id = Number(req.params.id);
+    const deleted = await deleteCalculation(user.id, id);
+    if (!deleted) return res.status(404).json({ ok: false, error: 'Не найдено' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('calcs delete error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// ==================== CHECKLISTS API ====================
+// Часть 3.2 TASK_server_storage.md. Доступ — club или pro (смысл как у hasClub
+// на фронте, docs/TASK_checklists_gate.md). Подписка истекла — доступ закрыт,
+// данные не удаляются: после оплаты возвращаются нетронутыми.
+
+async function requireChecklistsAccess(req, res, next) {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+    const sub = await getActiveSubscription(user.id);
+    const tier = tierOf(sub?.plan);
+    if (tier !== 'club' && tier !== 'pro') {
+      return res.status(403).json({ ok: false, error: 'Доступно по подписке Клуба или PRO' });
+    }
+    req.dbUser = user;
+    next();
+  } catch (err) {
+    console.error('checklists access error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+}
+
+app.get('/api/checklists', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
+  try {
+    const list = await listChecklists(req.dbUser.id);
+    res.json({ ok: true, checklists: list.map(r => ({ checklistId: r.checklist_id, state: r.state, updatedAt: r.updated_at })) });
+  } catch (err) {
+    console.error('checklists list error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+app.get('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
+  try {
+    const row = await getChecklist(req.dbUser.id, req.params.checklistId);
+    // Чек-лист ещё не начат — обычное состояние для своего checklistId, не 404.
+    if (!row) return res.json({ ok: true, checklist: null });
+    res.json({ ok: true, checklist: { checklistId: row.checklist_id, state: row.state, updatedAt: row.updated_at } });
+  } catch (err) {
+    console.error('checklist get error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+app.put('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
+  try {
+    const { state } = req.body || {};
+    if (!state || typeof state !== 'object' || Array.isArray(state)) {
+      return res.status(400).json({ ok: false, error: 'Некорректное состояние чек-листа' });
+    }
+    const checklistId = req.params.checklistId;
+    // Чужие и несуществующие id фото выкидываем из сохраняемого состояния —
+    // не доверяем тому, что прислал клиент.
+    const ownedPhotoIds = new Set((await listChecklistPhotoIds(req.dbUser.id, checklistId)).map(String));
+    const items = state.items && typeof state.items === 'object' && !Array.isArray(state.items) ? state.items : {};
+    const cleanedItems = {};
+    for (const [key, item] of Object.entries(items)) {
+      const photos = Array.isArray(item?.photos) ? item.photos.filter(id => ownedPhotoIds.has(String(id))) : [];
+      cleanedItems[key] = { ...item, photos };
+    }
+    const cleanedState = { ...state, items: cleanedItems };
+    const saved = await upsertChecklist(req.dbUser.id, checklistId, cleanedState);
+    res.json({ ok: true, checklist: { checklistId: saved.checklist_id, state: saved.state, updatedAt: saved.updated_at } });
+  } catch (err) {
+    console.error('checklist put error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// Сброс чек-листа — сейчас на фронте это localStorage.removeItem (ChecklistsPage.jsx:61).
+app.delete('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
+  try {
+    const checklistId = req.params.checklistId;
+    const photoRows = await deleteChecklistPhotosByChecklist(req.dbUser.id, checklistId);
+    await deleteChecklist(req.dbUser.id, checklistId);
+    for (const { file_name } of photoRows) {
+      try { await deletePhoto(req.dbUser.id, file_name); } catch (err) { console.error('deletePhoto error:', err); }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('checklist delete error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+app.post('/api/checklists/:checklistId/photos', requireDB, authMiddleware, requireChecklistsAccess, requireStorage, uploadSinglePhoto, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Файл не получен' });
+    const { itemKey } = req.body || {};
+    if (typeof itemKey !== 'string' || !itemKey) {
+      return res.status(400).json({ ok: false, error: 'Не указан пункт чек-листа' });
+    }
+
+    const checklistId = req.params.checklistId;
+    const userId = req.dbUser.id;
+
+    const itemCount = await countChecklistItemPhotos(userId, checklistId, itemKey);
+    if (itemCount >= MAX_PHOTOS_PER_ITEM) {
+      return res.status(403).json({ ok: false, error: 'limit_item' });
+    }
+    const totalBytes = await sumUserPhotoBytes(userId);
+    if (totalBytes + req.file.size > MAX_PHOTOS_TOTAL_MB * 1024 * 1024) {
+      return res.status(403).json({ ok: false, error: 'limit_total' });
+    }
+
+    const fileName = await savePhoto(userId, req.file.buffer);
+    const photo = await createChecklistPhoto(userId, checklistId, itemKey, fileName, req.file.size);
+    res.json({ ok: true, photo: { id: photo.id } });
+  } catch (err) {
+    console.error('photo upload error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+app.get('/api/checklists/photos/:id', requireDB, authMiddleware, requireChecklistsAccess, requireStorage, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const photo = await getChecklistPhoto(req.dbUser.id, id);
+    if (!photo) return res.status(404).json({ ok: false, error: 'Не найдено' });
+    res.set('Cache-Control', 'private');
+    res.sendFile(photoPath(req.dbUser.id, photo.file_name), (err) => {
+      if (err && !res.headersSent) res.status(404).json({ ok: false, error: 'Файл не найден' });
+    });
+  } catch (err) {
+    console.error('photo get error:', err);
+    if (!res.headersSent) res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// Если на фронте сейчас нет удаления фото — эндпоинт всё равно нужен для
+// сброса чек-листа; кнопку в интерфейсе не добавлять, если её нет (часть 3.2 ТЗ).
+app.delete('/api/checklists/photos/:id', requireDB, authMiddleware, requireChecklistsAccess, requireStorage, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const photo = await deleteChecklistPhoto(req.dbUser.id, id);
+    if (!photo) return res.status(404).json({ ok: false, error: 'Не найдено' });
+    try { await deletePhoto(req.dbUser.id, photo.file_name); } catch (err) { console.error('deletePhoto error:', err); }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('photo delete error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// ==================== CONSULTATION API ====================
+// Часть 3.3 TASK_server_storage.md. Лимит и остаток теперь считает сервер.
+
+app.post('/api/consultation', requireDB, authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+
     const sub = await getActiveSubscription(user.id);
     if (!sub) return res.status(403).json({ ok: false, error: 'Нет активной подписки' });
 
-    // Email-уведомление админу
-    sendRawEmail(
+    const used = await countConsultationsThisMonth(user.id);
+    if (used >= FREE_CONSULTATIONS_PER_MONTH) {
+      return res.status(403).json({ ok: false, error: 'limit' });
+    }
+
+    // Запись в consultations вставляется только после успешной отправки письма —
+    // значит письмо теперь ждём, а не отправляем в фоне без ожидания.
+    const sent = await sendRawEmail(
       'ddv1121@yandex.ru',
       `Запись на консультацию: ${user.name || user.email}`,
       `<div style="font-family:Arial,sans-serif;max-width:500px;padding:20px">
@@ -354,12 +612,26 @@ app.post('/api/consultation', authMiddleware, async (req, res) => {
         <hr style="border:none;border-top:1px solid #e4e4e7;margin:16px 0">
         <p style="color:#9ca3af;font-size:12px">РПКМ · Автоматическое уведомление</p>
       </div>`
-    ).catch(err => console.error('Consultation notify error:', err.message));
+    );
+    if (!sent) return res.status(502).json({ ok: false, error: 'Не удалось отправить письмо' });
 
-    res.json({ ok: true });
+    await createConsultation(user.id);
+    res.json({ ok: true, left: FREE_CONSULTATIONS_PER_MONTH - (used + 1) });
   } catch (err) {
     console.error('consultation error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка записи на консультацию' });
+  }
+});
+
+app.get('/api/consultation/status', requireDB, authMiddleware, async (req, res) => {
+  try {
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+    const used = await countConsultationsThisMonth(user.id);
+    res.json({ ok: true, left: Math.max(0, FREE_CONSULTATIONS_PER_MONTH - used) });
+  } catch (err) {
+    console.error('consultation status error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
   }
 });
 

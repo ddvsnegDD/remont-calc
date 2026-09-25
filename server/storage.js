@@ -15,7 +15,12 @@ export function isStorageReady() {
   return !!UPLOAD_DIR;
 }
 
+// Целое положительное число — защита deleteUserFiles от рекурсивного удаления
+// не туда (например, если userId вдруг придёт NaN/undefined/строкой с '../').
 function userDir(userId) {
+  if (!Number.isInteger(userId) || userId <= 0) {
+    throw new Error(`storage: некорректный userId: ${userId}`);
+  }
   return path.join(UPLOAD_DIR, String(userId));
 }
 

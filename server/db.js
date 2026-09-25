@@ -234,9 +234,11 @@ export async function deleteUser(userId) {
     await client.query('COMMIT');
     // Файлы — вне транзакции БД и осознанно после COMMIT: если удаление на диске
     // упадёт, запись в базе уже не откатываем (лишние файлы лучше, чем ссылка
-    // на удалённого пользователя). Ошибка только логируется.
+    // на удалённого пользователя). Ошибка только логируется. Вызываем, только
+    // если пользователь реально был удалён (rows[0] есть) — иначе userId мог
+    // не существовать вовсе, и звать deleteUserFiles не на что.
     try {
-      await deleteUserFiles(userId);
+      if (rows[0]) await deleteUserFiles(userId);
     } catch (err) {
       console.error('deleteUserFiles error:', err);
     }
@@ -247,6 +249,159 @@ export async function deleteUser(userId) {
   } finally {
     client.release();
   }
+}
+
+// --- Calculations / checklists / checklist photos / consultations ---
+// Часть 3 TASK_server_storage.md.
+
+// Начало текущего календарного месяца по Москве, как TIMESTAMPTZ — для лимитов
+// «N в месяц». Двойной AT TIME ZONE: первый разворот переводит NOW() в
+// московское время (naive timestamp), date_trunc берёт начало месяца по этому
+// времени, второй разворот переводит обратно в TIMESTAMPTZ (UTC-инстант
+// начала месяца) — так сравнение с индексируемым created_at использует индекс.
+const MONTH_START_MOSCOW_SQL = `(date_trunc('month', NOW() AT TIME ZONE 'Europe/Moscow') AT TIME ZONE 'Europe/Moscow')`;
+
+export async function listCalculations(userId) {
+  const { rows } = await pool.query(
+    'SELECT * FROM calculations WHERE user_id = $1 ORDER BY created_at DESC',
+    [userId]
+  );
+  return rows;
+}
+
+// Только 'b2b' считаем для лимита бесплатного плана — 'office' всегда требует pro.
+export async function countB2BCalculationsThisMonth(userId) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*) FROM calculations
+     WHERE user_id = $1 AND kind = 'b2b' AND created_at >= ${MONTH_START_MOSCOW_SQL}`,
+    [userId]
+  );
+  return Number(rows[0].count);
+}
+
+export async function createCalculation(userId, kind, projectName, data) {
+  const { rows } = await pool.query(
+    'INSERT INTO calculations (user_id, kind, project_name, data) VALUES ($1, $2, $3, $4) RETURNING *',
+    [userId, kind, projectName, JSON.stringify(data)]
+  );
+  return rows[0];
+}
+
+export async function deleteCalculation(userId, id) {
+  const { rows } = await pool.query(
+    'DELETE FROM calculations WHERE id = $1 AND user_id = $2 RETURNING id',
+    [id, userId]
+  );
+  return rows[0] || null;
+}
+
+export async function listChecklists(userId) {
+  const { rows } = await pool.query(
+    'SELECT checklist_id, state, updated_at FROM checklists WHERE user_id = $1',
+    [userId]
+  );
+  return rows;
+}
+
+export async function getChecklist(userId, checklistId) {
+  const { rows } = await pool.query(
+    'SELECT checklist_id, state, updated_at FROM checklists WHERE user_id = $1 AND checklist_id = $2',
+    [userId, checklistId]
+  );
+  return rows[0] || null;
+}
+
+export async function upsertChecklist(userId, checklistId, state) {
+  const { rows } = await pool.query(
+    `INSERT INTO checklists (user_id, checklist_id, state, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (user_id, checklist_id) DO UPDATE SET state = $3, updated_at = NOW()
+     RETURNING checklist_id, state, updated_at`,
+    [userId, checklistId, JSON.stringify(state)]
+  );
+  return rows[0];
+}
+
+export async function deleteChecklist(userId, checklistId) {
+  const { rows } = await pool.query(
+    'DELETE FROM checklists WHERE user_id = $1 AND checklist_id = $2 RETURNING id',
+    [userId, checklistId]
+  );
+  return rows[0] || null;
+}
+
+// Id фото, реально принадлежащих этому пользователю и этому чек-листу — для
+// валидации state.items[*].photos перед сохранением (PUT /api/checklists/:id).
+export async function listChecklistPhotoIds(userId, checklistId) {
+  const { rows } = await pool.query(
+    'SELECT id FROM checklist_photos WHERE user_id = $1 AND checklist_id = $2',
+    [userId, checklistId]
+  );
+  return rows.map(r => r.id);
+}
+
+export async function countChecklistItemPhotos(userId, checklistId, itemKey) {
+  const { rows } = await pool.query(
+    'SELECT COUNT(*) FROM checklist_photos WHERE user_id = $1 AND checklist_id = $2 AND item_key = $3',
+    [userId, checklistId, itemKey]
+  );
+  return Number(rows[0].count);
+}
+
+export async function sumUserPhotoBytes(userId) {
+  const { rows } = await pool.query(
+    'SELECT COALESCE(SUM(size_bytes), 0) AS total FROM checklist_photos WHERE user_id = $1',
+    [userId]
+  );
+  return Number(rows[0].total);
+}
+
+export async function createChecklistPhoto(userId, checklistId, itemKey, fileName, sizeBytes) {
+  const { rows } = await pool.query(
+    `INSERT INTO checklist_photos (user_id, checklist_id, item_key, file_name, size_bytes)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [userId, checklistId, itemKey, fileName, sizeBytes]
+  );
+  return rows[0];
+}
+
+export async function getChecklistPhoto(userId, id) {
+  const { rows } = await pool.query(
+    'SELECT * FROM checklist_photos WHERE id = $1 AND user_id = $2',
+    [id, userId]
+  );
+  return rows[0] || null;
+}
+
+export async function deleteChecklistPhoto(userId, id) {
+  const { rows } = await pool.query(
+    'DELETE FROM checklist_photos WHERE id = $1 AND user_id = $2 RETURNING *',
+    [id, userId]
+  );
+  return rows[0] || null;
+}
+
+// Удаляет записи фото этого чек-листа и возвращает их file_name — вызывающий
+// код (server.js) удаляет сами файлы через server/storage.js.
+export async function deleteChecklistPhotosByChecklist(userId, checklistId) {
+  const { rows } = await pool.query(
+    'DELETE FROM checklist_photos WHERE user_id = $1 AND checklist_id = $2 RETURNING file_name',
+    [userId, checklistId]
+  );
+  return rows;
+}
+
+export async function countConsultationsThisMonth(userId) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*) FROM consultations WHERE user_id = $1 AND created_at >= ${MONTH_START_MOSCOW_SQL}`,
+    [userId]
+  );
+  return Number(rows[0].count);
+}
+
+export async function createConsultation(userId) {
+  const { rows } = await pool.query('INSERT INTO consultations (user_id) VALUES ($1) RETURNING *', [userId]);
+  return rows[0];
 }
 
 // --- Admin ---

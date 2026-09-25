@@ -39,3 +39,10 @@ export function labelOf(plan) {
 export function formatPrice(n) {
   return Number(n).toLocaleString('ru-RU');
 }
+
+// Лимиты бесплатного плана и чек-листов — часть 3 TASK_server_storage.md.
+// Единственное место с этими числами: сервер и фронт берут отсюда, в коде не дублировать.
+export const FREE_B2B_CALCS_PER_MONTH = 1;   // бесплатный профи; снимает только уровень pro (включая pro_trial)
+export const FREE_CONSULTATIONS_PER_MONTH = 3; // Клуб, календарный месяц по Москве
+export const MAX_PHOTOS_PER_ITEM = 5;          // на пункт чек-листа
+export const MAX_PHOTOS_TOTAL_MB = 50;         // суммарно на пользователя

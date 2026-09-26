@@ -252,13 +252,25 @@ export function generateReportHTML(checklistId, state) {
 // generateReportHTML принимает только data:image/... (проверка на строке 95 выше).
 // Окно открывается сразу (синхронно, по клику — иначе браузер блокирует popup),
 // заполняется после того, как фото скачаны и переведены в data URL.
+// Ошибка загрузки отдельного фото не глотается: если хоть одно не скачалось,
+// акт не формируется вовсе (частичный акт без части фото хуже отсутствия акта) —
+// наверх бросается ошибка со счётчиком неудач, openReportWindow её показывает.
 async function withDataUrlPhotos(state) {
   const items = state.items || {};
   const newItems = {};
+  let failedCount = 0;
   for (const [key, item] of Object.entries(items)) {
     const ids = Array.isArray(item.photos) ? item.photos : [];
-    const photos = (await Promise.all(ids.map(id => fetchPhotoAsDataUrl(id).catch(() => null)))).filter(Boolean);
-    newItems[key] = { ...item, photos };
+    const results = await Promise.all(ids.map(async (id) => {
+      try { return await fetchPhotoAsDataUrl(id); }
+      catch { failedCount++; return null; }
+    }));
+    newItems[key] = { ...item, photos: results.filter(Boolean) };
+  }
+  if (failedCount > 0) {
+    const err = new Error(`Не удалось загрузить ${failedCount} фото`);
+    err.failedCount = failedCount;
+    throw err;
   }
   return { ...state, items: newItems };
 }
@@ -277,8 +289,11 @@ export async function openReportWindow(checklistId, state) {
     w.document.close();
   } catch (err) {
     console.error('checklist report error:', err);
+    const message = err?.failedCount
+      ? `Не удалось загрузить ${err.failedCount} фото, акт не сформирован. Попробуйте ещё раз.`
+      : 'Не удалось загрузить фото для отчёта. Закройте окно и попробуйте ещё раз.';
     w.document.open();
-    w.document.write('<p style="font-family:-apple-system,Arial,sans-serif;padding:60px;text-align:center;color:#dc2626">Не удалось загрузить фото для отчёта. Закройте окно и попробуйте ещё раз.</p>');
+    w.document.write(`<p style="font-family:-apple-system,Arial,sans-serif;padding:60px;text-align:center;color:#dc2626">${message}</p>`);
     w.document.close();
   }
 }

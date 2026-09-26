@@ -24,15 +24,28 @@ export async function getChecklist(checklistId) {
   return request(`/api/checklists/${checklistId}`, { credentials: 'include' });
 }
 
+// Браузеры ограничивают суммарный размер тела keepalive-запросов (в Chrome —
+// около 64 КБ на все keepalive-запросы сразу); с запасом отсекаем на 60 КБ —
+// при уходе со страницы лучше отправить обычный fetch (может не успеть),
+// чем получить гарантированный отказ браузера от keepalive-запроса.
+const KEEPALIVE_BODY_LIMIT = 60 * 1024;
+
 // opts.keepalive — для сохранения при размонтировании страницы (уход/закрытие
 // вкладки): запрос переживает уход со страницы, обычные сохранения его не передают.
 export async function saveChecklist(checklistId, state, opts = {}) {
+  const body = JSON.stringify({ state });
+  const finalOpts = { ...opts };
+  // .length считает символы JS-строки, не байты — с кириллицей (адрес,
+  // комментарии) это заметно меньше реального UTF-8 размера, поэтому меряем точно.
+  if (finalOpts.keepalive && new TextEncoder().encode(body).length > KEEPALIVE_BODY_LIMIT) {
+    finalOpts.keepalive = false;
+  }
   return request(`/api/checklists/${checklistId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ state }),
-    ...opts,
+    body,
+    ...finalOpts,
   });
 }
 

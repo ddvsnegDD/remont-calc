@@ -189,6 +189,7 @@ export default function ChecklistDetailPage() {
   const dirtyRef = useRef(false);
   const idRef = useRef(id);
   const debounceRef = useRef(null);
+  const inFlightRef = useRef(false); // true, пока предыдущий PUT ещё не ответил
 
   // Загрузка чек-листа с сервера. При смене id без размонтирования компонента
   // (переход между /checklists/:id) — сначала дозаписываем несохранённые правки
@@ -222,41 +223,72 @@ export default function ChecklistDetailPage() {
     return () => { cancelled = true; };
   }, [user, id, checklist, loadChecklist]);
 
-  // Сохранение при размонтировании страницы (переход на другой маршрут,
-  // закрытие вкладки) — критерий 12 TASK_server_storage.md: последние правки
-  // не должны потеряться. keepalive переживает уход со страницы.
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (dirtyRef.current) {
-        saveChecklist(idRef.current, stateRef.current, { keepalive: true });
-        dirtyRef.current = false;
-      }
-    };
+  // Отправка в очередь: пока предыдущий PUT не ответил, новый не шлём — когда
+  // он ответит, сам проверит, не появились ли за это время новые правки, и
+  // отправит самое свежее stateRef. dirtyRef сбрасывается только если то,
+  // что отправили, всё ещё совпадает с текущим stateRef (иначе есть более
+  // новая правка — тут же уходит следующий запрос).
+  const trySave = useCallback(async () => {
+    if (inFlightRef.current || !dirtyRef.current) return;
+    inFlightRef.current = true;
+    const sending = stateRef.current;
+    const res = await saveChecklist(idRef.current, sending);
+    inFlightRef.current = false;
+    if (!res.ok) {
+      setSaveError(res.error === 'network'
+        ? 'Нет связи с сервером. Изменения не сохранены — проверьте интернет.'
+        : 'Не удалось сохранить изменения.');
+      return; // dirtyRef остаётся true — несохранённые данные, попробуем при следующей правке
+    }
+    setSaveError('');
+    if (stateRef.current === sending) {
+      dirtyRef.current = false;
+    } else {
+      trySave(); // за время запроса появились новые правки
+    }
   }, []);
 
-  const flushNow = useCallback((newState) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      const res = await saveChecklist(id, newState);
-      if (!res.ok) {
-        setSaveError(res.error === 'network'
-          ? 'Нет связи с сервером. Изменения не сохранены — проверьте интернет.'
-          : 'Не удалось сохранить изменения.');
-        return;
-      }
-      setSaveError('');
-      if (stateRef.current === newState) dirtyRef.current = false;
-    }, SAVE_DEBOUNCE_MS);
-  }, [id]);
+  // Последний шанс сохранить: реальный уход со страницы (закрытие вкладки,
+  // обновление, переход на другой сайт) — размонтирование React здесь НЕ
+  // срабатывает, нужны pagehide/visibilitychange отдельно. keepalive
+  // переживает сам уход со страницы. В отличие от trySave() шлётся
+  // безусловно (не ждёт ответа предыдущего PUT) — это последний шанс,
+  // дублирующий запрос безвреден.
+  const flushOnHide = useCallback(() => {
+    if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+    if (dirtyRef.current) {
+      saveChecklist(idRef.current, stateRef.current, { keepalive: true });
+      dirtyRef.current = false;
+    }
+  }, []);
+
+  // Сохранение при размонтировании страницы (переход на другой маршрут
+  // внутри SPA) — критерий 12 TASK_server_storage.md.
+  useEffect(() => {
+    return () => { flushOnHide(); };
+  }, [flushOnHide]);
+
+  // Сохранение при реальном уходе со страницы: закрытие вкладки, обновление,
+  // переход на другой сайт. Размонтирование компонента в этих случаях не
+  // происходит (или происходит слишком поздно) — нужны отдельные обработчики.
+  useEffect(() => {
+    const onVisibilityChange = () => { if (document.visibilityState === 'hidden') flushOnHide(); };
+    window.addEventListener('pagehide', flushOnHide);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flushOnHide);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [flushOnHide]);
 
   // Auto-save (с задержкой, чтобы не слать запрос на каждый клик по галочке)
   const save = useCallback((newState) => {
     setState(newState);
     stateRef.current = newState;
     dirtyRef.current = true;
-    flushNow(newState);
-  }, [flushNow]);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(trySave, SAVE_DEBOUNCE_MS);
+  }, [trySave]);
 
   if (!checklist) {
     return (

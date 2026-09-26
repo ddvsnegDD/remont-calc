@@ -82,7 +82,12 @@ export function AuthProvider({ children }) {
   // достаться следующему человеку в этой же вкладке (rpkm-contact-sent не
   // трогаем — это антиспам формы, без персональных данных).
   const logout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    // Сетевая ошибка здесь не должна мешать очистке — токен на сервере
+    // может остаться живым, но локально пользователь обязан выйти и не
+    // унести чужой (или свой) расчёт в sessionStorage до следующего входа.
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {}
     setUser(null);
     setSubscription(null);
     setTrialUsed(false);

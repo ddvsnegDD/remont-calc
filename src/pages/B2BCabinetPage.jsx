@@ -7,7 +7,7 @@ import { formatRub } from '../lib/calculator';
 import { useAuth } from '../lib/auth';
 import { listCalcs, deleteCalc } from '../lib/calcsApi';
 import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
-import { withCount } from '../lib/pluralize';
+import { withCount } from '../lib/plural';
 
 const formatSubDate = (d) => {
   if (!d) return null;

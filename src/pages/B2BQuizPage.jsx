@@ -9,7 +9,7 @@ import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
 import { createCalc } from '../lib/calcsApi';
 import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
-import { withCount } from '../lib/pluralize';
+import { withCount } from '../lib/plural';
 
 const STEPS = [
   { id: 'project_name', title: 'Название проекта', hint: 'Для удобства поиска в истории расчётов.', type: 'text', placeholder: 'Внутреннее название проекта' },

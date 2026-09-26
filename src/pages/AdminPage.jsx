@@ -145,7 +145,7 @@ export default function AdminPage() {
   };
 
   const handleDeleteUser = async (userId, email) => {
-    if (!window.confirm(`Удалить пользователя ${email}?\n\nВсе данные (подписки, коды) будут удалены безвозвратно.`)) return;
+    if (!window.confirm(`Удалить пользователя ${email}?\n\nВсе данные (подписки, коды, расчёты, чек-листы с фото, консультации) будут удалены безвозвратно.`)) return;
     try {
       const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE', credentials: 'include' });
       const data = await res.json();

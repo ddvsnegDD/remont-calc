@@ -6,7 +6,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { PLANS, formatPrice, labelOf, FREE_CONSULTATIONS_PER_MONTH } from '../data/tariffs';
-import { withCount } from '../lib/pluralize';
+import { withCount } from '../lib/plural';
 import { getConsultationStatus, createConsultation } from '../lib/consultationApi';
 
 const CLUB_M = PLANS.club_monthly.price; // 99
@@ -22,9 +22,7 @@ const BENEFITS = [
 
 const FEATURES = [
   { icon: '📋', title: 'Приёмка этапов', desc: '6 чек-листов (175 пунктов): стяжка, штукатурка, электрика, сантехника, чистовая отделка, установка дверей.' },
-  // «Можно копить — до 9» — из старой (без переноса остатка) логики: см. ответ
-  // в чате, не редактирую сам до подтверждения.
-  { icon: '📞', title: 'Консультация', desc: `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} с инженером в месяц. Можно копить — до 9 консультаций.` },
+  { icon: '📞', title: 'Консультация', desc: `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} с инженером в месяц.` },
   { icon: '💬', title: 'Закрытый чат', soon: true, desc: 'Чаты владельцев для обмена опытом между участниками клуба.' },
 ];
 

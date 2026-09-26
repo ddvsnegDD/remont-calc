@@ -10,3 +10,7 @@ export function plural(n, forms) {
 }
 
 export const positions = n => `${n} ${plural(n, ['позиция', 'позиции', 'позиций'])}`;
+
+// «N + согласованное слово» для произвольного существительного,
+// например withCount(3, ['расчёт', 'расчёта', 'расчётов']) → '3 расчёта'.
+export const withCount = (n, forms) => `${n} ${plural(n, forms)}`;

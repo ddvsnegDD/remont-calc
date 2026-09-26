@@ -78,10 +78,20 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  // Часть 7 TASK_server_storage.md: sessionStorage с чужим расчётом не должен
+  // достаться следующему человеку в этой же вкладке (rpkm-contact-sent не
+  // трогаем — это антиспам формы, без персональных данных).
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     setUser(null);
     setSubscription(null);
+    setTrialUsed(false);
+    try {
+      sessionStorage.removeItem('rpkm-last-b2c');
+      sessionStorage.removeItem('rpkm-last-b2c-detail');
+      sessionStorage.removeItem('rpkm-b2b-current');
+      sessionStorage.removeItem('rpkm-b2b-office-current');
+    } catch {}
   }, []);
 
   const refreshSubscription = useCallback(async () => {

@@ -5,7 +5,7 @@ import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
-import { withCount } from '../lib/pluralize';
+import { withCount } from '../lib/plural';
 
 const ROLE_LABEL = {
   designer: 'Дизайнер интерьеров',

@@ -10,6 +10,7 @@ import Btn from '../components/Btn';
 import ProPaywall from '../components/ProPaywall';
 import { openReportWindow } from '../lib/checklistReport';
 import { getChecklist, saveChecklist, uploadChecklistPhoto, deleteChecklistPhoto, checklistPhotoUrl } from '../lib/checklistsApi';
+import { plural, withCount } from '../lib/plural';
 
 const SAVE_DEBOUNCE_MS = 800;
 
@@ -481,7 +482,7 @@ export default function ChecklistDetailPage() {
               </div>
               <div>
                 <h1 className="font-golos" style={{ fontSize: 22, fontWeight: 800, color: C.graphite, margin: 0 }}>{checklist.title}</h1>
-                <p style={{ fontSize: 13, color: C.gray500, margin: '2px 0 0' }}>{totalItems} пунктов · {checklist.groups.length} разделов</p>
+                <p style={{ fontSize: 13, color: C.gray500, margin: '2px 0 0' }}>{withCount(totalItems, ['пункт', 'пункта', 'пунктов'])} · {withCount(checklist.groups.length, ['раздел', 'раздела', 'разделов'])}</p>
               </div>
             </div>
           </div>
@@ -645,7 +646,7 @@ export default function ChecklistDetailPage() {
                 Чек-лист заполнен
               </div>
               <div style={{ fontSize: 13, color: C.gray500 }}>
-                {checkedCount}/{totalItems} пунктов отмечено
+                {checkedCount}/{totalItems} {plural(totalItems, ['пункт', 'пункта', 'пунктов'])} отмечено
                 {Object.values(state.items).reduce((s, v) => s + (v.photos?.length || 0), 0) > 0 &&
                   ` · ${Object.values(state.items).reduce((s, v) => s + (v.photos?.length || 0), 0)} фото`}
               </div>

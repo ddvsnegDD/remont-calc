@@ -62,10 +62,13 @@ export default function B2BResultPage() {
             <div className="quiz-card" style={{ textAlign: 'center', padding: '40px 20px' }}>
               <h2>Расчёт не найден</h2>
               <p style={{ color: C.gray500, margin: '12px 0 24px' }}>Возможно, был удалён или открыт по неверной ссылке.</p>
-              <Btn variant="dark" onClick={() => navigate('/b2b-cabinet')}>Вернуться в кабинет</Btn>
+              {user
+                ? <Btn variant="dark" onClick={() => navigate('/b2b-cabinet')}>Вернуться в кабинет</Btn>
+                : <Btn variant="dark" onClick={() => setLoginOpen(true)}>Войти</Btn>}
             </div>
           </div>
         </div>
+        <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
       </PageLayout>
     );
   }

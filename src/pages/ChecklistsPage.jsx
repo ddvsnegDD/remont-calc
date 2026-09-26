@@ -9,6 +9,7 @@ import Btn from '../components/Btn';
 import ProPaywall from '../components/ProPaywall';
 import { openReportWindow } from '../lib/checklistReport';
 import { listChecklists, resetChecklist } from '../lib/checklistsApi';
+import { withCount } from '../lib/plural';
 
 function getTotalItems(checklistId) {
   const cl = CHECKLISTS.find(c => c.id === checklistId);
@@ -163,7 +164,7 @@ export default function ChecklistsPage() {
                           {done && <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '2px 8px', borderRadius: 10 }}>Готово</span>}
                         </div>
                         <div style={{ fontSize: 13, color: C.gray500 }}>
-                          {total} пунктов · {cl.groups.length} разделов
+                          {withCount(total, ['пункт', 'пункта', 'пунктов'])} · {withCount(cl.groups.length, ['раздел', 'раздела', 'разделов'])}
                           {prog.photos > 0 && <span> · {prog.photos} фото</span>}
                         </div>
 

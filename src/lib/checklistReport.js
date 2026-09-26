@@ -1,6 +1,7 @@
 // Генерация HTML-отчёта для печати / сохранения в PDF
 import { CHECKLISTS } from '../data/checklists';
 import { fetchPhotoAsDataUrl } from './checklistsApi';
+import { plural, withCount } from './plural';
 
 const RESULT_LABELS = {
   accepted: 'Работы приняты без замечаний',
@@ -89,7 +90,7 @@ export function generateReportHTML(checklistId, state) {
         ПРИЛОЖЕНИЕ: ФОТОМАТЕРИАЛЫ
       </h2>
       <p style="font-size:12px; color:#6b7280; margin-bottom:16px;">
-        Всего ${allPhotos.length} фотографий к чек-листу
+        Всего ${withCount(allPhotos.length, ['фотография', 'фотографии', 'фотографий'])} к чек-листу
       </p>`;
 
     allPhotos.forEach((p, i) => {
@@ -165,7 +166,7 @@ export function generateReportHTML(checklistId, state) {
         ${esc(checklist.title)}
       </h1>
       <div style="font-size:12px; color:#6b7280; margin-top:6px;">
-        ${checkedCount} из ${totalItems} пунктов отмечено · ${allPhotos.length} фото
+        ${checkedCount} из ${totalItems} ${plural(totalItems, ['пункта', 'пунктов', 'пунктов'])} отмечено · ${allPhotos.length} фото
       </div>
     </div>
 

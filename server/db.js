@@ -66,6 +66,10 @@ export async function initDB() {
         updated_at   TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE (user_id, checklist_id)
       );
+      -- rev — растущее число от клиента (часть 5 ТЗ, правка ревью): защита от
+      -- записи устаревшего состояния поверх нового при гонке двух PUT (например
+      -- обычный запрос и keepalive-флеш при быстром уходе со страницы).
+      ALTER TABLE checklists ADD COLUMN IF NOT EXISTS rev BIGINT NOT NULL DEFAULT 0;
 
       CREATE TABLE IF NOT EXISTS checklist_photos (
         id           SERIAL PRIMARY KEY,
@@ -297,7 +301,7 @@ export async function deleteCalculation(userId, id) {
 
 export async function listChecklists(userId) {
   const { rows } = await pool.query(
-    'SELECT checklist_id, state, updated_at FROM checklists WHERE user_id = $1',
+    'SELECT checklist_id, state, rev, updated_at FROM checklists WHERE user_id = $1',
     [userId]
   );
   return rows;
@@ -305,21 +309,28 @@ export async function listChecklists(userId) {
 
 export async function getChecklist(userId, checklistId) {
   const { rows } = await pool.query(
-    'SELECT checklist_id, state, updated_at FROM checklists WHERE user_id = $1 AND checklist_id = $2',
+    'SELECT checklist_id, state, rev, updated_at FROM checklists WHERE user_id = $1 AND checklist_id = $2',
     [userId, checklistId]
   );
   return rows[0] || null;
 }
 
-export async function upsertChecklist(userId, checklistId, state) {
+// rev — растущее число от клиента, защита от записи устаревшего состояния
+// поверх нового при гонке двух PUT одного пользователя (часть 5 ТЗ, правка
+// ревью). WHERE в DO UPDATE отклоняет запись, если пришедший rev не новее
+// сохранённого — тогда запрос не обновляет строку и RETURNING не возвращает
+// её; вызывающий код (server.js) трактует null как «отклонено, не ошибка».
+export async function upsertChecklist(userId, checklistId, state, rev) {
   const { rows } = await pool.query(
-    `INSERT INTO checklists (user_id, checklist_id, state, updated_at)
-     VALUES ($1, $2, $3, NOW())
-     ON CONFLICT (user_id, checklist_id) DO UPDATE SET state = $3, updated_at = NOW()
-     RETURNING checklist_id, state, updated_at`,
-    [userId, checklistId, JSON.stringify(state)]
+    `INSERT INTO checklists (user_id, checklist_id, state, rev, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (user_id, checklist_id) DO UPDATE
+       SET state = EXCLUDED.state, rev = EXCLUDED.rev, updated_at = NOW()
+       WHERE checklists.rev < EXCLUDED.rev
+     RETURNING checklist_id, state, rev, updated_at`,
+    [userId, checklistId, JSON.stringify(state), rev]
   );
-  return rows[0];
+  return rows[0] || null;
 }
 
 export async function deleteChecklist(userId, checklistId) {

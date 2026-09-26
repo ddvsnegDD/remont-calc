@@ -190,6 +190,16 @@ export default function ChecklistDetailPage() {
   const idRef = useRef(id);
   const debounceRef = useRef(null);
   const inFlightRef = useRef(false); // true, пока предыдущий PUT ещё не ответил
+  // rev — растущее число, назначается в save() вместе с состоянием и уходит
+  // со всеми PUT (включая keepalive). Защита от записи устаревшего состояния
+  // поверх нового при гонке двух PUT одного пользователя — сервер отклоняет
+  // запись с rev не новее уже сохранённого (часть 5 ТЗ, правка ревью).
+  const revRef = useRef(0);
+
+  const nextRev = () => {
+    revRef.current = Math.max(Date.now(), revRef.current + 1);
+    return revRef.current;
+  };
 
   // Загрузка чек-листа с сервера. При смене id без размонтирования компонента
   // (переход между /checklists/:id) — сначала дозаписываем несохранённые правки
@@ -204,6 +214,10 @@ export default function ChecklistDetailPage() {
     const s = res.checklist ? res.checklist.state : { items: {}, meta: {} };
     setState(s);
     stateRef.current = s;
+    revRef.current = res.checklist?.rev || 0;
+    // Данные только что подтверждённо пришли с сервера — на этом чек-листе
+    // пока нет несохранённых правок.
+    dirtyRef.current = false;
     setResultStatus(s.meta?.result || '');
   }, []);
 
@@ -211,9 +225,13 @@ export default function ChecklistDetailPage() {
     const prevId = idRef.current;
     if (prevId && prevId !== id) {
       if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      // Не ждём ответа — rev защищает от перестановки на сервере, а следующий
+      // чек-лист грузится независимо (другая строка в БД). dirtyRef не
+      // сбрасываем вслепую: это лучшая попытка (best-effort), не подтверждённая
+      // отправка. Правки этого чек-листа мы больше не увидим, но loadChecklist
+      // для НОВОГО id ниже выставит dirtyRef=false для его собственных данных.
       if (dirtyRef.current) {
-        saveChecklist(prevId, stateRef.current);
-        dirtyRef.current = false;
+        saveChecklist(prevId, stateRef.current, revRef.current);
       }
     }
     idRef.current = id;
@@ -232,7 +250,8 @@ export default function ChecklistDetailPage() {
     if (inFlightRef.current || !dirtyRef.current) return;
     inFlightRef.current = true;
     const sending = stateRef.current;
-    const res = await saveChecklist(idRef.current, sending);
+    const sendingRev = revRef.current;
+    const res = await saveChecklist(idRef.current, sending, sendingRev);
     inFlightRef.current = false;
     if (!res.ok) {
       setSaveError(res.error === 'network'
@@ -253,12 +272,15 @@ export default function ChecklistDetailPage() {
   // срабатывает, нужны pagehide/visibilitychange отдельно. keepalive
   // переживает сам уход со страницы. В отличие от trySave() шлётся
   // безусловно (не ждёт ответа предыдущего PUT) — это последний шанс,
-  // дублирующий запрос безвреден.
+  // дублирующий запрос безвреден. dirtyRef НЕ сбрасываем: это лучшая попытка,
+  // а не подтверждённая отправка — если страница на самом деле не закрылась
+  // (переключение на камеру/другое приложение), а вернулась видимой, обычная
+  // очередь (trySave по visibilitychange) досохранит и покажет ошибку, если
+  // сохранение не удалось.
   const flushOnHide = useCallback(() => {
     if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
     if (dirtyRef.current) {
-      saveChecklist(idRef.current, stateRef.current, { keepalive: true });
-      dirtyRef.current = false;
+      saveChecklist(idRef.current, stateRef.current, revRef.current, { keepalive: true });
     }
   }, []);
 
@@ -271,20 +293,26 @@ export default function ChecklistDetailPage() {
   // Сохранение при реальном уходе со страницы: закрытие вкладки, обновление,
   // переход на другой сайт. Размонтирование компонента в этих случаях не
   // происходит (или происходит слишком поздно) — нужны отдельные обработчики.
+  // Возврат видимости (переключение приложений на мобильном, камера) —
+  // повод довести обычную (подтверждённую) очередь сохранения до конца.
   useEffect(() => {
-    const onVisibilityChange = () => { if (document.visibilityState === 'hidden') flushOnHide(); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushOnHide();
+      else trySave();
+    };
     window.addEventListener('pagehide', flushOnHide);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('pagehide', flushOnHide);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [flushOnHide]);
+  }, [flushOnHide, trySave]);
 
   // Auto-save (с задержкой, чтобы не слать запрос на каждый клик по галочке)
   const save = useCallback((newState) => {
     setState(newState);
     stateRef.current = newState;
+    nextRev();
     dirtyRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(trySave, SAVE_DEBOUNCE_MS);

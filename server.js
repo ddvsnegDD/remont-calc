@@ -498,7 +498,7 @@ async function requireChecklistsAccess(req, res, next) {
 app.get('/api/checklists', requireDB, authMiddleware, requireChecklistsAccess, async (req, res) => {
   try {
     const list = await listChecklists(req.dbUser.id);
-    res.json({ ok: true, checklists: list.map(r => ({ checklistId: r.checklist_id, state: r.state, updatedAt: r.updated_at })) });
+    res.json({ ok: true, checklists: list.map(r => ({ checklistId: r.checklist_id, state: r.state, rev: r.rev, updatedAt: r.updated_at })) });
   } catch (err) {
     console.error('checklists list error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка' });
@@ -510,7 +510,7 @@ app.get('/api/checklists/:checklistId', requireDB, authMiddleware, requireCheckl
     const row = await getChecklist(req.dbUser.id, req.params.checklistId);
     // Чек-лист ещё не начат — обычное состояние для своего checklistId, не 404.
     if (!row) return res.json({ ok: true, checklist: null });
-    res.json({ ok: true, checklist: { checklistId: row.checklist_id, state: row.state, updatedAt: row.updated_at } });
+    res.json({ ok: true, checklist: { checklistId: row.checklist_id, state: row.state, rev: row.rev, updatedAt: row.updated_at } });
   } catch (err) {
     console.error('checklist get error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка' });
@@ -519,9 +519,12 @@ app.get('/api/checklists/:checklistId', requireDB, authMiddleware, requireCheckl
 
 app.put('/api/checklists/:checklistId', requireDB, authMiddleware, requireChecklistsAccess, requireValidChecklist, async (req, res) => {
   try {
-    const { state } = req.body || {};
+    const { state, rev } = req.body || {};
     if (!state || typeof state !== 'object' || Array.isArray(state)) {
       return res.status(400).json({ ok: false, error: 'Некорректное состояние чек-листа' });
+    }
+    if (!Number.isInteger(rev) || rev <= 0) {
+      return res.status(400).json({ ok: false, error: 'Некорректная версия чек-листа' });
     }
     const checklistId = req.params.checklistId;
     // Чужие и несуществующие id фото выкидываем из сохраняемого состояния —
@@ -534,8 +537,11 @@ app.put('/api/checklists/:checklistId', requireDB, authMiddleware, requireCheckl
       cleanedItems[key] = { ...item, photos };
     }
     const cleanedState = { ...state, items: cleanedItems };
-    const saved = await upsertChecklist(req.dbUser.id, checklistId, cleanedState);
-    res.json({ ok: true, checklist: { checklistId: saved.checklist_id, state: saved.state, updatedAt: saved.updated_at } });
+    const saved = await upsertChecklist(req.dbUser.id, checklistId, cleanedState, rev);
+    // saved === null — запись отклонена как устаревшая (пришедший rev не новее
+    // сохранённого): это гонка двух своих же PUT, не ошибка (часть 5 ТЗ, правка ревью).
+    if (!saved) return res.json({ ok: true, stale: true });
+    res.json({ ok: true, checklist: { checklistId: saved.checklist_id, state: saved.state, rev: saved.rev, updatedAt: saved.updated_at } });
   } catch (err) {
     console.error('checklist put error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка' });

@@ -30,10 +30,14 @@ export async function getChecklist(checklistId) {
 // чем получить гарантированный отказ браузера от keepalive-запроса.
 const KEEPALIVE_BODY_LIMIT = 60 * 1024;
 
+// rev — растущее число, назначается на клиенте вместе с состоянием (см. save()
+// в ChecklistDetailPage.jsx). Защита от записи устаревшего состояния поверх
+// нового при гонке двух PUT (часть 5 ТЗ, правка ревью) — сервер отклоняет
+// запись с rev не новее уже сохранённого и отвечает { ok:true, stale:true }.
 // opts.keepalive — для сохранения при размонтировании страницы (уход/закрытие
 // вкладки): запрос переживает уход со страницы, обычные сохранения его не передают.
-export async function saveChecklist(checklistId, state, opts = {}) {
-  const body = JSON.stringify({ state });
+export async function saveChecklist(checklistId, state, rev, opts = {}) {
+  const body = JSON.stringify({ state, rev });
   const finalOpts = { ...opts };
   // .length считает символы JS-строки, не байты — с кириллицей (адрес,
   // комментарии) это заметно меньше реального UTF-8 размера, поэтому меряем точно.

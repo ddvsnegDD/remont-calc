@@ -11,6 +11,7 @@ export const C = {
   gray50: "#FAFAFA",
   gray100: "#F0F0F2",
   gray200: "#E4E4E7",
+  gray300: "#D1D5DB",
   gray400: "#9CA3AF",
   gray500: "#6B7280",
   gray600: "#4B5563",

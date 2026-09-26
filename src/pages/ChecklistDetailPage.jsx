@@ -86,6 +86,7 @@ function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle,
           {/* Checkbox */}
           <button onClick={() => onToggle(itemKey)}
             style={{
+              appearance: 'none', WebkitAppearance: 'none', padding: 0,
               width: 28, height: 28, borderRadius: 8, flexShrink: 0, marginTop: 1,
               border: `2px solid ${checked ? '#16a34a' : C.gray300}`,
               background: checked ? '#16a34a' : '#fff',
@@ -508,13 +509,22 @@ export default function ChecklistDetailPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <input placeholder="Адрес объекта" value={state.meta?.address || ''}
                 onChange={e => saveMeta('address', e.target.value)}
-                style={{ gridColumn: '1 / -1', minWidth: 0, width: '100%', padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
-              <input placeholder="Помещение" value={state.meta?.room || ''}
-                onChange={e => saveMeta('room', e.target.value)}
-                style={{ minWidth: 0, width: '100%', padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
-              <input type="date" value={state.meta?.date || ''}
-                onChange={e => saveMeta('date', e.target.value)}
-                style={{ minWidth: 0, width: '100%', padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box', color: state.meta?.date ? C.graphite : C.gray400 }} />
+                className="checklist-meta-input" style={{ gridColumn: '1 / -1' }} />
+              {/* Помещение получает такую же подпись, что и дата ниже — иначе
+                  в этой строке грид растягивает поля до разной высоты
+                  (у даты появляется подпись, у соседнего поля — нет). */}
+              <div style={{ minWidth: 0 }}>
+                <label style={{ display: 'block', fontSize: 12, color: C.gray500, marginBottom: 4 }}>Помещение</label>
+                <input placeholder="Помещение" value={state.meta?.room || ''}
+                  onChange={e => saveMeta('room', e.target.value)}
+                  className="checklist-meta-input" />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <label style={{ display: 'block', fontSize: 12, color: C.gray500, marginBottom: 4 }}>Дата приёмки</label>
+                <input type="date" value={state.meta?.date || ''}
+                  onChange={e => saveMeta('date', e.target.value)}
+                  className="checklist-meta-input" style={{ color: state.meta?.date ? C.graphite : C.gray400 }} />
+              </div>
             </div>
           </div>
 

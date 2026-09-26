@@ -265,7 +265,7 @@ export default function B2CDetailPage() {
             {/* Tier */}
             <div className="form-field">
               <label>Категория ремонта</label>
-              <div className="options-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+              <div className="options-grid options-grid--3">
                 {tierCards.map(t => (
                   <button key={t.key} type="button" className={`option-card${tier === t.key ? ' selected' : ''}`} onClick={() => setTier(t.key)}>
                     <div className="option-card-title">{tierTitle(t.key)}</div>

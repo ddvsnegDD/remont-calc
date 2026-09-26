@@ -184,7 +184,7 @@ export default function B2CQuizPage() {
             {current.hint && <p style={{ fontSize: 14, color: C.gray500, marginBottom: 20, lineHeight: 1.5 }}>{current.hint}</p>}
 
             {(current.type === 'cards') && (
-              <div style={{ display: "grid", gridTemplateColumns: stepOptions.length <= 2 ? "1fr 1fr" : "1fr 1fr", gap: 12 }}>
+              <div className="quiz-cards-grid-2">
                 {stepOptions.map(o => (
                   <button key={o.value} onClick={() => handleCardClick(current.id, o.value)}
                     style={{ padding: "16px 14px", border: answers[current.id] === o.value ? `2px solid ${C.terra}` : `1.5px solid ${C.gray200}`, borderRadius: 14, background: answers[current.id] === o.value ? C.terraBg : "#fff", cursor: "pointer", textAlign: "left", transition: "all 0.25s" }}

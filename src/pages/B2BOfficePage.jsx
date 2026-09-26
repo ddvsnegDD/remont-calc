@@ -181,7 +181,7 @@ export default function B2BOfficePage() {
             {/* Tier */}
             <div className="form-field">
               <label>Категория отделки</label>
-              <div className="options-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+              <div className="options-grid options-grid--3">
                 {tierCards.map(t => (
                   <button key={t.key} type="button" className={`option-card${tier === t.key ? ' selected' : ''}`}
                     onClick={() => setTier(t.key)}>
@@ -268,7 +268,7 @@ export default function B2BOfficePage() {
             {/* Optional systems */}
             <div className="form-field" style={{ marginTop: 12 }}>
               <label>Дополнительные системы</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div className="office-optional-grid">
                 {optionalSystems.map(s => (
                   <label key={s.id} className="checkbox-row" style={{ background: C.gray50, padding: '10px 12px', borderRadius: 6, margin: 0, cursor: 'pointer', alignItems: 'center' }}>
                     <input type="checkbox" checked={!!optionalStates[s.id]}

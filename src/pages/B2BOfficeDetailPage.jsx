@@ -479,9 +479,7 @@ export default function B2BOfficeDetailPage() {
               </div>
             );
           })()}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16,
-          }}>
+          <div className="office-summary-grid" style={{ marginBottom: 16 }}>
             {[
               { label: 'Работы + Материалы', value: result.subtotalTotal, color: '#2563eb' },
               { label: 'Управление + Дизайн (20%)', value: result.surcharges.reduce((s, x) => s + x.cost, 0), color: '#7c3aed' },
@@ -750,24 +748,24 @@ export default function B2BOfficeDetailPage() {
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Ед. изм.</label>
                   <input type="text" value={editDraft.unit || ''} onChange={e => setEditDraft(d => ({ ...d, unit: e.target.value }))}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Количество</label>
                   <input type="number" step="0.01" value={editDraft.volume ?? ''} onChange={e => setEditDraft(d => ({ ...d, volume: e.target.value }))}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Ед. расценка работ, ₽</label>
                   <input type="number" step="0.01" value={editDraft.priceWork ?? ''} onChange={e => setEditDraft(d => ({ ...d, priceWork: e.target.value }))}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <label style={{ fontSize: 12, color: C.gray500, display: 'block', marginBottom: 4 }}>Ед. расценка мат-лов, ₽</label>
                   <input type="number" step="0.01" value={editDraft.priceMat ?? ''} onChange={e => setEditDraft(d => ({ ...d, priceMat: e.target.value }))}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.gray200}`, fontSize: 14 }} />

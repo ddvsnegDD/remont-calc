@@ -98,7 +98,7 @@ export default function LoginChoicePage() {
                 <p style={{ fontSize: 15, color: C.gray500 }}>Выберите тип аккаунта</p>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="login-choice-grid">
                 <div onClick={() => { setMode('b2c-email'); setError(''); }}
                   style={{ background: '#fff', border: `2px solid ${C.gray200}`, borderRadius: 20, padding: '32px 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.3s' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.terra; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)'; }}

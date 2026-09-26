@@ -212,6 +212,48 @@ input[type=range]:active::-webkit-slider-thumb { transform: scale(0.95); }
     }
 }
 
+/* Часть 2 TASK_mobile_layout.md — аудит остальных inline-сеток. */
+
+/* Карточки тарифов на /club (ClubPage.jsx). */
+.club-pricing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+@media (max-width: 600px) { .club-pricing-grid { grid-template-columns: 1fr; } }
+
+/* Сводные карточки сметы офиса (B2BOfficeDetailPage.jsx). */
+.office-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 600px) { .office-summary-grid { grid-template-columns: 1fr; } }
+
+/* Чекбоксы дополнительных систем (B2BOfficePage.jsx). */
+.office-optional-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+@media (max-width: 600px) { .office-optional-grid { grid-template-columns: 1fr; } }
+
+/* Выбор типа аккаунта на странице входа (LoginChoicePage.jsx). */
+.login-choice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 600px) { .login-choice-grid { grid-template-columns: 1fr; } }
+
+/* Карточки вариантов ответа в анонимном B2C-квизе (B2CQuizPage.jsx). */
+.quiz-cards-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 600px) { .quiz-cards-grid-2 { grid-template-columns: 1fr; } }
+
 /* === SECTIONS === */
 section { padding: 80px 0; }
 
@@ -421,6 +463,10 @@ section { padding: 80px 0; }
 }
 
 @media (max-width: 600px) { .options-grid { grid-template-columns: 1fr; } }
+
+/* Модификатор .options-grid для трёх карточек в ряд (B2CDetailPage, B2BOfficePage). */
+.options-grid--3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 600px) { .options-grid--3 { grid-template-columns: 1fr; } }
 
 .option-card {
     padding: 20px;

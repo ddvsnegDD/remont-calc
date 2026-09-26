@@ -299,12 +299,19 @@ export async function deleteCalculation(userId, id) {
   return rows[0] || null;
 }
 
+// pg отдаёт BIGINT строкой (защита от потери точности для значений вне
+// диапазона JS-числа) — наши rev — Date.now(), в пределах Number.MAX_SAFE_INTEGER,
+// приводим к числу сразу, иначе rev.current + 1 на клиенте конкатенирует строки.
+function rowWithNumericRev(row) {
+  return row ? { ...row, rev: Number(row.rev) } : row;
+}
+
 export async function listChecklists(userId) {
   const { rows } = await pool.query(
     'SELECT checklist_id, state, rev, updated_at FROM checklists WHERE user_id = $1',
     [userId]
   );
-  return rows;
+  return rows.map(rowWithNumericRev);
 }
 
 export async function getChecklist(userId, checklistId) {
@@ -312,7 +319,7 @@ export async function getChecklist(userId, checklistId) {
     'SELECT checklist_id, state, rev, updated_at FROM checklists WHERE user_id = $1 AND checklist_id = $2',
     [userId, checklistId]
   );
-  return rows[0] || null;
+  return rowWithNumericRev(rows[0] || null);
 }
 
 // rev — растущее число от клиента, защита от записи устаревшего состояния
@@ -330,7 +337,7 @@ export async function upsertChecklist(userId, checklistId, state, rev) {
      RETURNING checklist_id, state, rev, updated_at`,
     [userId, checklistId, JSON.stringify(state), rev]
   );
-  return rows[0] || null;
+  return rowWithNumericRev(rows[0] || null);
 }
 
 export async function deleteChecklist(userId, checklistId) {
@@ -430,6 +437,10 @@ export async function getAllUsers() {
   return rows;
 }
 
+// Найдено попутно при аудите BIGINT/COUNT (правка ревью части 5
+// TASK_server_storage.md): COUNT(*) тоже отдаётся pg строкой (bigint),
+// здесь не влияло на вид (значения только отображаются в AdminPage.jsx),
+// но приводим к числу для консистентности с остальными COUNT в этом файле.
 export async function getAdminStats() {
   const { rows } = await pool.query(`
     SELECT
@@ -440,7 +451,8 @@ export async function getAdminStats() {
       (SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > NOW()) AS active_paid,
       (SELECT COUNT(*) FROM subscriptions WHERE status = 'pending') AS pending_payments
   `);
-  return rows[0];
+  const row = rows[0];
+  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v)]));
 }
 
 export default pool;

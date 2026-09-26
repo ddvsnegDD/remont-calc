@@ -214,7 +214,7 @@ export default function ChecklistDetailPage() {
     const s = res.checklist ? res.checklist.state : { items: {}, meta: {} };
     setState(s);
     stateRef.current = s;
-    revRef.current = res.checklist?.rev || 0;
+    revRef.current = Number(res.checklist?.rev) || 0;
     // Данные только что подтверждённо пришли с сервера — на этом чек-листе
     // пока нет несохранённых правок.
     dirtyRef.current = false;

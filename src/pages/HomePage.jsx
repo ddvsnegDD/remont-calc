@@ -313,7 +313,7 @@ function ClubSection() {
   return (
     <section id="club" style={{ padding: "80px 0", background: "#fff" }}>
       <div ref={ref} style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
-        <div className={`reveal ${vis ? "visible" : ""}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}>
+        <div className={`club-section-grid reveal ${vis ? "visible" : ""}`}>
           <div>
             <SectionLabel>Клуб владельцев</SectionLabel>
             <h2 className="font-golos" style={{ fontSize: "clamp(26px, 3vw, 36px)", fontWeight: 800, color: C.graphiteLight, marginBottom: 16 }}>Профессиональные инструменты для вашего ремонта</h2>

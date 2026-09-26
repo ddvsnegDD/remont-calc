@@ -508,13 +508,13 @@ export default function ChecklistDetailPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <input placeholder="Адрес объекта" value={state.meta?.address || ''}
                 onChange={e => saveMeta('address', e.target.value)}
-                style={{ gridColumn: '1 / -1', padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+                style={{ gridColumn: '1 / -1', minWidth: 0, width: '100%', padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
               <input placeholder="Помещение" value={state.meta?.room || ''}
                 onChange={e => saveMeta('room', e.target.value)}
-                style={{ padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+                style={{ minWidth: 0, width: '100%', padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
               <input type="date" value={state.meta?.date || ''}
                 onChange={e => saveMeta('date', e.target.value)}
-                style={{ padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box', color: state.meta?.date ? C.graphite : C.gray400 }} />
+                style={{ minWidth: 0, width: '100%', padding: '10px 12px', border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box', color: state.meta?.date ? C.graphite : C.gray400 }} />
             </div>
           </div>
 

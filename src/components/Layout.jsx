@@ -134,7 +134,7 @@ export function Footer() {
   return (
     <footer style={{ background: "#111113", padding: "56px 0 28px" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 40, marginBottom: 40 }}>
+        <div className="footer-grid" style={{ marginBottom: 40 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <div style={{ width: 32, height: 32, background: "rgba(255,255,255,0.1)", borderRadius: 8, display: "grid", placeItems: "center", color: "#fff", fontWeight: 800, fontSize: 14 }} className="font-golos">Р</div>

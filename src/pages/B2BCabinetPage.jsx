@@ -7,6 +7,7 @@ import { formatRub } from '../lib/calculator';
 import { useAuth } from '../lib/auth';
 import { listCalcs, deleteCalc } from '../lib/calcsApi';
 import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
+import { withCount } from '../lib/pluralize';
 
 const formatSubDate = (d) => {
   if (!d) return null;
@@ -109,7 +110,7 @@ export default function B2BCabinetPage() {
               ) : (
                 <div className="pro-upsell">
                   <div style={{ fontSize: 13, fontWeight: 600, color: C.graphite, marginBottom: 4 }}>Бесплатный план</div>
-                  <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>{FREE_B2B_CALCS_PER_MONTH} расчёт в месяц · базовый PDF</div>
+                  <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>{withCount(FREE_B2B_CALCS_PER_MONTH, ['расчёт', 'расчёта', 'расчётов'])} в месяц · базовый PDF</div>
                   <Link to="/pro" className="btn-link" style={{ fontSize: 12 }}>
                     <Btn variant="outline" style={{ width: '100%', fontSize: 12, padding: '8px 12px' }}>Перейти на PRO →</Btn>
                   </Link>

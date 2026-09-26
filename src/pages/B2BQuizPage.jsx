@@ -9,6 +9,7 @@ import LoginModal from '../components/LoginModal';
 import ProPaywall from '../components/ProPaywall';
 import { createCalc } from '../lib/calcsApi';
 import { FREE_B2B_CALCS_PER_MONTH } from '../data/tariffs';
+import { withCount } from '../lib/pluralize';
 
 const STEPS = [
   { id: 'project_name', title: 'Название проекта', hint: 'Для удобства поиска в истории расчётов.', type: 'text', placeholder: 'Внутреннее название проекта' },
@@ -185,7 +186,7 @@ export default function B2BQuizPage() {
     return (
       <ProPaywall
         heading="Лимит бесплатного плана использован"
-        sub={`На бесплатном плане доступен ${FREE_B2B_CALCS_PER_MONTH} расчёт в месяц. Оформите PRO для безлимитных расчётов.`}
+        sub={`На бесплатном плане доступен ${withCount(FREE_B2B_CALCS_PER_MONTH, ['расчёт', 'расчёта', 'расчётов'])} в месяц. Оформите PRO для безлимитных расчётов.`}
         target="pro"
       />
     );

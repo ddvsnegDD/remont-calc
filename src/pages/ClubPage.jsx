@@ -5,7 +5,9 @@ import LoginModal from '../components/LoginModal';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
-import { PLANS, formatPrice, labelOf } from '../data/tariffs';
+import { PLANS, formatPrice, labelOf, FREE_CONSULTATIONS_PER_MONTH } from '../data/tariffs';
+import { withCount } from '../lib/pluralize';
+import { getConsultationStatus, createConsultation } from '../lib/consultationApi';
 
 const CLUB_M = PLANS.club_monthly.price; // 99
 const CLUB_Y = PLANS.club_yearly.price;  // 990
@@ -14,13 +16,15 @@ const CLUB_Y_PER_MONTH = Math.round(CLUB_Y / 12); // ~82
 const BENEFITS = [
   'Детальная смета по тендерным ценам (50+ позиций)',
   'Чек-листы приёмки этапов (6 шт, 175 пунктов)',
-  '3 консультации инженера в месяц',
+  `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} инженера в месяц`,
   { text: 'Закрытые чаты владельцев' },
 ];
 
 const FEATURES = [
   { icon: '📋', title: 'Приёмка этапов', desc: '6 чек-листов (175 пунктов): стяжка, штукатурка, электрика, сантехника, чистовая отделка, установка дверей.' },
-  { icon: '📞', title: 'Консультация', desc: '3 консультации с инженером в месяц. Можно копить — до 9 консультаций.' },
+  // «Можно копить — до 9» — из старой (без переноса остатка) логики: см. ответ
+  // в чате, не редактирую сам до подтверждения.
+  { icon: '📞', title: 'Консультация', desc: `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} с инженером в месяц. Можно копить — до 9 консультаций.` },
   { icon: '💬', title: 'Закрытый чат', soon: true, desc: 'Чаты владельцев для обмена опытом между участниками клуба.' },
 ];
 
@@ -39,7 +43,7 @@ export default function ClubPage() {
   const [openFaq, setOpenFaq] = useState(-1);
   const [notice, setNotice] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
-  const [consultationsLeft, setConsultationsLeft] = useState(3);
+  const [consultationsLeft, setConsultationsLeft] = useState(null); // null — остаток ещё не загружен
 
   const toggleFaq = useCallback((i) => { setOpenFaq(prev => prev === i ? -1 : i); }, []);
 
@@ -61,38 +65,37 @@ export default function ClubPage() {
     );
   };
 
-  // Load consultations counter from localStorage
+  // Остаток консультаций — с сервера (часть 6 TASK_server_storage.md).
+  // Лимит FREE_CONSULTATIONS_PER_MONTH в календарный месяц, без переноса
+  // остатка: считает сервер, localStorage здесь больше не используется.
   useEffect(() => {
-    if (!user) return;
-    const key = `rpkm_consult_${user.id}_${new Date().getFullYear()}_${new Date().getMonth()}`;
-    const used = parseInt(localStorage.getItem(key) || '0', 10);
-    setConsultationsLeft(Math.max(0, 3 - used));
+    if (!user) { setConsultationsLeft(null); return; }
+    let cancelled = false;
+    (async () => {
+      const res = await getConsultationStatus();
+      if (!cancelled && res.ok) setConsultationsLeft(res.left);
+    })();
+    return () => { cancelled = true; };
   }, [user]);
 
   const handleConsultation = async () => {
-    if (consultationsLeft <= 0) {
+    if (consultationsLeft === 0) {
       setNotice({ type: 'consultation', kind: 'error', text: 'Все консультации в этом месяце использованы' });
       return;
     }
-    try {
-      const res = await fetch('/api/consultation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.ok) {
-        // Обновляем счётчик в localStorage
-        const key = `rpkm_consult_${user.id}_${new Date().getFullYear()}_${new Date().getMonth()}`;
-        const used = parseInt(localStorage.getItem(key) || '0', 10);
-        localStorage.setItem(key, String(used + 1));
-        setConsultationsLeft(Math.max(0, 2 - used));
-        setNotice({ type: 'consultation', kind: 'success', text: 'Запись на консультацию отправлена! Инженер свяжется с вами в течение 24 часов.' });
-      } else {
-        setNotice({ type: 'consultation', kind: 'error', text: data.error || 'Ошибка записи на консультацию' });
-      }
-    } catch {
-      setNotice({ type: 'consultation', kind: 'error', text: 'Ошибка связи с сервером' });
+    const res = await createConsultation();
+    if (res.ok) {
+      setConsultationsLeft(res.left);
+      setNotice({ type: 'consultation', kind: 'success', text: 'Запись на консультацию отправлена! Инженер свяжется с вами в течение 24 часов.' });
+      return;
+    }
+    if (res.error === 'limit') {
+      setConsultationsLeft(0);
+      setNotice({ type: 'consultation', kind: 'error', text: 'Все консультации в этом месяце использованы. Новый лимит откроется в следующем календарном месяце.' });
+    } else if (res.error === 'network') {
+      setNotice({ type: 'consultation', kind: 'error', text: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.' });
+    } else {
+      setNotice({ type: 'consultation', kind: 'error', text: res.error || 'Ошибка записи на консультацию' });
     }
   };
 
@@ -327,9 +330,11 @@ export default function ClubPage() {
                 </div>
                 <div className="club-card">
                   <h3>Консультация инженера</h3>
-                  <p>В этом месяце доступно: <strong>{consultationsLeft} из 3</strong> консультаций.</p>
-                  <Btn variant="terra" onClick={handleConsultation} disabled={consultationsLeft <= 0}>Записаться</Btn>
-                  <div style={{ fontSize: 12, color: C.gray400, marginTop: 8 }}>Осталось {consultationsLeft} консультаций</div>
+                  <p>В этом месяце доступно: <strong>{consultationsLeft ?? '…'} из {FREE_CONSULTATIONS_PER_MONTH}</strong> консультаций.</p>
+                  <Btn variant="terra" onClick={handleConsultation} disabled={consultationsLeft === 0}>Записаться</Btn>
+                  <div style={{ fontSize: 12, color: C.gray400, marginTop: 8 }}>
+                    {consultationsLeft === null ? 'Загрузка остатка...' : `Осталось ${withCount(consultationsLeft, ['консультация', 'консультации', 'консультаций'])}`}
+                  </div>
                   {renderNotice('consultation')}
                 </div>
                 <div className="club-card">

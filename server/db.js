@@ -88,6 +88,24 @@ export async function initDB() {
         created_at   TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS consultations_user_created ON consultations(user_id, created_at);
+
+      -- Часть 1 TASK_yookassa.md. user_id — SET NULL, не CASCADE: записи о
+      -- платежах при удалении аккаунта обезличиваются, а не исчезают (нужны
+      -- для возвратов и сверки с «Мой налог» после удаления). email в эту
+      -- таблицу не пишется вовсе.
+      CREATE TABLE IF NOT EXISTS payments (
+        id              SERIAL PRIMARY KEY,
+        user_id         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        plan            VARCHAR(50) NOT NULL,
+        amount          INTEGER NOT NULL,                 -- в рублях, из PLANS на момент создания
+        yookassa_id     VARCHAR(64) UNIQUE,                -- id платежа в ЮKassa
+        status          VARCHAR(32) NOT NULL DEFAULT 'pending', -- pending | succeeded | canceled | refunded
+        subscription_id INTEGER REFERENCES subscriptions(id) ON DELETE SET NULL,
+        applied_at      TIMESTAMPTZ,                       -- когда выдан доступ; NOT NULL = платёж уже применён
+        created_at      TIMESTAMPTZ DEFAULT NOW(),
+        updated_at      TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS payments_user_id ON payments(user_id);
     `);
     console.log('DB tables ready');
   } finally {
@@ -152,9 +170,15 @@ export async function verifyAuthCode(email, code) {
 }
 
 // --- Subscriptions ---
+// started_at <= NOW(): часть 1.2 TASK_yookassa.md. Оплата вперёд (продление
+// «в хвост», п. 1 «Решений владельца») может поставить подписку в очередь
+// с started_at в будущем — до этого момента доступ по ней ещё не должен
+// действовать, хотя status уже 'active' и expires_at ещё не прошёл.
 export async function getActiveSubscription(userId) {
   const { rows } = await pool.query(
-    `SELECT * FROM subscriptions WHERE user_id = $1 AND status IN ('trial', 'active') AND expires_at > NOW() ORDER BY expires_at DESC LIMIT 1`,
+    `SELECT * FROM subscriptions
+     WHERE user_id = $1 AND status IN ('trial', 'active') AND started_at <= NOW() AND expires_at > NOW()
+     ORDER BY expires_at DESC LIMIT 1`,
     [userId]
   );
   return rows[0] || null;
@@ -199,7 +223,12 @@ export async function hasUsedTrial(userId) {
 
 // --- Grant subscription manually (admin) ---
 export async function grantSubscription(userId, plan = 'yearly', days = 365) {
-  // завершаем текущие активные/триал/pending, чтобы не было дублей
+  // Завершаем текущие активные/триал/pending, чтобы не было дублей. Условие
+  // не проверяет started_at — и не должно (часть 1.6 TASK_yookassa.md): здесь
+  // нет фильтра по времени вовсе, поэтому строки с started_at в будущем
+  // (подписка, поставленная в очередь оплатой) закрываются тем же запросом —
+  // они тоже status='active', просто ещё не наступили. Добавлять отдельное
+  // условие для «будущих» не нужно, оно уже покрыто.
   await pool.query(
     `UPDATE subscriptions SET status = 'cancelled', expires_at = NOW()
      WHERE user_id = $1 AND status IN ('trial', 'active', 'pending')`,
@@ -214,6 +243,11 @@ export async function grantSubscription(userId, plan = 'yearly', days = 365) {
 }
 
 // --- Cancel subscription ---
+// Уходит в части 2 TASK_yookassa.md вместе с POST /api/subscription/cancel
+// (п. 2.6 — кнопка «Отменить подписку» убирается, возврат теперь только
+// через ЮKassa/applyRefund). Оставлена как есть до той части: тот же пробел
+// с started_at, что был у getActiveSubscription (нашёл при аудите части 1.2,
+// не чиню — функция всё равно скоро удаляется).
 export async function cancelSubscription(userId) {
   const { rows } = await pool.query(
     `UPDATE subscriptions SET status = 'cancelled', expires_at = NOW()
@@ -224,6 +258,159 @@ export async function cancelSubscription(userId) {
   return rows[0] || null;
 }
 
+// --- Payments (TASK_yookassa.md) ---
+
+// db.js не импортирует src/ (см. TRIAL_PLANS выше — тот же приём и та же
+// причина). Нужно различать клубные и PRO подписки среди уже существующих
+// строк subscriptions при выдаче нового платежа (см. applySucceededPayment) —
+// список зеркалит src/data/tariffs.js, новый план дописывается сюда же.
+const PLAN_TIER = {
+  monthly: 'club', yearly: 'club', trial: 'club', // legacy (до разделения тарифов)
+  club_monthly: 'club', club_yearly: 'club',
+  pro_monthly: 'pro', pro_trial: 'pro',
+};
+function planTier(plan) {
+  return PLAN_TIER[plan] || 'club'; // неизвестный legacy — считаем клубным, как tierOf в tariffs.js
+}
+
+// Выдача доступа по успешному платежу. tier/days — из tariffs.js, считает
+// вызывающий (server.js), db.js их не знает (см. PLAN_TIER выше).
+//
+// Идемпотентность: SELECT ... FOR UPDATE строки payments — если applied_at
+// уже стоит, ничего не меняем и возвращаем уже выданную подписку (ЮKassa
+// повторяет вебхуки, плюс GET /api/payments/:id может опросить и применить
+// тем же путём, если вебхук запаздывает — двойная выдача недопустима).
+//
+// Активные и будущие подписки пользователя ищем БЕЗ started_at <= NOW() —
+// здесь специально нужна вся очередь (текущее и уже поставленное в очередь),
+// не только то, что действует прямо сейчас.
+export async function applySucceededPayment(paymentId, tier, days) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: prows } = await client.query('SELECT * FROM payments WHERE id = $1 FOR UPDATE', [paymentId]);
+    const payment = prows[0];
+    if (!payment) { await client.query('ROLLBACK'); return null; }
+
+    if (payment.applied_at) {
+      const { rows: srows } = await client.query('SELECT * FROM subscriptions WHERE id = $1', [payment.subscription_id]);
+      await client.query('COMMIT');
+      return { applied: false, subscription: srows[0] || null };
+    }
+
+    if (!payment.user_id) {
+      // Аккаунт удалился между созданием платежа и приходом успеха от ЮKassa —
+      // редкий случай, выдавать подписку некому. Роняем транзакцию: платёж
+      // остаётся неприменённым, вызывающий код (server.js) залогирует ошибку;
+      // ЮKassa повторит уведомление, исход не изменится (user_id всё ещё NULL,
+      // разбирается вручную) — это осознанно, не автоматизируем.
+      await client.query('ROLLBACK');
+      throw new Error(`applySucceededPayment: payment ${paymentId} has no user_id (account deleted?)`);
+    }
+
+    const { plan, user_id: userId, yookassa_id: yookassaId, amount } = payment;
+
+    const { rows: existing } = await client.query(
+      `SELECT * FROM subscriptions WHERE user_id = $1 AND status IN ('trial', 'active') AND expires_at > NOW() FOR UPDATE`,
+      [userId]
+    );
+
+    let start;
+    if (tier === 'pro') {
+      const clubIds = existing.filter(r => planTier(r.plan) === 'club').map(r => r.id);
+      const proRows = existing.filter(r => planTier(r.plan) === 'pro');
+      if (clubIds.length > 0) {
+        // Текущие клубные — закрываем прямо сейчас; будущие (в очереди,
+        // started_at ещё не наступил) — просто отменяем статус, expires_at
+        // трогать незачем (недействовавший период, наружу это не влияет).
+        await client.query(
+          `UPDATE subscriptions SET status = 'cancelled', expires_at = NOW()
+           WHERE id = ANY($1::int[]) AND started_at <= NOW()`,
+          [clubIds]
+        );
+        await client.query(
+          `UPDATE subscriptions SET status = 'cancelled'
+           WHERE id = ANY($1::int[]) AND started_at > NOW()`,
+          [clubIds]
+        );
+      }
+      start = proRows.length > 0
+        ? proRows.reduce((max, r) => (new Date(r.expires_at) > max ? new Date(r.expires_at) : max), new Date(0))
+        : new Date();
+    } else {
+      start = existing.length > 0
+        ? existing.reduce((max, r) => (new Date(r.expires_at) > max ? new Date(r.expires_at) : max), new Date(0))
+        : new Date();
+    }
+
+    const expiresAt = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+    const { rows: newSub } = await client.query(
+      `INSERT INTO subscriptions (user_id, plan, status, started_at, expires_at, payment_id, amount)
+       VALUES ($1, $2, 'active', $3, $4, $5, $6) RETURNING *`,
+      [userId, plan, start, expiresAt, yookassaId, amount]
+    );
+
+    await client.query(
+      `UPDATE payments SET status = 'succeeded', subscription_id = $2, applied_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [paymentId, newSub[0].id]
+    );
+
+    await client.query('COMMIT');
+    return { applied: true, subscription: newSub[0] };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Возврат по yookassa_id платежа. Идемпотентно (status='refunded' на payments —
+// вызывающий код проверяет, звать ли повторно). Подписки, стоящие в очереди
+// ПОСЛЕ возвращённой, не сдвигаем — редкий случай, если такое всё же
+// произойдёт, дыру в графике владелец закроет вручную (часть 1.4 ТЗ).
+export async function applyRefund(yookassaPaymentId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: prows } = await client.query('SELECT * FROM payments WHERE yookassa_id = $1 FOR UPDATE', [yookassaPaymentId]);
+    const payment = prows[0];
+    if (!payment) { await client.query('ROLLBACK'); return null; }
+
+    if (payment.status === 'refunded') {
+      await client.query('COMMIT');
+      return { alreadyRefunded: true, payment };
+    }
+
+    if (payment.subscription_id) {
+      // Ещё не истекла и уже началась (started_at <= NOW()) — обрезаем прямо
+      // сейчас (LEAST на случай, если уже истекла бы раньше NOW() сама по
+      // себе — не отодвигаем конец назад). Ещё не началась (в очереди) —
+      // только статус, expires_at не трогаем: диапазон started_at..expires_at
+      // никогда не был в силе, поправлять нечего.
+      await client.query(
+        `UPDATE subscriptions
+         SET status = 'refunded',
+             expires_at = CASE WHEN started_at <= NOW() THEN LEAST(expires_at, NOW()) ELSE expires_at END
+         WHERE id = $1`,
+        [payment.subscription_id]
+      );
+    }
+
+    const { rows } = await client.query(
+      `UPDATE payments SET status = 'refunded', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [payment.id]
+    );
+    await client.query('COMMIT');
+    return { alreadyRefunded: false, payment: rows[0] };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // --- Delete user ---
 // subscriptions.user_id — без ON DELETE (не трогаем, часть 1 TASK_server_storage.md),
 // поэтому удаляем вручную в транзакции; calculations/checklists/checklist_photos/
@@ -232,6 +419,12 @@ export async function deleteUser(userId) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Часть 1.5 TASK_yookassa.md: платежи обезличиваются, не удаляются
+    // (нужны для возвратов и сверки с «Мой налог»). FK payments.subscription_id/
+    // user_id сами обнулились бы через ON DELETE SET NULL при удалении
+    // subscriptions/users ниже — обнуляем явно заранее, чтобы порядок
+    // удаления не зависел от того, в каком порядке сработают констрейнты.
+    await client.query('UPDATE payments SET subscription_id = NULL, user_id = NULL WHERE user_id = $1', [userId]);
     await client.query('DELETE FROM subscriptions WHERE user_id = $1', [userId]);
     await client.query('DELETE FROM auth_codes WHERE email = (SELECT email FROM users WHERE id = $1)', [userId]);
     const { rows } = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [userId]);
@@ -447,8 +640,13 @@ export async function getAdminStats() {
       (SELECT COUNT(*) FROM users) AS total_users,
       (SELECT COUNT(*) FROM users WHERE role = 'b2c') AS b2c_users,
       (SELECT COUNT(*) FROM users WHERE role = 'b2b') AS b2b_users,
+      -- Триалы не встают в очередь (createTrialSubscription всегда стартует
+      -- сейчас же) — started_at <= NOW() здесь не нужен, у трайлов это верно
+      -- по построению. active_paid — из оплаты, которая может быть в очереди
+      -- (часть 1.2/1.3 TASK_yookassa.md), поэтому фильтр обязателен, иначе
+      -- статистика посчитает ещё не начавшийся доступ как уже активный.
       (SELECT COUNT(*) FROM subscriptions WHERE status = 'trial' AND expires_at > NOW()) AS active_trials,
-      (SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > NOW()) AS active_paid,
+      (SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND started_at <= NOW() AND expires_at > NOW()) AS active_paid,
       (SELECT COUNT(*) FROM subscriptions WHERE status = 'pending') AS pending_payments
   `);
   const row = rows[0];

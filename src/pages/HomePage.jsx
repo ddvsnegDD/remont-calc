@@ -358,7 +358,7 @@ function ClubSection() {
             )}
             <Btn variant="terra" style={{ width: "100%", padding: 14 }} onClick={() => navigate('/club')}>{subscribed ? 'Перейти в Клуб' : 'Попробовать 14 дней бесплатно'}</Btn>
             {!subscribed && (
-              <div style={{ fontSize: 12, color: C.gray400, textAlign: "center", marginTop: 10 }}>Отмена в любой момент · Без автосписания</div>
+              <div style={{ fontSize: 12, color: C.gray400, textAlign: "center", marginTop: 10 }}>Без автопродления · Возврат по запросу</div>
             )}
           </div>
         </div>

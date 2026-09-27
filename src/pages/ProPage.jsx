@@ -93,7 +93,14 @@ export default function ProPage() {
                   Офисный fit-out калькулятор, детальная спецификация B2B, безлимитные расчёты,
                   приоритетная поддержка. Всё за {PRO_PRICE} ₽/мес. White-label PDF — готовится.
                 </p>
-                <div className="hero-cta">{heroCta}</div>
+                <div className="hero-cta">
+                  {heroCta}
+                  {user && !hasPro && (
+                    <div style={{ fontSize: 12, color: C.gray500, marginTop: 8 }}>
+                      Без автопродления. Если у вас действует Клуб, он заменяется на PRO с момента оплаты.
+                    </div>
+                  )}
+                </div>
                 <div className="hero-stats" style={{ marginTop: 28 }}>
                   <div><div className="stat-num">{PRO_PRICE} ₽</div><div className="stat-label">в месяц · без автопродления</div></div>
                   <div><div className="stat-num">∞</div><div className="stat-label">расчётов в месяц</div></div>

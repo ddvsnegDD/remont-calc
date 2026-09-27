@@ -3,7 +3,7 @@ import { PageLayout } from '../components/Layout';
 import { C } from '../lib/theme';
 import { Users, CreditCard, Clock, AlertCircle, RefreshCw, LogIn, Briefcase, Trash2, Gift, Ban } from 'lucide-react';
 import Btn from '../components/Btn';
-import { tierOf, TIER_LABEL } from '../data/tariffs';
+import { tierOf, TIER_LABEL, labelOf } from '../data/tariffs';
 
 // Чип уровня подписки (Клуб / PRO)
 function LevelChip({ plan }) {
@@ -159,16 +159,28 @@ export default function AdminPage() {
     }
   };
 
-  const handleGrantSub = async (userId, email) => {
-    const levelInput = window.prompt(`Выдать подписку пользователю ${email}.\nУровень: введите "pro" (офис + детальная спецификация B2B) или "club" (клубные функции).`, 'pro');
+  const handleGrantSub = async (userId, email, role) => {
+    // Уровень по умолчанию — по роли пользователя (часть 3 TASK_small_debt.md):
+    // 26.09 собирались выдать Клуб физлицу, подтвердили не глядя заранее
+    // вписанный "pro" — выдали PRO на 10 лет.
+    const defaultLevel = role === 'b2b' ? 'pro' : 'club';
+    const levelInput = window.prompt(`Выдать подписку пользователю ${email}.\nУровень: введите "pro" (офис + детальная спецификация B2B) или "club" (клубные функции).`, defaultLevel);
     if (levelInput === null) return;
-    const level = levelInput.trim().toLowerCase() === 'pro' ? 'pro' : 'club';
-    const input = window.prompt(`Уровень: ${level.toUpperCase()}.\nНа сколько дней? (год — 365, «навсегда» — 3650)`, '3650');
+    const normalizedLevel = levelInput.trim().toLowerCase();
+    if (normalizedLevel !== 'pro' && normalizedLevel !== 'club') {
+      alert(`Не распознан уровень «${levelInput}». Введите «pro» или «club».`);
+      return;
+    }
+    const level = normalizedLevel;
+    const input = window.prompt(`Уровень: ${level.toUpperCase()}.\nНа сколько дней? (месяц — 30, год — 365)`, '30');
     if (input === null) return;
     const days = parseInt(input, 10);
     if (!days || days < 1) { alert('Введите число дней'); return; }
     // Конкретный план из PLANS: PRO — только месячный тариф; Клуб — годовой/месячный по сроку
     const plan = level === 'pro' ? 'pro_monthly' : (days >= 365 ? 'club_yearly' : 'club_monthly');
+    const expiresLabel = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+      .toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' });
+    if (!window.confirm(`Выдать ${email}: ${labelOf(plan)}, до ${expiresLabel}?`)) return;
     try {
       const res = await fetch(`/api/admin/users/${userId}/subscription`, {
         method: 'POST',
@@ -325,7 +337,7 @@ export default function AdminPage() {
                           {formatDate(u.created_at)}
                         </td>
                         <td style={stickyTd}>
-                          <button onClick={() => handleGrantSub(u.id, u.email)} title="Выдать подписку"
+                          <button onClick={() => handleGrantSub(u.id, u.email, u.role)} title="Выдать подписку"
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
                             onMouseEnter={e => e.currentTarget.style.color = '#16a34a'}
                             onMouseLeave={e => e.currentTarget.style.color = C.gray400}>
@@ -398,7 +410,7 @@ export default function AdminPage() {
                         {formatDate(u.created_at)}
                       </td>
                       <td style={stickyTd}>
-                        <button onClick={() => handleGrantSub(u.id, u.email)} title="Выдать подписку"
+                        <button onClick={() => handleGrantSub(u.id, u.email, u.role)} title="Выдать подписку"
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: C.gray400, transition: 'color 0.2s' }}
                           onMouseEnter={e => e.currentTarget.style.color = '#16a34a'}
                           onMouseLeave={e => e.currentTarget.style.color = C.gray400}>

@@ -161,7 +161,7 @@ function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle,
               )}
             </button>
           )}
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
+          <input ref={fileRef} type="file" accept="image/*" multiple
             style={{ display: 'none' }} onChange={handleFile} />
         </div>
 

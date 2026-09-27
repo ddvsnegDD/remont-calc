@@ -19,7 +19,7 @@ import pool, {
 } from './server/db.js';
 import { savePhoto, photoPath, deletePhoto, isStorageReady } from './server/storage.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
-import { isPaymentsReady, createPayment, getPayment, getRefund } from './server/yookassa.js';
+import { isPaymentsReady, createPayment, getPayment, getRefund, isValidPaymentId } from './server/yookassa.js';
 import {
   PLANS, tierOf, daysOf, labelOf,
   FREE_B2B_CALCS_PER_MONTH, FREE_CONSULTATIONS_PER_MONTH, MAX_PHOTOS_PER_ITEM, MAX_PHOTOS_TOTAL_MB,
@@ -417,6 +417,7 @@ app.post('/api/payments/yookassa/webhook', async (req, res) => {
   const event = req.body?.event;
   const objectId = req.body?.object?.id;
   if (!event || !objectId) return res.sendStatus(200); // не похоже на уведомление ЮKassa — не 500, повторять нечего
+  if (!isValidPaymentId(objectId)) return res.sendStatus(200); // не похоже на id ЮKassa — не ходим в API вовсе
 
   try {
     switch (event) {

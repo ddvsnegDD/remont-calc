@@ -69,10 +69,27 @@ export async function createPayment({ amount, description, returnUrl, metadata }
   });
 }
 
+// id приходит из тела вебхука (не доверяем) и из query страницы /payment/return —
+// проверяем формат до запроса к ЮKassa (реальные id ЮKassa — uuid из этого
+// набора символов) и подставляем через encodeURIComponent, а не голой
+// интерполяцией: без этого чужой ввод мог бы исказить путь запроса.
+const ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+
+function validId(id) {
+  if (!ID_RE.test(String(id))) throw new Error('yookassa_invalid_id');
+  return encodeURIComponent(id);
+}
+
+// Для вебхука — проверить object.id до похода в API, а не поймать
+// исключение из getPayment/getRefund постфактум.
+export function isValidPaymentId(id) {
+  return ID_RE.test(String(id));
+}
+
 export async function getPayment(id) {
-  return request('GET', `/payments/${id}`);
+  return request('GET', `/payments/${validId(id)}`);
 }
 
 export async function getRefund(id) {
-  return request('GET', `/refunds/${id}`);
+  return request('GET', `/refunds/${validId(id)}`);
 }

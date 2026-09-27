@@ -355,21 +355,24 @@ async function sendOrphanedPaymentEmail(row) {
   return sendRawEmail(OWNER_EMAIL, 'Оплата без аккаунта: нужен возврат', html);
 }
 
-// Частичный возврат — доступ не меняем (п. 2.3 ТЗ), только уведомляем
-// владельца, чтобы он знал, что часть суммы вернулась мимо applyRefund.
+// Исправлено (27.09.2026): по п. 6.1 оферты возврат при отказе от Клуба
+// ВСЕГДА частичный (сумма за использованные дни удерживается) — значит
+// «доступ не меняем при частичном возврате» было ошибкой первой версии ТЗ.
+// Любой успешный возврат, полный или частичный, закрывает доступ по этому
+// платежу через applyRefund (см. вебхук ниже); это письмо — только
+// уведомление владельцу при частичном, что доступ уже закрыт, не «доступ
+// не менялся».
 async function sendPartialRefundEmail(row, ykRefund) {
   const html = `<div style="font-family:Arial,sans-serif;max-width:500px;padding:20px">
-    <h2 style="color:#B95C38;margin:0 0 16px">Частичный возврат</h2>
-    <p>Доступ не менялся — возврат неполный.</p>
+    <h2 style="color:#B95C38;margin:0 0 16px">Частичный возврат: доступ по этой оплате закрыт</h2>
     <table style="width:100%;border-collapse:collapse;">
-      <tr><td style="padding:8px 0;color:#6b7280;width:140px">План:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(labelOf(row.plan))}</td></tr>
-      <tr><td style="padding:8px 0;color:#6b7280">Сумма платежа:</td><td style="padding:8px 0">${row.amount} ₽</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;width:160px">Сумма платежа:</td><td style="padding:8px 0">${row.amount} ₽</td></tr>
       <tr><td style="padding:8px 0;color:#6b7280">Сумма возврата:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(String(ykRefund?.amount?.value ?? '—'))} ₽</td></tr>
       <tr><td style="padding:8px 0;color:#6b7280">Платёж ЮKassa:</td><td style="padding:8px 0">${escapeHtml(row.yookassa_id || '—')}</td></tr>
       <tr><td style="padding:8px 0;color:#6b7280">Время:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</td></tr>
     </table>
   </div>`;
-  return sendRawEmail(OWNER_EMAIL, `Частичный возврат: ${labelOf(row.plan)}`, html);
+  return sendRawEmail(OWNER_EMAIL, 'Частичный возврат: доступ по этой оплате закрыт', html);
 }
 
 // Создать платёж. Сумма и план — только с сервера (PLANS), клиент присылает
@@ -462,11 +465,12 @@ app.post('/api/payments/yookassa/webhook', async (req, res) => {
         const row = await getPaymentByYookassaId(ykRefund.payment_id);
         if (!row) { console.error('webhook refund.succeeded: платёж не найден в payments', ykRefund.payment_id); return res.sendStatus(200); }
 
+        // Любой успешный возврат — полный или частичный — закрывает доступ по
+        // этому платежу (п. 6.1 оферты: возврат при отказе от Клуба всегда
+        // частичный, поэтому «частичный = доступ не меняем» было ошибкой ТЗ).
         const full = parseFloat(ykRefund.amount?.value) >= row.amount;
-        if (full) {
-          await applyRefund(row.yookassa_id);
-        } else {
-          console.log('webhook refund.succeeded: частичный возврат, доступ не меняем', { paymentId: row.id, refundAmount: ykRefund.amount });
+        const result = await applyRefund(row.yookassa_id);
+        if (!full && result && !result.alreadyRefunded) {
           sendPartialRefundEmail(row, ykRefund).catch(err => console.error('Partial refund email error:', err.message));
         }
         return res.sendStatus(200);

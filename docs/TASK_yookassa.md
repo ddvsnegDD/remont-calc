@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS payments (
 
 - `payment.succeeded` → по `getPayment(id)`: статус `succeeded`, `paid === true`, сумма и валюта совпадают со строкой `payments` (найденной по `yookassa_id`) → `applySucceededPayment`, затем письмо владельцу (п. 2.5).
 - `payment.canceled` → `payments.status='canceled'`.
-- `refund.succeeded` → `getRefund(id)` → `payment_id` → если возврат на всю сумму — `applyRefund`; частичный — только запись в лог и письмо владельцу «частичный возврат, доступ не менялся».
+- `refund.succeeded` → `getRefund(id)` → `payment_id` → `applyRefund` (исправлено: любой возврат закрывает доступ); частичный — дополнительно письмо владельцу «частичный возврат, доступ по этой оплате закрыт».
 - Неизвестные события и платежи, которых нет в `payments`, — ответ 200 и запись в лог.
 
 Отвечать **200** на всё, что обработано или сознательно пропущено; **500** — только при сбое БД или API, чтобы ЮKassa повторила. Проверить, что маршрут принимает JSON при глобальном `express.json()` (`server.js:52`).

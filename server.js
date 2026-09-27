@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import multer from 'multer';
 import { resolve, join } from 'path';
 import pool, {
-  initDB, findUserByEmail, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription,
+  initDB, findUserByEmail, findUserById, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription,
   createTrialSubscription, hasUsedTrial, cancelSubscription, grantSubscription, deleteUser,
   getAllUsers, getAdminStats,
   listCalculations, countB2BCalculationsThisMonth, createCalculation, deleteCalculation,
@@ -13,9 +13,13 @@ import pool, {
   listChecklistPhotoIds, countChecklistItemPhotos, sumUserPhotoBytes,
   createChecklistPhoto, getChecklistPhoto, deleteChecklistPhoto, deleteChecklistPhotosByChecklist,
   countConsultationsThisMonth, createConsultation,
+  applySucceededPayment, applyRefund,
+  createPendingPayment, setPaymentYookassaId, getPaymentById, getPaymentByYookassaId, markPaymentStatus,
+  getSubscriptionById,
 } from './server/db.js';
 import { savePhoto, photoPath, deletePhoto, isStorageReady } from './server/storage.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
+import { isPaymentsReady, createPayment, getPayment, getRefund } from './server/yookassa.js';
 import {
   PLANS, tierOf, daysOf, labelOf,
   FREE_B2B_CALCS_PER_MONTH, FREE_CONSULTATIONS_PER_MONTH, MAX_PHOTOS_PER_ITEM, MAX_PHOTOS_TOTAL_MB,
@@ -288,20 +292,234 @@ app.post('/api/subscription/trial', authMiddleware, async (req, res) => {
   }
 });
 
-// Отменить подписку
-app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
+// Кнопки «Отменить подписку» больше нет (часть 2.6 TASK_yookassa.md) —
+// подписка просто заканчивается в срок, возврат владелец делает по письму
+// в кабинете ЮKassa. cancelSubscription() из db.js не удаляем — её всё ещё
+// использует отзыв подписки в админке (DELETE /api/admin/users/:id/subscription).
+
+// ==================== PAYMENTS API (ЮKassa, TASK_yookassa.md) ====================
+// Тестовый магазин ЮKassa (ShopID 1380535) — переключение на настоящий позже,
+// только переменными окружения. Чеки не автоматизируем: письмо владельцу
+// содержит всё нужное для ручной пробивки в «Мой налог» (решения владельца,
+// раздел 4 roadmap от 24.09.2026).
+
+const OWNER_EMAIL = process.env.CONTACT_EMAIL || 'ddv1121@yandex.ru';
+const PAYABLE_PLANS = ['club_monthly', 'club_yearly', 'pro_monthly']; // без триалов
+
+function requirePayments(req, res, next) {
+  if (!isPaymentsReady()) return res.status(503).json({ ok: false, error: 'payments_off' });
+  next();
+}
+
+// Письмо владельцу на каждое первое применение успешного платежа (не на
+// повтор — вызывающий код шлёт его только когда applySucceededPayment вернул
+// applied:true). Тема помечается [ТЕСТ], когда сама ЮKassa говорит, что
+// платёж тестовый (test:true в ответе API), а не по своей переменной —
+// иначе при переключении на боевой магазин легко забыть снять признак.
+async function sendPaymentOwnerEmail(row, subscription, isTest) {
+  const buyer = await findUserById(row.user_id).catch(() => null);
+  const subject = `${isTest ? '[ТЕСТ] ' : ''}Оплата: ${labelOf(row.plan)}, ${row.amount} ₽`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:500px;padding:20px">
+    <h2 style="color:#B95C38;margin:0 0 16px">💳 Оплата подписки</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="padding:8px 0;color:#6b7280;width:140px">План:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(labelOf(row.plan))}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Сумма:</td><td style="padding:8px 0;font-weight:600">${row.amount} ₽</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Покупатель:</td><td style="padding:8px 0">${escapeHtml(buyer?.email || '—')}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Платёж ЮKassa:</td><td style="padding:8px 0">${escapeHtml(row.yookassa_id || '—')}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Период доступа:</td><td style="padding:8px 0">${new Date(subscription.started_at).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })} — ${new Date(subscription.expires_at).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Дата оплаты:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</td></tr>
+    </table>
+    <hr style="border:none;border-top:1px solid #e4e4e7;margin:16px 0">
+    <p style="color:#B95C38;font-weight:600">Выдайте чек в «Мой налог».</p>
+    <p style="color:#9ca3af;font-size:12px">РПКМ · Автоматическое уведомление</p>
+  </div>`;
+  return sendRawEmail(OWNER_EMAIL, subject, html);
+}
+
+// Аккаунт удалился между созданием платежа и приходом успеха от ЮKassa —
+// подписку выдать некому, владелец возвращает деньги руками из кабинета
+// ЮKassa. Ровно одно письмо на платёж — вызывающий код помечает
+// payments.status='orphaned' до вызова этой функции, второй вебхук по тому
+// же платежу такое письмо уже не шлёт (часть 2.3/2.5 ТЗ, доп. к части 2).
+async function sendOrphanedPaymentEmail(row) {
+  const html = `<div style="font-family:Arial,sans-serif;max-width:500px;padding:20px">
+    <h2 style="color:#dc2626;margin:0 0 16px">⚠️ Оплата без аккаунта: нужен возврат</h2>
+    <p>Аккаунт покупателя был удалён до того, как платёж прошёл — доступ выдать некому. Оформите возврат в кабинете ЮKassa.</p>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="padding:8px 0;color:#6b7280;width:140px">План:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(labelOf(row.plan))}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Сумма:</td><td style="padding:8px 0;font-weight:600">${row.amount} ₽</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Платёж ЮKassa:</td><td style="padding:8px 0">${escapeHtml(row.yookassa_id || '—')}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Время:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</td></tr>
+    </table>
+  </div>`;
+  return sendRawEmail(OWNER_EMAIL, 'Оплата без аккаунта: нужен возврат', html);
+}
+
+// Частичный возврат — доступ не меняем (п. 2.3 ТЗ), только уведомляем
+// владельца, чтобы он знал, что часть суммы вернулась мимо applyRefund.
+async function sendPartialRefundEmail(row, ykRefund) {
+  const html = `<div style="font-family:Arial,sans-serif;max-width:500px;padding:20px">
+    <h2 style="color:#B95C38;margin:0 0 16px">Частичный возврат</h2>
+    <p>Доступ не менялся — возврат неполный.</p>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="padding:8px 0;color:#6b7280;width:140px">План:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(labelOf(row.plan))}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Сумма платежа:</td><td style="padding:8px 0">${row.amount} ₽</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Сумма возврата:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(String(ykRefund?.amount?.value ?? '—'))} ₽</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Платёж ЮKassa:</td><td style="padding:8px 0">${escapeHtml(row.yookassa_id || '—')}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280">Время:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</td></tr>
+    </table>
+  </div>`;
+  return sendRawEmail(OWNER_EMAIL, `Частичный возврат: ${labelOf(row.plan)}`, html);
+}
+
+// Создать платёж. Сумма и план — только с сервера (PLANS), клиент присылает
+// только id плана (решения владельца от 27.09.2026, п. «Сумма и план...»).
+app.post('/api/payments/create', requireDB, authMiddleware, requirePayments, async (req, res) => {
   try {
     const user = await findUserByEmail(req.user.email);
-    const sub = await cancelSubscription(user.id);
-    if (!sub) return res.json({ ok: false, error: 'Нет активной подписки' });
-    // Отправить email админу
-    sendRawEmail('ddv1121@yandex.ru',
-      `Отмена подписки: ${user.email}`,
-      `<p>Пользователь <strong>${escapeHtml(user.name || user.email)}</strong> (${escapeHtml(user.email)}) отменил подписку.</p><p>План: ${escapeHtml(labelOf(sub.plan))}</p><p>Дата отмены: ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</p>`
-    ).catch(err => console.error('Cancel notify error:', err.message));
-    res.json({ ok: true });
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+    if (!rateLimit(`payment-create:${user.id}`, 10, 10 * 60 * 1000))
+      return res.status(429).json({ ok: false, error: 'Слишком много попыток. Попробуйте позже.' });
+
+    const plan = String(req.body?.plan || '');
+    if (!PAYABLE_PLANS.includes(plan)) return res.status(400).json({ ok: false, error: 'Неизвестный план' });
+
+    const amount = PLANS[plan].price;
+    const row = await createPendingPayment(user.id, plan, amount);
+
+    let ykPayment;
+    try {
+      ykPayment = await createPayment({
+        amount,
+        description: `РПКМ: ${labelOf(plan)}`,
+        returnUrl: `${SITE_URL}/payment/return?p=${row.id}`,
+        metadata: { payment_row_id: row.id, user_id: user.id, plan },
+      });
+    } catch (err) {
+      // Строка остаётся pending без yookassa_id — созданную заявку просто
+      // не с чем связать, пользователь может попробовать оплатить снова.
+      console.error('payments/create: yookassa error:', err.message);
+      return res.status(502).json({ ok: false, error: 'provider' });
+    }
+
+    await setPaymentYookassaId(row.id, ykPayment.id);
+    res.json({ ok: true, confirmationUrl: ykPayment.confirmation.confirmation_url });
   } catch (err) {
-    console.error('cancel error:', err);
+    console.error('payments/create error:', err);
+    res.status(500).json({ ok: false, error: 'Ошибка' });
+  }
+});
+
+// Вебхук ЮKassa. Без авторизации — её шлёт сама ЮKassa. Телу не доверяем:
+// берём только event и object.id, дальше запрашиваем объект заново через API
+// и действуем по её ответу (защита от подделанных уведомлений, часть 2.3 ТЗ).
+app.post('/api/payments/yookassa/webhook', async (req, res) => {
+  const event = req.body?.event;
+  const objectId = req.body?.object?.id;
+  if (!event || !objectId) return res.sendStatus(200); // не похоже на уведомление ЮKassa — не 500, повторять нечего
+
+  try {
+    switch (event) {
+      case 'payment.succeeded': {
+        const ykPayment = await getPayment(objectId);
+        const row = await getPaymentByYookassaId(ykPayment.id);
+        if (!row) { console.error('webhook payment.succeeded: платёж не найден в payments', ykPayment.id); return res.sendStatus(200); }
+        if (row.status === 'orphaned') return res.sendStatus(200); // письмо владельцу уже отправлено на этот платёж
+
+        const amountOk = ykPayment.amount?.currency === 'RUB' && parseFloat(ykPayment.amount?.value) === row.amount;
+        if (ykPayment.status !== 'succeeded' || !ykPayment.paid || !amountOk) {
+          console.error('webhook payment.succeeded: несовпадение', { id: ykPayment.id, status: ykPayment.status, paid: ykPayment.paid, amount: ykPayment.amount, rowAmount: row.amount });
+          return res.sendStatus(200);
+        }
+
+        try {
+          const result = await applySucceededPayment(row.id, tierOf(row.plan), daysOf(row.plan));
+          if (result?.applied) {
+            sendPaymentOwnerEmail(row, result.subscription, !!ykPayment.test).catch(err => console.error('Payment owner email error:', err.message));
+          }
+          return res.sendStatus(200);
+        } catch (err) {
+          if (err.code === 'PAYMENT_ORPHANED') {
+            await markPaymentStatus(row.id, 'orphaned');
+            sendOrphanedPaymentEmail(row).catch(e => console.error('Orphaned payment email error:', e.message));
+            return res.sendStatus(200);
+          }
+          throw err; // сбой БД/другая причина — пусть ЮKassa повторит (500 ниже)
+        }
+      }
+
+      case 'payment.canceled': {
+        const ykPayment = await getPayment(objectId);
+        const row = await getPaymentByYookassaId(ykPayment.id);
+        if (!row) return res.sendStatus(200);
+        if (row.status === 'pending') await markPaymentStatus(row.id, 'canceled');
+        return res.sendStatus(200);
+      }
+
+      case 'refund.succeeded': {
+        const ykRefund = await getRefund(objectId);
+        const row = await getPaymentByYookassaId(ykRefund.payment_id);
+        if (!row) { console.error('webhook refund.succeeded: платёж не найден в payments', ykRefund.payment_id); return res.sendStatus(200); }
+
+        const full = parseFloat(ykRefund.amount?.value) >= row.amount;
+        if (full) {
+          await applyRefund(row.yookassa_id);
+        } else {
+          console.log('webhook refund.succeeded: частичный возврат, доступ не меняем', { paymentId: row.id, refundAmount: ykRefund.amount });
+          sendPartialRefundEmail(row, ykRefund).catch(err => console.error('Partial refund email error:', err.message));
+        }
+        return res.sendStatus(200);
+      }
+
+      default:
+        console.log('webhook: неизвестное событие', event, objectId);
+        return res.sendStatus(200);
+    }
+  } catch (err) {
+    console.error('webhook error:', err.message);
+    return res.sendStatus(500); // сбой БД/API — пусть ЮKassa повторит уведомление
+  }
+});
+
+// Свой платёж — чужой/несуществующий id → 404 (не 403, как везде в проекте).
+// Если строка ещё pending и есть yookassa_id — опрашиваем ЮKassa сами: второй
+// путь применения на случай, если вебхук запаздывает или потерян (часть 2.4 ТЗ).
+app.get('/api/payments/:id', requireDB, authMiddleware, async (req, res) => {
+  try {
+    const id = parsePositiveIntId(req.params.id);
+    if (!id) return res.status(404).json({ ok: false, error: 'Не найдено' });
+    const user = await findUserByEmail(req.user.email);
+    if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
+
+    let row = await getPaymentById(user.id, id);
+    if (!row) return res.status(404).json({ ok: false, error: 'Не найдено' });
+
+    if (row.status === 'pending' && row.yookassa_id && isPaymentsReady()) {
+      try {
+        const ykPayment = await getPayment(row.yookassa_id);
+        const amountOk = ykPayment.amount?.currency === 'RUB' && parseFloat(ykPayment.amount?.value) === row.amount;
+        if (ykPayment.status === 'succeeded' && ykPayment.paid && amountOk) {
+          const result = await applySucceededPayment(row.id, tierOf(row.plan), daysOf(row.plan));
+          if (result?.applied) sendPaymentOwnerEmail(row, result.subscription, !!ykPayment.test).catch(err => console.error('Payment owner email error:', err.message));
+          row = await getPaymentById(user.id, id);
+        } else if (ykPayment.status === 'canceled') {
+          row = await markPaymentStatus(row.id, 'canceled');
+        }
+      } catch (err) {
+        // Строка остаётся pending — фронт продолжит опрос, вебхук догонит сам.
+        console.error('payments/:id: poll error:', err.message);
+      }
+    }
+
+    const sub = row.subscription_id ? await getSubscriptionById(row.subscription_id) : null;
+    res.json({
+      ok: true,
+      status: row.status,
+      plan: row.plan,
+      subscription: sub ? { plan: sub.plan, expiresAt: sub.expires_at, startsAt: sub.started_at } : null,
+    });
+  } catch (err) {
+    console.error('payments/:id error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка' });
   }
 });

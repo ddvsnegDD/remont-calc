@@ -119,6 +119,13 @@ export async function findUserByEmail(email) {
   return rows[0] || null;
 }
 
+// По id, не по email — часть 2 TASK_yookassa.md: письмо владельцу об оплате
+// (2.5) знает user_id платежа, но email в payments сознательно не хранится.
+export async function findUserById(id) {
+  const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
 export async function createUser(email, name, phone, { role, organization, position } = {}) {
   const { rows } = await pool.query(
     `INSERT INTO users (email, name, phone, role, organization, position)
@@ -243,11 +250,15 @@ export async function grantSubscription(userId, plan = 'yearly', days = 365) {
 }
 
 // --- Cancel subscription ---
-// Уходит в части 2 TASK_yookassa.md вместе с POST /api/subscription/cancel
-// (п. 2.6 — кнопка «Отменить подписку» убирается, возврат теперь только
-// через ЮKassa/applyRefund). Оставлена как есть до той части: тот же пробел
-// с started_at, что был у getActiveSubscription (нашёл при аудите части 1.2,
-// не чиню — функция всё равно скоро удаляется).
+// Часть 2.6 TASK_yookassa.md убирает пользовательский POST
+// /api/subscription/cancel (кнопка «Отменить подписку» — возврат теперь
+// только через ЮKassa/applyRefund), но эта функция остаётся: её же вызывает
+// отзыв подписки в админке (DELETE /api/admin/users/:id/subscription),
+// который часть 2.6 явно не трогает (grep подтвердил — второе место
+// использования). Тот же пробел с started_at, что был у getActiveSubscription
+// (нашёл при аудите части 1.2), здесь не чиню: с админским отзывом
+// в очереди почти никогда не сталкиваются (ручное действие, не поток
+// платежей), а трогать поведение вне заявленной части — лишний риск.
 export async function cancelSubscription(userId) {
   const { rows } = await pool.query(
     `UPDATE subscriptions SET status = 'cancelled', expires_at = NOW()
@@ -271,6 +282,14 @@ const PLAN_TIER = {
 };
 function planTier(plan) {
   return PLAN_TIER[plan] || 'club'; // неизвестный legacy — считаем клубным, как tierOf в tariffs.js
+}
+
+// err.code — а не текст сообщения — разбор в server.js: аккаунт удалился до
+// применения платежа, выдавать подписку некому (часть 2.3/2.5 ТЗ).
+function orphanedPaymentError(message) {
+  const err = new Error(message);
+  err.code = 'PAYMENT_ORPHANED';
+  return err;
 }
 
 // Выдача доступа по успешному платежу. tier/days — из tariffs.js, считает
@@ -301,11 +320,12 @@ export async function applySucceededPayment(paymentId, tier, days) {
     if (!payment.user_id) {
       // Аккаунт удалился между созданием платежа и приходом успеха от ЮKassa —
       // редкий случай, выдавать подписку некому. Роняем транзакцию: платёж
-      // остаётся неприменённым, вызывающий код (server.js) залогирует ошибку;
-      // ЮKassa повторит уведомление, исход не изменится (user_id всё ещё NULL,
-      // разбирается вручную) — это осознанно, не автоматизируем.
+      // остаётся неприменённым. err.code — вызывающий код (server.js) по нему,
+      // а не по тексту сообщения, отличает этот случай от сбоя БД/API: шлёт
+      // владельцу письмо «Оплата без аккаунта» и отвечает ЮKassa 200 (не 500),
+      // чтобы не спровоцировать повтор уведомления (часть 2.3/2.5 ТЗ).
       await client.query('ROLLBACK');
-      throw new Error(`applySucceededPayment: payment ${paymentId} has no user_id (account deleted?)`);
+      throw orphanedPaymentError(`applySucceededPayment: payment ${paymentId} has no user_id (account deleted?)`);
     }
 
     const { plan, user_id: userId, yookassa_id: yookassaId, amount } = payment;
@@ -326,7 +346,7 @@ export async function applySucceededPayment(paymentId, tier, days) {
       // блокировкой — тот же случай, что и !payment.user_id, просто пойман
       // на шаг позже.
       await client.query('ROLLBACK');
-      throw new Error(`applySucceededPayment: user ${userId} not found (deleted?)`);
+      throw orphanedPaymentError(`applySucceededPayment: user ${userId} not found (deleted?)`);
     }
 
     const { rows: existing } = await client.query(
@@ -428,6 +448,57 @@ export async function applyRefund(yookassaPaymentId) {
   } finally {
     client.release();
   }
+}
+
+// Простой доступ к строкам payments — часть 2 TASK_yookassa.md
+// (POST /api/payments/create, вебхук, GET /api/payments/:id).
+
+export async function createPendingPayment(userId, plan, amount) {
+  const { rows } = await pool.query(
+    `INSERT INTO payments (user_id, plan, amount, status) VALUES ($1, $2, $3, 'pending') RETURNING *`,
+    [userId, plan, amount]
+  );
+  return rows[0];
+}
+
+export async function setPaymentYookassaId(paymentId, yookassaId) {
+  const { rows } = await pool.query(
+    'UPDATE payments SET yookassa_id = $2, updated_at = NOW() WHERE id = $1 RETURNING *',
+    [paymentId, yookassaId]
+  );
+  return rows[0] || null;
+}
+
+// Только свой платёж — чужой id даёт пустой результат, вызывающий код
+// (server.js) отвечает 404, не подтверждая существование записи (как и
+// остальные ownership-проверки в проекте, часть 3 TASK_server_storage.md).
+export async function getPaymentById(userId, id) {
+  const { rows } = await pool.query(
+    'SELECT * FROM payments WHERE id = $1 AND user_id = $2',
+    [id, userId]
+  );
+  return rows[0] || null;
+}
+
+export async function getPaymentByYookassaId(yookassaId) {
+  const { rows } = await pool.query('SELECT * FROM payments WHERE yookassa_id = $1', [yookassaId]);
+  return rows[0] || null;
+}
+
+export async function markPaymentStatus(id, status) {
+  const { rows } = await pool.query(
+    'UPDATE payments SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *',
+    [id, status]
+  );
+  return rows[0] || null;
+}
+
+// GET /api/payments/:id показывает план/сроки подписки, выданной именно этим
+// платежом — не обязательно текущую активную (её могла закрыть последующая
+// покупка PRO), поэтому берём по id, а не через getActiveSubscription.
+export async function getSubscriptionById(id) {
+  const { rows } = await pool.query('SELECT * FROM subscriptions WHERE id = $1', [id]);
+  return rows[0] || null;
 }
 
 // --- Delete user ---

@@ -17,7 +17,7 @@ import pool, {
 import { savePhoto, photoPath, deletePhoto, isStorageReady } from './server/storage.js';
 import { sendAuthCode, sendRawEmail } from './server/email.js';
 import {
-  PLANS, tierOf, daysOf,
+  PLANS, tierOf, daysOf, labelOf,
   FREE_B2B_CALCS_PER_MONTH, FREE_CONSULTATIONS_PER_MONTH, MAX_PHOTOS_PER_ITEM, MAX_PHOTOS_TOTAL_MB,
 } from './src/data/tariffs.js';
 import { CHECKLISTS } from './src/data/checklists.js';
@@ -297,7 +297,7 @@ app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
     // Отправить email админу
     sendRawEmail('ddv1121@yandex.ru',
       `Отмена подписки: ${user.email}`,
-      `<p>Пользователь <strong>${user.name || user.email}</strong> (${user.email}) отменил подписку.</p><p>План: ${sub.plan}</p><p>Дата отмены: ${new Date().toLocaleString('ru-RU')}</p>`
+      `<p>Пользователь <strong>${escapeHtml(user.name || user.email)}</strong> (${escapeHtml(user.email)}) отменил подписку.</p><p>План: ${escapeHtml(labelOf(sub.plan))}</p><p>Дата отмены: ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</p>`
     ).catch(err => console.error('Cancel notify error:', err.message));
     res.json({ ok: true });
   } catch (err) {
@@ -663,11 +663,11 @@ app.post('/api/consultation', requireDB, authMiddleware, async (req, res) => {
       `<div style="font-family:Arial,sans-serif;max-width:500px;padding:20px">
         <h2 style="color:#B95C38;margin:0 0 16px">🔔 Новая запись на консультацию</h2>
         <table style="width:100%;border-collapse:collapse;">
-          <tr><td style="padding:8px 0;color:#6b7280;width:120px">Имя:</td><td style="padding:8px 0;font-weight:600">${user.name || '—'}</td></tr>
-          <tr><td style="padding:8px 0;color:#6b7280">Email:</td><td style="padding:8px 0;font-weight:600">${user.email}</td></tr>
-          <tr><td style="padding:8px 0;color:#6b7280">Телефон:</td><td style="padding:8px 0;font-weight:600">${user.phone || '—'}</td></tr>
-          <tr><td style="padding:8px 0;color:#6b7280">Подписка:</td><td style="padding:8px 0">${sub.plan} до ${new Date(sub.expires_at).toLocaleDateString('ru-RU')}</td></tr>
-          <tr><td style="padding:8px 0;color:#6b7280">Дата:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU')}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280;width:120px">Имя:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(user.name || '—')}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Email:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(user.email)}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Телефон:</td><td style="padding:8px 0;font-weight:600">${escapeHtml(user.phone || '—')}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Подписка:</td><td style="padding:8px 0">${escapeHtml(labelOf(sub.plan))} до ${new Date(sub.expires_at).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}</td></tr>
+          <tr><td style="padding:8px 0;color:#6b7280">Дата:</td><td style="padding:8px 0">${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</td></tr>
         </table>
         <hr style="border:none;border-top:1px solid #e4e4e7;margin:16px 0">
         <p style="color:#9ca3af;font-size:12px">РПКМ · Автоматическое уведомление</p>

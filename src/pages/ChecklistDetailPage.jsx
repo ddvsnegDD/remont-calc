@@ -57,6 +57,7 @@ function PhotoViewer({ src, onClose }) {
 function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle, onAddPhoto, onDeletePhoto, onComment, color }) {
   const [viewPhoto, setViewPhoto] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [notice, setNotice] = useState(null); // { kind: 'limit'|'error', text } | null
   const fileRef = useRef(null);
   const atLimit = photos.length >= MAX_PHOTOS_PER_ITEM;
 
@@ -64,12 +65,24 @@ function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle,
     const files = Array.from(e.target.files);
     e.target.value = '';
     setUploading(true);
-    let count = photos.length;
+    setNotice(null);
+    const initialCount = photos.length;
+    let count = initialCount;
+    let stoppedByError = false;
     for (const file of files) {
       if (count >= MAX_PHOTOS_PER_ITEM) break;
       const compressed = await compressImage(file);
       const ok = await onAddPhoto(itemKey, compressed);
-      if (ok) count++; else break;
+      if (ok) count++; else { stoppedByError = true; break; }
+    }
+    const added = count - initialCount;
+    // Раньше лишние файлы просто пропадали без объяснения (2.1 TASK_small_debt.md) —
+    // причина отличается: клиентский лимит на пункт vs сбой сети/сервера на одном
+    // из файлов, тексты разные.
+    if (added < files.length) {
+      setNotice(stoppedByError
+        ? { kind: 'error', text: `Добавлено ${added} из ${files.length}: не удалось загрузить остальные фото. Проверьте связь и попробуйте ещё раз.` }
+        : { kind: 'limit', text: `Добавлено ${added} из ${files.length}: к пункту можно прикрепить не больше ${MAX_PHOTOS_PER_ITEM} фото.` });
     }
     setUploading(false);
   };
@@ -120,7 +133,9 @@ function ChecklistItem({ itemKey, text, checked, photos = [], comment, onToggle,
                 </div>
               ))}
             </div>
-            {atLimit && (
+            {notice ? (
+              <div style={{ fontSize: 11, color: notice.kind === 'error' ? '#dc2626' : C.gray400, marginTop: 6 }}>{notice.text}</div>
+            ) : atLimit && (
               <div style={{ fontSize: 11, color: C.gray400, marginTop: 6 }}>Лимит {MAX_PHOTOS_PER_ITEM} фото на пункт исчерпан</div>
             )}
           </div>

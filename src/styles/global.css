@@ -561,6 +561,12 @@ section { padding: 80px 0; }
     font-size: 14px;
     outline: none;
     background: #fff;
+    /* Пустой input[type=date] на iOS/WebKit схлопывается примерно до половины
+       высоты текстового поля (появляется после выбора даты) — часть 2, п. 2.2
+       TASK_small_debt.md. 38px — измеренная высота «Помещения» с теми же
+       padding/font-size в Chromium (offsetHeight, box-sizing:border-box);
+       для текстовых полей это no-op (они уже 38px), для схлопнутой даты — пол. */
+    min-height: 38px;
 }
 .checklist-meta-input::-webkit-date-and-time-value { text-align: left; }
 

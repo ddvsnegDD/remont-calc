@@ -310,6 +310,25 @@ export async function applySucceededPayment(paymentId, tier, days) {
 
     const { plan, user_id: userId, yookassa_id: yookassaId, amount } = payment;
 
+    // Сериализация по пользователю (правка ревью части 1): если активных
+    // подписок ещё нет вовсе, SELECT ... FOR UPDATE ниже по subscriptions
+    // не блокирует ничего (нечего блокировать) — два платежа одного
+    // пользователя, применяемые одновременно (два вебхука, или вебхук и
+    // GET /api/payments/:id одновременно), оба увидели бы пустой existing
+    // и оба посчитали бы start = NOW(), перекрыв друг друга. Блокировка
+    // строки users — тот якорь, которого не хватает пустой выборке: вторая
+    // транзакция ждёт на этом FOR UPDATE, пока первая не дойдёт до COMMIT,
+    // и только потом читает existing — к этому моменту первая подписка уже
+    // вставлена и видна, очередь строится правильно.
+    const { rows: urows } = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    if (!urows[0]) {
+      // Аккаунт удалился между чтением payment.user_id (строкой выше) и этой
+      // блокировкой — тот же случай, что и !payment.user_id, просто пойман
+      // на шаг позже.
+      await client.query('ROLLBACK');
+      throw new Error(`applySucceededPayment: user ${userId} not found (deleted?)`);
+    }
+
     const { rows: existing } = await client.query(
       `SELECT * FROM subscriptions WHERE user_id = $1 AND status IN ('trial', 'active') AND expires_at > NOW() FOR UPDATE`,
       [userId]

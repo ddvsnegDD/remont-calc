@@ -40,7 +40,29 @@ export default function ProPage() {
   }, [notice]);
 
   const handlePay = useCallback(async () => {
-    setNotice('Оплата временно недоступна: подключаем ЮKassa. Напишите на ddv1121@yandex.ru, откроем доступ вручную.');
+    setPayLoading(true);
+    try {
+      const res = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ plan: 'pro_monthly' }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        window.location.href = data.confirmationUrl;
+        return;
+      }
+      setNotice(data.error === 'payments_off'
+        ? 'Оплата временно недоступна. Напишите на ddv1121@yandex.ru, откроем доступ вручную.'
+        : data.error === 'provider'
+          ? 'Не удалось создать платёж. Попробуйте ещё раз или напишите на ddv1121@yandex.ru.'
+          : data.error || 'Ошибка оплаты');
+    } catch {
+      setNotice('Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.');
+    } finally {
+      setPayLoading(false);
+    }
   }, []);
 
   const expiresLabel = subscription?.expiresAt

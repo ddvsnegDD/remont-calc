@@ -97,8 +97,33 @@ export default function ClubPage() {
     }
   };
 
-  const handlePay = async () => {
-    setNotice({ type: 'pay', kind: 'error', text: 'Оплата временно недоступна: подключаем ЮKassa. Напишите на ddv1121@yandex.ru, откроем доступ вручную.' });
+  const handlePay = async (plan) => {
+    if (!user) { setLoginOpen(true); return; }
+    setNotice(null);
+    setPayLoading(true);
+    try {
+      const res = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        window.location.href = data.confirmationUrl;
+        return;
+      }
+      const text = data.error === 'payments_off'
+        ? 'Оплата временно недоступна. Напишите на ddv1121@yandex.ru, откроем доступ вручную.'
+        : data.error === 'provider'
+          ? 'Не удалось создать платёж. Попробуйте ещё раз или напишите на ddv1121@yandex.ru.'
+          : data.error || 'Ошибка оплаты';
+      setNotice({ type: 'pay', kind: 'error', text });
+    } catch {
+      setNotice({ type: 'pay', kind: 'error', text: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.' });
+    } finally {
+      setPayLoading(false);
+    }
   };
 
   const handleTrial = async () => {
@@ -118,25 +143,6 @@ export default function ClubPage() {
       }
     } catch {
       setNotice({ type: 'trial', kind: 'error', text: 'Ошибка активации триала' });
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!confirm('Отменить подписку? Доступ к клубным материалам прекратится сразу. Оплату за неиспользованные дни можно вернуть по запросу на ddv1121@yandex.ru.')) return;
-    try {
-      const res = await fetch('/api/subscription/cancel', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setNotice({ type: 'cancel', kind: 'success', text: 'Подписка отменена, доступ прекращён. Для возврата за неиспользованные дни напишите на ddv1121@yandex.ru.' });
-        refreshSubscription();
-      } else {
-        setNotice({ type: 'cancel', kind: 'error', text: data.error || 'Ошибка отмены' });
-      }
-    } catch {
-      setNotice({ type: 'cancel', kind: 'error', text: 'Ошибка связи с сервером' });
     }
   };
 
@@ -345,11 +351,6 @@ export default function ClubPage() {
                   <div style={{ fontSize: 13, color: C.gray400, marginTop: 8 }}>
                     План: {labelOf(subscription?.plan)}
                   </div>
-                  <button onClick={handleCancel}
-                    style={{ marginTop: 12, background: 'none', border: 'none', color: '#dc3545', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
-                    Отменить подписку
-                  </button>
-                  {renderNotice('cancel')}
                 </div>
               </div>
             </div>

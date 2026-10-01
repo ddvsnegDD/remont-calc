@@ -106,12 +106,17 @@ export default function PaymentReturnPage() {
               </>
             ) : state === 'timeout' ? (
               <>
-                <h2>Платёж обрабатывается</h2>
+                <h2>Оплата пока не подтверждена</h2>
                 <p className="quiz-hint">
-                  Доступ откроется автоматически, обновите страницу через пару минут.
-                  Если не откроется — напишите на{' '}
+                  Если вы уже заплатили, доступ откроется сам в течение нескольких минут,
+                  обновите страницу. Если вы вышли из оплаты, деньги не списаны, можно начать
+                  заново. Если оплатили, а доступа нет, напишите на{' '}
                   <a href="mailto:ddv1121@yandex.ru" style={{ color: C.terra }}>ddv1121@yandex.ru</a>.
                 </p>
+                <div style={{ display: 'inline-flex', gap: 10 }}>
+                  <Btn variant="outline" onClick={() => window.location.reload()}>Обновить страницу</Btn>
+                  <Btn variant="terra" onClick={() => navigate(retryTo)}>К тарифам</Btn>
+                </div>
               </>
             ) : (
               <>

@@ -73,9 +73,12 @@ export default function PaymentReturnPage() {
   const isPro = payment?.plan ? tierOf(payment.plan) === 'pro' : false;
   const retryTo = isPro ? '/pro' : '/club';
   const cabinetTo = isPro ? '/b2b-cabinet' : '/club';
-  const expiresLabel = payment?.subscription?.expiresAt
-    ? new Date(payment.subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : null;
+  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const expiresLabel = payment?.subscription?.expiresAt ? fmtDate(payment.subscription.expiresAt) : null;
+  const startsInFuture = !!payment?.subscription?.startsAt && new Date(payment.subscription.startsAt).getTime() > Date.now();
+  const periodLabel = expiresLabel
+    ? (startsInFuture ? `с ${fmtDate(payment.subscription.startsAt)} до ${expiresLabel}` : `до ${expiresLabel}`)
+    : '';
 
   return (
     <PageLayout>
@@ -95,7 +98,7 @@ export default function PaymentReturnPage() {
             ) : state === 'succeeded' ? (
               <>
                 <h2>Оплата прошла</h2>
-                <p className="quiz-hint">{labelOf(payment.plan)}{expiresLabel ? ` до ${expiresLabel}` : ''}</p>
+                <p className="quiz-hint">{labelOf(payment.plan)}{periodLabel ? ` ${periodLabel}` : ''}</p>
                 <Btn variant="terra" onClick={() => navigate(cabinetTo)}>{isPro ? 'В кабинет PRO' : 'В клуб'}</Btn>
               </>
             ) : state === 'canceled' ? (

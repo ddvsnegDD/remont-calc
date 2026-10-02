@@ -12,6 +12,7 @@ function subTier(sub) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [subscription, setSubscription] = useState(null);
+  const [queue, setQueue] = useState([]); // оплаченные периоды: текущий и будущие (только для показа, доступ — по subscription)
   const [trialUsed, setTrialUsed] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -23,6 +24,7 @@ export function AuthProvider({ children }) {
         if (data?.ok) {
           setUser(data.user);
           setSubscription(data.subscription);
+          setQueue(data.queue || []);
           setTrialUsed(!!data.trialUsed);
         }
       })
@@ -75,6 +77,7 @@ export function AuthProvider({ children }) {
     if (!data.ok) throw new Error(data.error || 'Ошибка');
     setUser(data.user);
     setSubscription(data.subscription);
+    setQueue(data.queue || []);
     return data;
   }, []);
 
@@ -90,6 +93,7 @@ export function AuthProvider({ children }) {
     } catch {}
     setUser(null);
     setSubscription(null);
+    setQueue([]);
     setTrialUsed(false);
     try {
       sessionStorage.removeItem('rpkm-last-b2c');
@@ -104,6 +108,7 @@ export function AuthProvider({ children }) {
     const data = await res.json();
     if (data?.ok) {
       setSubscription(data.subscription);
+      setQueue(data.queue || []);
       const tier = subTier(data.subscription);
       return { ...data, tier, hasClub: tier === 'club' || tier === 'pro', hasPro: tier === 'pro' };
     }
@@ -120,7 +125,7 @@ export function AuthProvider({ children }) {
   const hasAccess = hasClub; // алиас для обратной совместимости
 
   return (
-    <AuthContext.Provider value={{ user, subscription, trialUsed, loading, tier, hasClub, hasPro, hasAccess, sendCode, verify, logout, refreshSubscription, markTrialUsed }}>
+    <AuthContext.Provider value={{ user, subscription, queue, trialUsed, loading, tier, hasClub, hasPro, hasAccess, sendCode, verify, logout, refreshSubscription, markTrialUsed }}>
       {children}
     </AuthContext.Provider>
   );

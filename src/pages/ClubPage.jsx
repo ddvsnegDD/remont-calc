@@ -35,7 +35,7 @@ const FAQ = [
 
 export default function ClubPage() {
   const navigate = useNavigate();
-  const { user, subscription, hasAccess, trialUsed, refreshSubscription, markTrialUsed } = useAuth();
+  const { user, subscription, queue, hasAccess, trialUsed, refreshSubscription, markTrialUsed } = useAuth();
   const isProUser = user?.role === 'b2b';
   const [loginOpen, setLoginOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(-1);
@@ -146,9 +146,25 @@ export default function ClubPage() {
     }
   };
 
-  const expiresLabel = subscription?.expiresAt
-    ? new Date(subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const expiresLabel = subscription?.expiresAt ? fmtDate(subscription.expiresAt) : null;
+
+  // Очередь оплаченных периодов (текущий и будущие) — только для показа;
+  // доступ по-прежнему определяет subscription/hasAccess.
+  const nowMs = Date.now();
+  const isStarted = (q) => new Date(q.startedAt).getTime() <= nowMs;
+  const currentPeriod = queue.find(isStarted) || null;
+  const queueEnd = queue.length > 0
+    ? new Date(Math.max(...queue.map(q => new Date(q.expiresAt).getTime())))
     : null;
+  const renewLabel = (plans) => (queue.some(q => plans.includes(q.plan)) ? 'Продлить' : 'Оплатить');
+  const MONTHLY_PLANS = ['club_monthly', 'monthly'];
+  const YEARLY_PLANS = ['club_yearly', 'yearly'];
+  const isMonthCurrent = !!currentPeriod && MONTHLY_PLANS.includes(currentPeriod.plan);
+  const isYearCurrent = !!currentPeriod && YEARLY_PLANS.includes(currentPeriod.plan);
+  const renderQueueNote = () => queueEnd && (
+    <div style={{ fontSize: 12, color: C.gray400, marginTop: 8 }}>Новый период начнётся {fmtDate(queueEnd)}</div>
+  );
 
   return (
     <PageLayout>
@@ -264,41 +280,34 @@ export default function ClubPage() {
               <h2>Простые и прозрачные цены</h2>
               <p>Без автопродления. Если подписка уже действует, оплаченный период добавится к её окончанию. Возврат за неиспользованные дни — по запросу.</p>
             </div>
+            {queue.length > 0 && (
+              <div style={{ maxWidth: 600, margin: '0 auto 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {queue.map((q, i) => (
+                  <div key={i} style={{ padding: '10px 14px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 14 }}>
+                    ✓ {labelOf(q.plan)}: {isStarted(q) ? `до ${fmtDate(q.expiresAt)}` : `с ${fmtDate(q.startedAt)} до ${fmtDate(q.expiresAt)}`}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="club-pricing-grid" style={{ maxWidth: 600, margin: '0 auto' }}>
               {/* Monthly */}
-              {(() => {
-                const isCurrent = hasAccess && (subscription?.plan === 'club_monthly' || subscription?.plan === 'monthly' || subscription?.status === 'trial');
-                return (
-                  <div style={{ background: '#fff', border: isCurrent ? `2px solid #16794a` : `1.5px solid ${C.gray200}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
-                    {isCurrent && <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#16794a', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>{subscription?.status === 'trial' ? 'ТРИАЛ' : 'ТЕКУЩИЙ'}</div>}
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Месяц</div>
-                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>{formatPrice(CLUB_M)} <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
-                    <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>в месяц</div>
-                    {isCurrent && expiresLabel ? (
-                      <div style={{ padding: '12px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 14 }}>✓ до {expiresLabel}</div>
-                    ) : (
-                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_monthly')} disabled={payLoading}>Оплатить</Btn>
-                    )}
-                  </div>
-                );
-              })()}
+              <div style={{ background: '#fff', border: isMonthCurrent ? `2px solid #16794a` : `1.5px solid ${C.gray200}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
+                {isMonthCurrent && <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#16794a', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>ТЕКУЩИЙ</div>}
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Месяц</div>
+                <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>{formatPrice(CLUB_M)} <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
+                <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>в месяц</div>
+                <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_monthly')} disabled={payLoading}>{renewLabel(MONTHLY_PLANS)}</Btn>
+                {renderQueueNote()}
+              </div>
               {/* Yearly */}
-              {(() => {
-                const isCurrent = hasAccess && (subscription?.plan === 'club_yearly' || subscription?.plan === 'yearly');
-                return (
-                  <div style={{ background: '#fff', border: `2px solid ${isCurrent ? '#16794a' : C.terra}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: isCurrent ? '#16794a' : C.terra, color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>{isCurrent ? 'ТЕКУЩИЙ' : 'ВЫГОДНО'}</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Год</div>
-                    <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>{formatPrice(CLUB_Y)} <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
-                    <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>{formatPrice(CLUB_Y_PER_MONTH)} ₽/мес · экономия 17%</div>
-                    {isCurrent && expiresLabel ? (
-                      <div style={{ padding: '12px', background: '#e6f5ec', color: '#16794a', borderRadius: 10, fontWeight: 600, fontSize: 14 }}>✓ до {expiresLabel}</div>
-                    ) : (
-                      <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_yearly')} disabled={payLoading}>Оплатить</Btn>
-                    )}
-                  </div>
-                );
-              })()}
+              <div style={{ background: '#fff', border: `2px solid ${isYearCurrent ? '#16794a' : C.terra}`, borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: isYearCurrent ? '#16794a' : C.terra, color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>{isYearCurrent ? 'ТЕКУЩИЙ' : 'ВЫГОДНО'}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500, marginBottom: 4 }}>Год</div>
+                <div style={{ fontSize: 36, fontWeight: 800, color: C.graphite }}>{formatPrice(CLUB_Y)} <span style={{ fontSize: 16, fontWeight: 500 }}>₽</span></div>
+                <div style={{ fontSize: 13, color: C.gray400, marginBottom: 20 }}>{formatPrice(CLUB_Y_PER_MONTH)} ₽/мес · экономия 17%</div>
+                <Btn variant="terra" style={{ width: '100%' }} onClick={() => handlePay('club_yearly')} disabled={payLoading}>{renewLabel(YEARLY_PLANS)}</Btn>
+                {renderQueueNote()}
+              </div>
             </div>
             {notice?.type === 'pay' && <div style={{ maxWidth: 600, margin: '0 auto' }}>{renderNotice('pay')}</div>}
             {!user && (

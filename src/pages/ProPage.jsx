@@ -4,7 +4,7 @@ import { PageLayout } from '../components/Layout';
 import Btn from '../components/Btn';
 import { C } from '../lib/theme';
 import { useAuth } from '../lib/auth';
-import { PLANS, formatPrice } from '../data/tariffs';
+import { PLANS, formatPrice, FREE_CONSULTATIONS_PER_MONTH } from '../data/tariffs';
 
 const PRO_PRICE = formatPrice(PLANS.pro_monthly.price); // «2 900»
 
@@ -13,8 +13,8 @@ const BENEFITS = [
   'Офисный fit-out калькулятор (25+ статей)',
   'Детальная спецификация B2B по тендерным ценам',
   { text: 'White-label PDF (логотип, реквизиты)', soon: true },
-  'Персональный менеджер',
-  'Приоритетная поддержка (24 ч SLA)',
+  `Консультации сметчика (до ${FREE_CONSULTATIONS_PER_MONTH} в месяц)`,
+  'Приоритетная поддержка',
   'Экспорт CSV / Excel',
 ];
 
@@ -160,7 +160,7 @@ export default function ProPage() {
                 <div className="hero-stats" style={{ marginTop: 28 }}>
                   <div><div className="stat-num">{PRO_PRICE} ₽</div><div className="stat-label">в месяц · без автопродления</div></div>
                   <div><div className="stat-num">∞</div><div className="stat-label">расчётов в месяц</div></div>
-                  <div><div className="stat-num">24 часа</div><div className="stat-label">SLA на ответ инженера</div></div>
+                  <div><div className="stat-num">1–2 дня</div><div className="stat-label">ответ сметчика на консультацию</div></div>
                 </div>
               </div>
               <div className="hero-visual">
@@ -205,7 +205,8 @@ export default function ProPage() {
                   <li>Офисный fit-out калькулятор</li>
                   <li>Детальная спецификация B2B</li>
                   <li>White-label PDF (логотип, реквизиты)<span style={{ color: C.gray400 }}> · готовится</span></li>
-                  <li>Приоритетная поддержка (24 ч SLA)</li>
+                  <li>Консультации сметчика (до {FREE_CONSULTATIONS_PER_MONTH} в месяц)</li>
+                  <li>Приоритетная поддержка</li>
                   <li>Экспорт в CSV / Excel</li>
                 </ul>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }}

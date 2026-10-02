@@ -8,7 +8,8 @@ import { TenderPricesVisual, BreakdownVisual, FactorsVisual, InstantResultVisual
 import { useReveal } from '../lib/hooks';
 import { useAuth } from '../lib/auth';
 import { C } from '../lib/theme';
-import { PLANS, formatPrice } from '../data/tariffs';
+import { PLANS, formatPrice, FREE_CONSULTATIONS_PER_MONTH } from '../data/tariffs';
+import { withCount } from '../lib/plural';
 import { TIER_NAMES, tierTitle } from '../data/tierNames';
 
 /* --- CalcWidget (premium glassmorphism) --- */
@@ -321,7 +322,7 @@ function ClubSection() {
               {[
                 "Детальная смета по 50 позициям с тендерными ценами",
                 "Чек-листы приёмки квартиры и контроля подрядчика",
-                "Консультации инженера — до 3 вопросов в месяц",
+                `Консультации сметчика — до ${FREE_CONSULTATIONS_PER_MONTH} вопросов в месяц`,
                 "Закрытые разборы объектов с реальными бюджетами",
               ].map((txt, i) => (
                 <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -340,7 +341,7 @@ function ClubSection() {
             <div style={{ background: "#fff", borderRadius: 16, padding: 20, marginBottom: 20, boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
               {[
                 { icon: "📋", text: "Детальная смета ~50 позиций" },
-                { icon: "💬", text: "3 консультации инженера/мес" },
+                { icon: "💬", text: `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} сметчика/мес` },
                 { icon: "✅", text: "Чек-листы приёмки и контроля" },
                 { icon: "🎓", text: "Закрытые разборы объектов" },
               ].map((item, i) => (

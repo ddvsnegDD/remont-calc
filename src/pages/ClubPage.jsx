@@ -16,13 +16,13 @@ const CLUB_Y_PER_MONTH = Math.round(CLUB_Y / 12); // ~82
 const BENEFITS = [
   'Детальная смета по тендерным ценам (50+ позиций)',
   'Чек-листы приёмки этапов (6 шт, 175 пунктов)',
-  `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} инженера в месяц`,
+  `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} сметчика в месяц`,
   { text: 'Закрытые чаты владельцев' },
 ];
 
 const FEATURES = [
   { icon: '📋', title: 'Приёмка этапов', desc: '6 чек-листов (175 пунктов): стяжка, штукатурка, электрика, сантехника, чистовая отделка, установка дверей.' },
-  { icon: '📞', title: 'Консультация', desc: `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} с инженером в месяц.` },
+  { icon: '📞', title: 'Консультация', desc: `${withCount(FREE_CONSULTATIONS_PER_MONTH, ['консультация', 'консультации', 'консультаций'])} со сметчиком в месяц.` },
   { icon: '💬', title: 'Закрытый чат', soon: true, desc: 'Чаты владельцев для обмена опытом между участниками клуба.' },
 ];
 
@@ -84,7 +84,7 @@ export default function ClubPage() {
     const res = await createConsultation();
     if (res.ok) {
       setConsultationsLeft(res.left);
-      setNotice({ type: 'consultation', kind: 'success', text: 'Запись на консультацию отправлена! Инженер свяжется с вами в течение 24 часов.' });
+      setNotice({ type: 'consultation', kind: 'success', text: 'Запись на консультацию отправлена! Сметчик свяжется с вами в течение 1–2 рабочих дней.' });
       return;
     }
     if (res.error === 'limit') {
@@ -167,7 +167,7 @@ export default function ClubPage() {
                 <span className="section-label">Клуб владельцев</span>
                 <h1>Профессиональные инструменты для вашего ремонта</h1>
                 <p className="hero-lead">
-                  Принимайте этапы по чек-листам, получайте консультации инженера,
+                  Принимайте этапы по чек-листам, получайте консультации сметчика,
                   экономьте время и нервы. Первые 14 дней — бесплатно.
                 </p>
                 <div className="hero-cta">
@@ -332,7 +332,7 @@ export default function ClubPage() {
                   <Btn variant="outline" onClick={() => navigate('/checklists')}>Открыть чек-листы</Btn>
                 </div>
                 <div className="club-card">
-                  <h3>Консультация инженера</h3>
+                  <h3>Консультация сметчика</h3>
                   <p>В этом месяце доступно: <strong>{consultationsLeft ?? '…'} из {FREE_CONSULTATIONS_PER_MONTH}</strong> консультаций.</p>
                   <Btn variant="terra" onClick={handleConsultation} disabled={consultationsLeft === 0}>Записаться</Btn>
                   <div style={{ fontSize: 12, color: C.gray400, marginTop: 8 }}>

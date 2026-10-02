@@ -404,10 +404,28 @@ export async function applySucceededPayment(paymentId, tier, days) {
   }
 }
 
+// Сколько миллисекунд освобождает возвращаемая подписка (TASK_refund_queue_shift.md).
+// Чистая функция, без БД. Считается только для active/trial с expires_at > now:
+// - уже началась (started_at <= now): freed = expires_at - now (остаток);
+// - в очереди (started_at > now): freed = expires_at - started_at (вся длина).
+// cancelled/refunded/истёкшая — 0: отменённую покупкой PRO клубную подписку
+// усекли ещё в момент отмены, сдвигать после неё нечего.
+export function computeRefundShift(refunded, now) {
+  if (!refunded || (refunded.status !== 'active' && refunded.status !== 'trial')) return 0;
+  const started = new Date(refunded.started_at).getTime();
+  const expires = new Date(refunded.expires_at).getTime();
+  const nowMs = new Date(now).getTime();
+  if (!(expires > nowMs)) return 0;
+  return started <= nowMs ? expires - nowMs : expires - started;
+}
+
 // Возврат по yookassa_id платежа. Идемпотентно (status='refunded' на payments —
-// вызывающий код проверяет, звать ли повторно). Подписки, стоящие в очереди
-// ПОСЛЕ возвращённой, не сдвигаем — редкий случай, если такое всё же
-// произойдёт, дыру в графике владелец закроет вручную (часть 1.4 ТЗ).
+// ветка alreadyRefunded срабатывает до любых изменений, повтор ничего не двигает).
+// Цепочка подписок пользователя стыкуется вплотную (started_at следующей =
+// expires_at предыдущей, см. applySucceededPayment), поэтому освободившийся
+// интервал сдвигает назад все подписки, стоявшие в очереди после возвращённой:
+// первая из них стартует в момент возврата, без разрыва. Блокировки в том же
+// порядке, что в applySucceededPayment: сначала payments, затем users.
 export async function applyRefund(yookassaPaymentId) {
   const client = await pool.connect();
   try {
@@ -418,10 +436,42 @@ export async function applyRefund(yookassaPaymentId) {
 
     if (payment.status === 'refunded') {
       await client.query('COMMIT');
-      return { alreadyRefunded: true, payment };
+      return { alreadyRefunded: true, shifted: 0, payment };
     }
 
+    // Аккаунт удалён (user_id пуст) — сдвигать нечего, подписки у него уже нет.
+    if (payment.user_id) {
+      await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [payment.user_id]);
+    }
+
+    let shifted = 0;
     if (payment.subscription_id) {
+      // Состояние подписки читаем ДО закрытия: freed и прежний expires_at
+      // нужны для сдвига очереди. NOW() в транзакции постоянен, поэтому
+      // db_now совпадает с NOW() в UPDATE ниже.
+      const { rows: srows } = await client.query(
+        'SELECT *, NOW() AS db_now FROM subscriptions WHERE id = $1 FOR UPDATE',
+        [payment.subscription_id]
+      );
+      const sub = srows[0];
+
+      // Сдвиг очереди — до закрытия возвращаемой подписки: граница «стоят после
+      // неё» берётся из её ещё не усечённого expires_at прямо в SQL (без
+      // округления через JS Date).
+      const freedMs = payment.user_id && sub ? computeRefundShift(sub, sub.db_now) : 0;
+      if (freedMs > 0) {
+        const { rowCount } = await client.query(
+          `UPDATE subscriptions
+           SET started_at = started_at - ($3::double precision * interval '1 millisecond'),
+               expires_at = expires_at - ($3::double precision * interval '1 millisecond')
+           WHERE user_id = $1 AND status IN ('trial', 'active')
+             AND id <> $2
+             AND started_at >= (SELECT expires_at FROM subscriptions WHERE id = $2)`,
+          [payment.user_id, sub.id, freedMs]
+        );
+        shifted = rowCount;
+      }
+
       // Ещё не истекла и уже началась (started_at <= NOW()) — обрезаем прямо
       // сейчас (LEAST на случай, если уже истекла бы раньше NOW() сама по
       // себе — не отодвигаем конец назад). Ещё не началась (в очереди) —
@@ -441,7 +491,7 @@ export async function applyRefund(yookassaPaymentId) {
       [payment.id]
     );
     await client.query('COMMIT');
-    return { alreadyRefunded: false, payment: rows[0] };
+    return { alreadyRefunded: false, shifted, payment: rows[0] };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;

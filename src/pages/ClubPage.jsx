@@ -136,7 +136,7 @@ export default function ClubPage() {
     }
   };
 
-  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s+г\.$/, '\u00A0г.');
   const expiresLabel = subscription?.expiresAt ? fmtDate(subscription.expiresAt) : null;
 
   // Очередь оплаченных периодов (текущий и будущие) — только для показа;

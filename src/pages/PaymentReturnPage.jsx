@@ -73,7 +73,7 @@ export default function PaymentReturnPage() {
   const isPro = payment?.plan ? tierOf(payment.plan) === 'pro' : false;
   const retryTo = isPro ? '/pro' : '/club';
   const cabinetTo = isPro ? '/b2b-cabinet' : '/club';
-  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s+г\.$/, '\u00A0г.');
   const expiresLabel = payment?.subscription?.expiresAt ? fmtDate(payment.subscription.expiresAt) : null;
   const startsInFuture = !!payment?.subscription?.startsAt && new Date(payment.subscription.startsAt).getTime() > Date.now();
   const periodLabel = expiresLabel

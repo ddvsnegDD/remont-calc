@@ -203,6 +203,12 @@ app.post('/api/auth/send-code', requireDB, async (req, res) => {
   }
 });
 
+// Один вид подписки в /me, /status, /verify и /subscription/trial:
+// { plan, status, expiresAt, tier } (раньше verify отдавал сырую строку БД).
+function formatSubscription(sub) {
+  return sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null;
+}
+
 // Очередь периодов для показа на /club и /pro (TASK_queue_ui.md, часть 1).
 // Доступ определяет только subscription (текущая), queue — информационная.
 function formatQueue(rows) {
@@ -227,6 +233,7 @@ app.post('/api/auth/verify', requireDB, async (req, res) => {
     const user = await createUser(mail, name, phone, { role, organization, position });
     const sub = await getActiveSubscription(user.id);
     const queue = formatQueue(await getSubscriptionQueue(user.id));
+    const trialUsed = await hasUsedTrial(user.id);
     const token = signToken(user);
     res.cookie('rpkm_token', token, {
       httpOnly: true,
@@ -234,7 +241,7 @@ app.post('/api/auth/verify', requireDB, async (req, res) => {
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
-    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization }, subscription: sub, queue });
+    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization }, subscription: formatSubscription(sub), queue, trialUsed });
   } catch (err) {
     console.error('verify error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка входа' });
@@ -252,7 +259,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     res.json({
       ok: true,
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization },
-      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null,
+      subscription: formatSubscription(sub),
       queue,
       trialUsed,
     });
@@ -280,7 +287,7 @@ app.get('/api/subscription/status', authMiddleware, async (req, res) => {
     res.json({
       ok: true,
       hasAccess: !!sub,
-      subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null,
+      subscription: formatSubscription(sub),
       queue,
     });
   } catch (err) {
@@ -299,7 +306,7 @@ app.post('/api/subscription/trial', authMiddleware, async (req, res) => {
       return res.json({ ok: false, error });
     }
     const sub = result.subscription;
-    res.json({ ok: true, plan: sub.plan, subscription: { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at } });
+    res.json({ ok: true, plan: sub.plan, subscription: formatSubscription(sub) });
   } catch (err) {
     console.error('trial error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка' });

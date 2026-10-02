@@ -78,6 +78,7 @@ export function AuthProvider({ children }) {
     setUser(data.user);
     setSubscription(data.subscription);
     setQueue(data.queue || []);
+    setTrialUsed(!!data.trialUsed);
     return data;
   }, []);
 

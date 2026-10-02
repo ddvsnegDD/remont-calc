@@ -34,13 +34,35 @@ export default function ProPage() {
 
   const toggleFaq = useCallback((i) => { setOpenFaq(prev => prev === i ? -1 : i); }, []);
 
+  // Ответ на действие показывается рядом с кнопкой, а не тостом внизу экрана
+  // (как на /club): notice.place — под какой кнопкой, kind — error | success | info.
+  // Ошибка не исчезает сама; успех триала снимается через 8 с (рядом появляется
+  // «✓ PRO активен»), info («скоро») — через 4 с.
   useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 4000);
+    if (!notice || notice.kind === 'error') return;
+    const t = setTimeout(() => setNotice(null), notice.kind === 'success' ? 8000 : 4000);
     return () => clearTimeout(t);
   }, [notice]);
 
-  const handlePay = useCallback(async () => {
+  const renderNotice = (place) => {
+    if (!notice || notice.place !== place) return null;
+    const palette = {
+      error: { bg: '#fff5f5', color: '#c53030', border: '#feb2b2', mark: '⚠ ' },
+      success: { bg: '#e6f5ec', color: '#16794a', border: '#b9e4c9', mark: '✓ ' },
+      info: { bg: C.gray50, color: C.gray500, border: C.gray200, mark: '' },
+    }[notice.kind];
+    return (
+      <div style={{
+        width: '100%', marginTop: 10, padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500, textAlign: 'left',
+        background: palette.bg, color: palette.color, border: `1px solid ${palette.border}`,
+      }}>
+        {palette.mark}{notice.text}
+      </div>
+    );
+  };
+
+  const handlePay = useCallback(async (place) => {
+    setNotice(null);
     setPayLoading(true);
     try {
       const res = await fetch('/api/payments/create', {
@@ -54,27 +76,31 @@ export default function ProPage() {
         window.location.href = data.confirmationUrl;
         return;
       }
-      setNotice(data.error === 'payments_off'
+      const text = data.error === 'payments_off'
         ? 'Оплата временно недоступна. Напишите на ddv1121@yandex.ru, откроем доступ вручную.'
         : data.error === 'provider'
           ? 'Не удалось создать платёж. Попробуйте ещё раз или напишите на ddv1121@yandex.ru.'
-          : data.error || 'Ошибка оплаты');
+          : data.error || 'Ошибка оплаты';
+      setNotice({ place, kind: 'error', text });
     } catch {
-      setNotice('Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.');
+      setNotice({ place, kind: 'error', text: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.' });
     } finally {
       setPayLoading(false);
     }
   }, []);
 
-  const handleTrial = useCallback(async () => {
+  const handleTrial = useCallback(async (place) => {
+    setNotice(null);
     setTrialLoading(true);
     const res = await startTrial();
     setTrialLoading(false);
     // Успех: startTrial уже обновил подписку — страница сама покажет «✓ PRO активен».
-    setNotice(res.ok ? 'PRO на 7 дней активирован!' : (res.error || 'Ошибка активации триала'));
+    setNotice(res.ok
+      ? { place, kind: 'success', text: 'PRO на 7 дней активирован!' }
+      : { place, kind: 'error', text: res.error || 'Ошибка активации триала' });
   }, [startTrial]);
 
-  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s+г\.$/, '\u00A0г.');
   // «Оплачен до» — по последнему PRO-периоду в очереди (с учётом оплаченных
   // вперёд), а не только по текущему; доступ по-прежнему определяет hasPro.
   const proEnds = queue.filter(q => q.tier === 'pro').map(q => new Date(q.expiresAt).getTime());
@@ -89,17 +115,17 @@ export default function ProPage() {
           <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '12px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600 }}>
             ✓ PRO активен{expiresLabel && <span style={{ fontWeight: 400, fontSize: 13 }}>до {expiresLabel}</span>}
           </div>
-          <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Продлить PRO за {PRO_PRICE} ₽</Btn>
+          <Btn variant="dark" size="lg" onClick={() => handlePay('hero')} disabled={payLoading}>Продлить PRO за {PRO_PRICE} ₽</Btn>
         </>
       )
       : canTryProTrial
         ? (
           <>
-            <Btn variant="dark" size="lg" onClick={handleTrial} disabled={trialLoading}>Попробовать PRO 7 дней бесплатно</Btn>
-            <Btn variant="outline" size="lg" onClick={handlePay} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>
+            <Btn variant="dark" size="lg" onClick={() => handleTrial('hero')} disabled={trialLoading}>Попробовать PRO 7 дней бесплатно</Btn>
+            <Btn variant="outline" size="lg" onClick={() => handlePay('hero')} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>
           </>
         )
-        : <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>;
+        : <Btn variant="dark" size="lg" onClick={() => handlePay('hero')} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>;
 
   return (
     <PageLayout>
@@ -129,6 +155,7 @@ export default function ProPage() {
                       Период добавится к окончанию, новый срок начнётся {expiresLabel}
                     </div>
                   )}
+                  {renderNotice('hero')}
                 </div>
                 <div className="hero-stats" style={{ marginTop: 28 }}>
                   <div><div className="stat-num">{PRO_PRICE} ₽</div><div className="stat-label">в месяц · без автопродления</div></div>
@@ -182,10 +209,11 @@ export default function ProPage() {
                   <li>Экспорт в CSV / Excel</li>
                 </ul>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }}
-                  onClick={() => !user ? navigate('/b2b-login') : canTryProTrial ? handleTrial() : handlePay()}
+                  onClick={() => !user ? navigate('/b2b-login') : canTryProTrial ? handleTrial('compare') : handlePay('compare')}
                   disabled={user && (payLoading || trialLoading)}>
                   {!user ? 'Войти для оформления' : hasPro ? 'Продлить PRO' : canTryProTrial ? 'Попробовать PRO 7 дней бесплатно' : 'Перейти на PRO'}
                 </Btn>
+                {renderNotice('compare')}
               </div>
             </div>
           </div>
@@ -208,12 +236,14 @@ export default function ProPage() {
                 <div className="club-card">
                   <h3>White-label PDF<span style={{ color: C.gray400, fontWeight: 400 }}> · готовится</span></h3>
                   <p>Загрузите логотип — все PDF будут с вашим брендом.</p>
-                  <Btn variant="outline" onClick={() => setNotice('White-label PDF — скоро')}>Настроить →</Btn>
+                  <Btn variant="outline" onClick={() => setNotice({ place: 'whitelabel', kind: 'info', text: 'White-label PDF — скоро' })}>Настроить →</Btn>
+                  {renderNotice('whitelabel')}
                 </div>
                 <div className="club-card">
                   <h3>Экспорт в CSV</h3>
                   <p>Скачайте историю расчётов одним файлом.</p>
-                  <Btn variant="outline" onClick={() => setNotice('Экспорт CSV — скоро')}>Скачать CSV →</Btn>
+                  <Btn variant="outline" onClick={() => setNotice({ place: 'csv', kind: 'info', text: 'Экспорт CSV — скоро' })}>Скачать CSV →</Btn>
+                  {renderNotice('csv')}
                 </div>
                 <div className="club-card">
                   <h3>Управление подпиской</h3>
@@ -244,11 +274,6 @@ export default function ProPage() {
             </div>
           </div>
         </section>
-        {notice && (
-          <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: C.graphite, color: '#fff', padding: '12px 24px', borderRadius: 10, fontSize: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', maxWidth: 400, textAlign: 'center' }}>
-            {notice}
-          </div>
-        )}
       </main>
     </PageLayout>
   );

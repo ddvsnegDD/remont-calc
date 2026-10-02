@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import multer from 'multer';
 import { resolve, join } from 'path';
 import pool, {
-  initDB, findUserByEmail, findUserById, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription,
+  initDB, findUserByEmail, findUserById, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, getSubscriptionQueue,
   createTrialSubscription, hasUsedTrial, cancelSubscription, grantSubscription, deleteUser,
   getAllUsers, getAdminStats,
   listCalculations, countB2BCalculationsThisMonth, createCalculation, deleteCalculation,
@@ -203,6 +203,15 @@ app.post('/api/auth/send-code', requireDB, async (req, res) => {
   }
 });
 
+// Очередь периодов для показа на /club и /pro (TASK_queue_ui.md, часть 1).
+// Доступ определяет только subscription (текущая), queue — информационная.
+function formatQueue(rows) {
+  return rows.map(r => ({
+    plan: r.plan, status: r.status, tier: tierOf(r.plan),
+    startedAt: r.started_at, expiresAt: r.expires_at,
+  }));
+}
+
 // Проверить код, войти/зарегистрироваться
 app.post('/api/auth/verify', requireDB, async (req, res) => {
   const { email, code, name, phone, role, organization, position } = req.body;
@@ -217,6 +226,7 @@ app.post('/api/auth/verify', requireDB, async (req, res) => {
     if (!valid) return res.status(400).json({ ok: false, error: 'Неверный или просроченный код' });
     const user = await createUser(mail, name, phone, { role, organization, position });
     const sub = await getActiveSubscription(user.id);
+    const queue = formatQueue(await getSubscriptionQueue(user.id));
     const token = signToken(user);
     res.cookie('rpkm_token', token, {
       httpOnly: true,
@@ -224,7 +234,7 @@ app.post('/api/auth/verify', requireDB, async (req, res) => {
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
-    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization }, subscription: sub });
+    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization }, subscription: sub, queue });
   } catch (err) {
     console.error('verify error:', err);
     res.status(500).json({ ok: false, error: 'Ошибка входа' });
@@ -238,10 +248,12 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     if (!user) return res.status(401).json({ ok: false, error: 'Пользователь не найден' });
     const sub = await getActiveSubscription(user.id);
     const trialUsed = await hasUsedTrial(user.id);
+    const queue = formatQueue(await getSubscriptionQueue(user.id));
     res.json({
       ok: true,
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, organization: user.organization },
       subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null,
+      queue,
       trialUsed,
     });
   } catch (err) {
@@ -264,10 +276,12 @@ app.get('/api/subscription/status', authMiddleware, async (req, res) => {
   try {
     const user = await findUserByEmail(req.user.email);
     const sub = await getActiveSubscription(user.id);
+    const queue = formatQueue(await getSubscriptionQueue(user.id));
     res.json({
       ok: true,
       hasAccess: !!sub,
       subscription: sub ? { plan: sub.plan, status: sub.status, expiresAt: sub.expires_at, tier: tierOf(sub.plan) } : null,
+      queue,
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: 'Ошибка' });

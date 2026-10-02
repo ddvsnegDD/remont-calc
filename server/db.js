@@ -191,6 +191,19 @@ export async function getActiveSubscription(userId) {
   return rows[0] || null;
 }
 
+// Очередь оплаченных периодов (TASK_queue_ui.md, часть 1): текущая подписка
+// и будущие (started_at позже NOW()), по порядку начала. Только для показа
+// на странице — доступ по-прежнему определяет getActiveSubscription.
+export async function getSubscriptionQueue(userId) {
+  const { rows } = await pool.query(
+    `SELECT plan, status, started_at, expires_at FROM subscriptions
+     WHERE user_id = $1 AND status IN ('trial', 'active') AND expires_at > NOW()
+     ORDER BY started_at ASC, id ASC`,
+    [userId]
+  );
+  return rows;
+}
+
 // Пробные планы — по plan, а не по status: status переписывают cancelSubscription
 // и grantSubscription ('cancelled' / 'active'), а факт «триал брали» должен это
 // пережить (часть 4 TASK_trial_b2b.md). db.js не импортирует PLANS из src/ (часть

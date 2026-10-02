@@ -26,10 +26,11 @@ const FAQ = [
 
 export default function ProPage() {
   const navigate = useNavigate();
-  const { user, subscription, queue, hasPro, refreshSubscription } = useAuth();
+  const { user, subscription, queue, hasPro, refreshSubscription, startTrial, canTryProTrial } = useAuth();
   const [openFaq, setOpenFaq] = useState(-1);
   const [notice, setNotice] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
+  const [trialLoading, setTrialLoading] = useState(false);
 
   const toggleFaq = useCallback((i) => { setOpenFaq(prev => prev === i ? -1 : i); }, []);
 
@@ -65,6 +66,14 @@ export default function ProPage() {
     }
   }, []);
 
+  const handleTrial = useCallback(async () => {
+    setTrialLoading(true);
+    const res = await startTrial();
+    setTrialLoading(false);
+    // Успех: startTrial уже обновил подписку — страница сама покажет «✓ PRO активен».
+    setNotice(res.ok ? 'PRO на 7 дней активирован!' : (res.error || 'Ошибка активации триала'));
+  }, [startTrial]);
+
   const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
   // «Оплачен до» — по последнему PRO-периоду в очереди (с учётом оплаченных
   // вперёд), а не только по текущему; доступ по-прежнему определяет hasPro.
@@ -83,7 +92,14 @@ export default function ProPage() {
           <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Продлить PRO за {PRO_PRICE} ₽</Btn>
         </>
       )
-      : <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>;
+      : canTryProTrial
+        ? (
+          <>
+            <Btn variant="dark" size="lg" onClick={handleTrial} disabled={trialLoading}>Попробовать PRO 7 дней бесплатно</Btn>
+            <Btn variant="outline" size="lg" onClick={handlePay} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>
+          </>
+        )
+        : <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>;
 
   return (
     <PageLayout>
@@ -103,7 +119,9 @@ export default function ProPage() {
                   {heroCta}
                   {user && !hasPro && (
                     <div style={{ fontSize: 12, color: C.gray500, marginTop: 8 }}>
-                      Без автопродления. Если у вас действует Клуб, он заменяется на PRO с момента оплаты.
+                      {canTryProTrial
+                        ? 'Без карты. Пробный доступ даётся один раз на аккаунт. Если у вас действует Клуб, он заменяется на PRO с момента оплаты'
+                        : 'Без автопродления. Если у вас действует Клуб, он заменяется на PRO с момента оплаты.'}
                     </div>
                   )}
                   {user && hasPro && expiresLabel && (
@@ -164,9 +182,9 @@ export default function ProPage() {
                   <li>Экспорт в CSV / Excel</li>
                 </ul>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }}
-                  onClick={() => !user ? navigate('/b2b-login') : handlePay()}
-                  disabled={user && payLoading}>
-                  {!user ? 'Войти для оформления' : hasPro ? 'Продлить PRO' : 'Перейти на PRO'}
+                  onClick={() => !user ? navigate('/b2b-login') : canTryProTrial ? handleTrial() : handlePay()}
+                  disabled={user && (payLoading || trialLoading)}>
+                  {!user ? 'Войти для оформления' : hasPro ? 'Продлить PRO' : canTryProTrial ? 'Попробовать PRO 7 дней бесплатно' : 'Перейти на PRO'}
                 </Btn>
               </div>
             </div>

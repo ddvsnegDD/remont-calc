@@ -119,13 +119,32 @@ export function AuthProvider({ children }) {
   // не гоняем лишний запрос на сервер, чтобы узнать то, что уже знаем.
   const markTrialUsed = useCallback(() => setTrialUsed(true), []);
 
+  // Единая реализация активации триала (/club, /pro, пейволл PRO). Ответ
+  // сервера возвращается как есть ({ ok, plan, error }); сеть/не-JSON — ok:false.
+  const startTrial = useCallback(async () => {
+    let data;
+    try {
+      const res = await fetch('/api/subscription/trial', { method: 'POST', credentials: 'include' });
+      data = await res.json();
+    } catch {
+      return { ok: false, error: 'Ошибка активации триала' };
+    }
+    if (data?.ok) {
+      markTrialUsed();
+      try { await refreshSubscription(); } catch {}
+    }
+    return data || { ok: false, error: 'Ошибка активации триала' };
+  }, [markTrialUsed, refreshSubscription]);
+
   const tier = subTier(subscription);
   const hasClub = tier === 'club' || tier === 'pro';
   const hasPro = tier === 'pro';
   const hasAccess = hasClub; // алиас для обратной совместимости
+  // Единственное место, где решается «показывать ли профи кнопку PRO-триала».
+  const canTryProTrial = user?.role === 'b2b' && !trialUsed && !subscription && queue.length === 0;
 
   return (
-    <AuthContext.Provider value={{ user, subscription, queue, trialUsed, loading, tier, hasClub, hasPro, hasAccess, sendCode, verify, logout, refreshSubscription, markTrialUsed }}>
+    <AuthContext.Provider value={{ user, subscription, queue, trialUsed, loading, tier, hasClub, hasPro, hasAccess, sendCode, verify, logout, refreshSubscription, markTrialUsed, startTrial, canTryProTrial }}>
       {children}
     </AuthContext.Provider>
   );

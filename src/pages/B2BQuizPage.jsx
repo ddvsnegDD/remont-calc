@@ -79,7 +79,7 @@ const STEPS = [
 
 export default function B2BQuizPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canTryProTrial } = useAuth();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ area: 150, rooms: 3, bathrooms: 2, windows: 4 });
   const [rawText, setRawText] = useState('150');
@@ -186,8 +186,9 @@ export default function B2BQuizPage() {
     return (
       <ProPaywall
         heading="Лимит бесплатного плана использован"
-        sub={`На бесплатном плане доступен ${withCount(FREE_B2B_CALCS_PER_MONTH, ['расчёт', 'расчёта', 'расчётов'])} в месяц. Оформите PRO для безлимитных расчётов.`}
+        sub={`На бесплатном плане доступен ${withCount(FREE_B2B_CALCS_PER_MONTH, ['расчёт', 'расчёта', 'расчётов'])} в месяц. Оформите PRO для безлимитных расчётов.${canTryProTrial ? ' Попробуйте PRO бесплатно 7 дней: расчёт сохранится сразу.' : ''}`}
         target="pro"
+        onTrialStarted={() => { setLimitHit(false); saveAndShow(answers); }}
       />
     );
   }

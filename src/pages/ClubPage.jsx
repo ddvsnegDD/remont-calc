@@ -35,7 +35,7 @@ const FAQ = [
 
 export default function ClubPage() {
   const navigate = useNavigate();
-  const { user, subscription, queue, hasAccess, trialUsed, refreshSubscription, markTrialUsed } = useAuth();
+  const { user, subscription, queue, hasAccess, trialUsed, refreshSubscription, startTrial } = useAuth();
   const isProUser = user?.role === 'b2b';
   const [loginOpen, setLoginOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(-1);
@@ -128,21 +128,11 @@ export default function ClubPage() {
 
   const handleTrial = async () => {
     if (!user) { setLoginOpen(true); return; }
-    try {
-      const res = await fetch('/api/subscription/trial', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setNotice({ type: 'trial', kind: 'success', text: data.plan === 'pro_trial' ? 'PRO на 7 дней активирован!' : 'Триал на 14 дней активирован!' });
-        markTrialUsed();
-        refreshSubscription();
-      } else {
-        setNotice({ type: 'trial', kind: 'error', text: data.error || 'Ошибка активации триала' });
-      }
-    } catch {
-      setNotice({ type: 'trial', kind: 'error', text: 'Ошибка активации триала' });
+    const data = await startTrial();
+    if (data.ok) {
+      setNotice({ type: 'trial', kind: 'success', text: data.plan === 'pro_trial' ? 'PRO на 7 дней активирован!' : 'Триал на 14 дней активирован!' });
+    } else {
+      setNotice({ type: 'trial', kind: 'error', text: data.error || 'Ошибка активации триала' });
     }
   };
 

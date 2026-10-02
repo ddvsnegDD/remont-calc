@@ -26,7 +26,7 @@ const FAQ = [
 
 export default function ProPage() {
   const navigate = useNavigate();
-  const { user, subscription, hasPro, refreshSubscription } = useAuth();
+  const { user, subscription, queue, hasPro, refreshSubscription } = useAuth();
   const [openFaq, setOpenFaq] = useState(-1);
   const [notice, setNotice] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -65,17 +65,23 @@ export default function ProPage() {
     }
   }, []);
 
-  const expiresLabel = subscription?.expiresAt
-    ? new Date(subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : null;
+  const fmtDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  // «Оплачен до» — по последнему PRO-периоду в очереди (с учётом оплаченных
+  // вперёд), а не только по текущему; доступ по-прежнему определяет hasPro.
+  const proEnds = queue.filter(q => q.tier === 'pro').map(q => new Date(q.expiresAt).getTime());
+  const proEnd = proEnds.length > 0 ? new Date(Math.max(...proEnds)) : null;
+  const expiresLabel = proEnd ? fmtDate(proEnd) : (subscription?.expiresAt ? fmtDate(subscription.expiresAt) : null);
 
   const heroCta = !user
     ? <Btn variant="dark" size="lg" onClick={() => navigate('/b2b-login')}>Войти для оформления PRO</Btn>
     : hasPro
       ? (
-        <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '12px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600 }}>
-          ✓ PRO активен{expiresLabel && <span style={{ fontWeight: 400, fontSize: 13 }}>до {expiresLabel}</span>}
-        </div>
+        <>
+          <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', padding: '12px 18px', background: '#e6f5ec', color: '#16794a', borderRadius: 8, fontWeight: 600 }}>
+            ✓ PRO активен{expiresLabel && <span style={{ fontWeight: 400, fontSize: 13 }}>до {expiresLabel}</span>}
+          </div>
+          <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Продлить PRO за {PRO_PRICE} ₽</Btn>
+        </>
       )
       : <Btn variant="dark" size="lg" onClick={handlePay} disabled={payLoading}>Оформить PRO за {PRO_PRICE} ₽/мес</Btn>;
 
@@ -98,6 +104,11 @@ export default function ProPage() {
                   {user && !hasPro && (
                     <div style={{ fontSize: 12, color: C.gray500, marginTop: 8 }}>
                       Без автопродления. Если у вас действует Клуб, он заменяется на PRO с момента оплаты.
+                    </div>
+                  )}
+                  {user && hasPro && expiresLabel && (
+                    <div style={{ fontSize: 12, color: C.gray500, marginTop: 8 }}>
+                      Период добавится к окончанию, новый срок начнётся {expiresLabel}
                     </div>
                   )}
                 </div>
@@ -153,9 +164,9 @@ export default function ProPage() {
                   <li>Экспорт в CSV / Excel</li>
                 </ul>
                 <Btn variant="dark" size="lg" style={{ width: '100%', marginTop: 16 }}
-                  onClick={() => !user ? navigate('/b2b-login') : hasPro ? null : handlePay()}
-                  disabled={hasPro || payLoading}>
-                  {!user ? 'Войти для оформления' : hasPro ? '✓ PRO уже активен' : 'Перейти на PRO'}
+                  onClick={() => !user ? navigate('/b2b-login') : handlePay()}
+                  disabled={user && payLoading}>
+                  {!user ? 'Войти для оформления' : hasPro ? 'Продлить PRO' : 'Перейти на PRO'}
                 </Btn>
               </div>
             </div>

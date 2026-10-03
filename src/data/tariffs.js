@@ -46,3 +46,4 @@ export const FREE_B2B_CALCS_PER_MONTH = 1;   // бесплатный профи;
 export const FREE_CONSULTATIONS_PER_MONTH = 3; // Клуб, календарный месяц по Москве
 export const MAX_PHOTOS_PER_ITEM = 5;          // на пункт чек-листа
 export const MAX_PHOTOS_TOTAL_MB = 50;         // суммарно на пользователя
+export const EXPIRY_REMINDER_DAYS = 3;         // за сколько дней до окончания подписки шлём письмо (раз на период)

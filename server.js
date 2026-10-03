@@ -6,6 +6,7 @@ import multer from 'multer';
 import { resolve, join } from 'path';
 import pool, {
   initDB, findUserByEmail, findUserById, createUser, saveAuthCode, verifyAuthCode, getActiveSubscription, getSubscriptionQueue,
+  findExpiringSubscriptions, claimReminder, releaseReminder,
   createTrialSubscription, hasUsedTrial, cancelSubscription, grantSubscription, deleteUser,
   getAllUsers, getAdminStats,
   listCalculations, countB2BCalculationsThisMonth, createCalculation, deleteCalculation,
@@ -23,6 +24,7 @@ import { isPaymentsReady, createPayment, getPayment, getRefund, isValidPaymentId
 import {
   PLANS, tierOf, daysOf, labelOf,
   FREE_B2B_CALCS_PER_MONTH, FREE_CONSULTATIONS_PER_MONTH, MAX_PHOTOS_PER_ITEM, MAX_PHOTOS_TOTAL_MB,
+  EXPIRY_REMINDER_DAYS,
 } from './src/data/tariffs.js';
 import { CHECKLISTS } from './src/data/checklists.js';
 
@@ -1117,6 +1119,91 @@ app.get('/{*splat}', (req, res) => {
   res.sendFile(join(DIST, 'index.html'));
 });
 
+// ==================== EXPIRY REMINDER (TASK_expiry_reminder.md) ====================
+// Письмо за EXPIRY_REMINDER_DAYS дней до окончания подписки или триала, один раз
+// на период (отметка subscriptions.expiry_reminder_sent_at, чтобы перезапуск
+// процесса не отправил письмо повторно).
+
+const TIER_RANK = { club: 1, pro: 2 };
+
+// Письмо не нужно, если продолжение уже оплачено: в очереди есть другой период,
+// который заканчивается позже текущего, а его уровень не ниже. (Очередь из Клуба
+// не гасит письмо об окончании PRO — PRO-функции пропадут.) Строка queue без id,
+// поэтому «другой период» определяется по строго более позднему expires_at.
+function isContinuationPaid(sub, queue) {
+  const rank = TIER_RANK[tierOf(sub.plan)] || 1;
+  const end = new Date(sub.expires_at).getTime();
+  return queue.some(q => new Date(q.expires_at).getTime() > end && (TIER_RANK[tierOf(q.plan)] || 1) >= rank);
+}
+
+function buildExpiryReminderEmail(sub) {
+  const subject = `Подписка РПКМ заканчивается ${new Date(sub.expires_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' })}`;
+  const endDate = new Date(sub.expires_at)
+    .toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' })
+    .replace(/\s+г\.$/, '\u00A0г.');
+  const isPro = tierOf(sub.plan) === 'pro';
+  const pageName = isPro ? 'PRO' : 'Клуба';
+  const url = `${SITE_URL}/${isPro ? 'pro' : 'club'}`;
+  const html = `
+    <div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;color:#1A1A1C;font-size:15px;line-height:1.6">
+      <p style="margin:0 0 16px">Здравствуйте!</p>
+      <p style="margin:0 0 16px">Ваш доступ «${escapeHtml(labelOf(sub.plan))}» действует до ${endDate} После этой даты платные функции станут недоступны.</p>
+      <p style="margin:0 0 16px">Чтобы продолжить, оформите новый период на странице ${pageName}: <a href="${url}" style="color:#B95C38">${url}</a></p>
+      <p style="margin:0 0 16px">Подписка не продлевается автоматически, деньги без вашего действия не списываются. Если продлевать не нужно, ничего делать не требуется.</p>
+      <p style="margin:0 0 16px">Вопросы по подписке: ddv1121@yandex.ru</p>
+      <hr style="border:none;border-top:1px solid #E4E4E7;margin:24px 0">
+      <p style="color:#9CA3AF;font-size:12px;margin:0">РПКМ · Калькулятор ремонта</p>
+    </div>`;
+  return { subject, html };
+}
+
+let expiryRunInProgress = false;
+
+async function runExpiryReminders() {
+  if (!dbReady || expiryRunInProgress) return;
+  expiryRunInProgress = true;
+  const stat = { found: 0, skipped: 0, sent: 0, failed: 0 };
+  try {
+    let subs;
+    try {
+      subs = await findExpiringSubscriptions(EXPIRY_REMINDER_DAYS);
+    } catch (err) {
+      console.error('expiry reminders: выборка не удалась:', err.message);
+      return;
+    }
+    stat.found = subs.length;
+    for (const sub of subs) {
+      try {
+        const queue = await getSubscriptionQueue(sub.user_id);
+        if (isContinuationPaid(sub, queue)) { stat.skipped++; continue; } // отметку не ставим
+        if (!(await claimReminder(sub.id))) continue;
+        let sent = false;
+        try {
+          const { subject, html } = buildExpiryReminderEmail(sub);
+          sent = await sendRawEmail(sub.email, subject, html);
+        } catch {
+          sent = false;
+        }
+        if (sent) { stat.sent++; continue; }
+        stat.failed++;
+        try {
+          await releaseReminder(sub.id);
+        } catch (err) {
+          console.error(`expiry reminders: не снята отметка у подписки ${sub.id}:`, err.message);
+        }
+      } catch (err) {
+        stat.failed++;
+        console.error(`expiry reminders: подписка ${sub.id}:`, err.message);
+      }
+    }
+  } finally {
+    expiryRunInProgress = false;
+    if (stat.found > 0) {
+      console.log(`expiry reminders: найдено ${stat.found}, пропущено (продолжение оплачено) ${stat.skipped}, отправлено ${stat.sent}, не удалось ${stat.failed}`);
+    }
+  }
+}
+
 // ==================== START ====================
 
 async function start() {
@@ -1135,6 +1222,10 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`РПКМ server → ${SITE_URL}`);
   });
+  if (dbReady) {
+    setTimeout(runExpiryReminders, 2 * 60 * 1000);
+    setInterval(runExpiryReminders, 60 * 60 * 1000);
+  }
 }
 
 start();

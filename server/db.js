@@ -48,6 +48,7 @@ export async function initDB() {
         amount INTEGER,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS expiry_reminder_sent_at TIMESTAMPTZ;
       CREATE TABLE IF NOT EXISTS calculations (
         id           SERIAL PRIMARY KEY,
         user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -202,6 +203,43 @@ export async function getSubscriptionQueue(userId) {
     [userId]
   );
   return rows;
+}
+
+// Подписки, которым пора напомнить об окончании (TASK_expiry_reminder.md):
+// уже идут (started_at <= NOW()), заканчиваются в ближайшие `days` дней и
+// письмо по ним ещё не отправлялось. Подписки без пользователя пропускаются.
+// Правило «продолжение уже оплачено» применяет вызывающий (server.js).
+export async function findExpiringSubscriptions(days) {
+  const { rows } = await pool.query(
+    `SELECT s.id, s.user_id, s.plan, s.status, s.started_at, s.expires_at, u.email
+     FROM subscriptions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.user_id IS NOT NULL
+       AND s.status IN ('trial', 'active')
+       AND s.started_at <= NOW()
+       AND s.expires_at > NOW()
+       AND s.expires_at <= NOW() + INTERVAL '1 day' * $1
+       AND s.expiry_reminder_sent_at IS NULL
+     ORDER BY s.expires_at ASC, s.id ASC`,
+    [days]
+  );
+  return rows;
+}
+
+// Захват отметки ПЕРЕД отправкой: true — строку обновили мы, значит отправляем;
+// false — отметка уже стоит (другой прогон или прошлая отправка).
+export async function claimReminder(subscriptionId) {
+  const { rowCount } = await pool.query(
+    `UPDATE subscriptions SET expiry_reminder_sent_at = NOW()
+     WHERE id = $1 AND expiry_reminder_sent_at IS NULL RETURNING id`,
+    [subscriptionId]
+  );
+  return rowCount > 0;
+}
+
+// Отправка не удалась — снимаем отметку, следующий прогон попробует снова.
+export async function releaseReminder(subscriptionId) {
+  await pool.query('UPDATE subscriptions SET expiry_reminder_sent_at = NULL WHERE id = $1', [subscriptionId]);
 }
 
 // Пробные планы — по plan, а не по status: status переписывают cancelSubscription
